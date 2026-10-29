@@ -682,7 +682,7 @@ SCREENS = [
     },
     {
         'name': '02c-dialog', 'layout': 'dialog_verify.xml', 'height': 869,
-        'dialog': True,
+        'dialog': True, 'backdrop': 'activity_login.xml',
         'text': {'verifyStep': 'Binding this device…', 'verifyKey': MASKED_KEY},
     },
     {
@@ -739,17 +739,18 @@ def main():
         canvas = Image.new('RGBA', (w, h), color('@color/bg'))
         canvas.alpha_composite(image)
         if screen.get('dialog'):
-            # dim what is behind, then centre the dialog card
-            shade = Image.new('RGBA', (w, h), (10, 12, 15, 82))
-            canvas.alpha_composite(shade)
-            card = Image.new('RGBA', (int(w * 0.78), 1), (0, 0, 0, 0))
+            canvas = Image.new('RGBA', (w, h), color('@color/bg'))
+            backdrop_name = screen.get('backdrop')
+            if backdrop_name:
+                back = ET.parse(os.path.join(RES, 'layout', backdrop_name)).getroot()
+                draw(back, canvas, 0, 0, w, avail_h=h)
+            canvas.alpha_composite(Image.new('RGBA', (w, h), (12, 15, 20, 96)))
             dw = int(w * 0.78)
             dlg = ET.parse(os.path.join(RES, 'layout', layout)).getroot()
             apply_overrides(dlg, screen.get('attrs', {}), screen.get('text', {}))
-            _, dh = measure(dlg, dw)
-            dlg_img = Image.new('RGBA', (dw, dh + 2), (0, 0, 0, 0))
+            dh = measure(dlg, dw)[1]
+            dlg_img = Image.new('RGBA', (dw, dh), (0, 0, 0, 0))
             draw(dlg, dlg_img, 0, 0, dw, avail_h=dh)
-            dh += 2
             canvas.alpha_composite(dlg_img, ((w - dw) // 2, (h - dh) // 2))
             status_bar(canvas)
             out = canvas.convert('RGB')
