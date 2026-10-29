@@ -1,0 +1,39 @@
+# build output
+node_modules/
+.next/
+out/
+dist/
+build/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# local database (embedded postgres dev cluster)
+.pgdata/
+
+# env / secrets
+.env
+.env.local
+.env*.local
+*.pem
+
+# logs / OS junk
+*.log
+error_log
+.DS_Store
+Thumbs.db
+
+# android build artifacts
+loader/app/build/
+loader/build/
+loader/.gradle/
+loader/local.properties
+*.jks
+*.keystore
+
+# keep the extracted legacy source complete
+!legacy-php/.env
+
+# python caches
+tools/__pycache__/
+__pycache__/

@@ -1,0 +1,45 @@
+name: Browser E2E (click Generate)
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Base URL'
+        required: true
+        default: 'https://kuro-panel-psi.vercel.app'
+  push:
+    paths:
+      - 'e2e/browser.mjs'
+      - '.github/workflows/browser-e2e.yml'
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Playwright
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm i playwright@1.49.1
+          npx playwright install --with-deps chromium
+
+      - name: Click through the deployed panel
+        env:
+          BASE_URL: ${{ github.event.inputs.url || 'https://kuro-panel-psi.vercel.app' }}
+          PANEL_USER: admin
+          PANEL_PASS: ${{ secrets.PANEL_PASSWORD || 'admin123' }}
+        run: node e2e/browser.mjs
+
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: |
+            after-generate.png
+            crash.png
+          if-no-files-found: ignore

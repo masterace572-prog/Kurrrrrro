@@ -1,0 +1,34 @@
+name: Verify deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Base URL of the deployed panel'
+        required: true
+        default: 'https://kuro-panel-psi.vercel.app'
+  push:
+    paths:
+      - 'web/scripts/verify-live.mjs'
+      - '.github/workflows/verify-deploy.yml'
+  # weekly ping so the free Supabase project does not get paused for inactivity
+  schedule:
+    - cron: '17 4 * * 1'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check the live panel from the public internet
+        env:
+          # optional: a real license key, so the full md5(token) handshake is exercised
+          # set these in Repo → Settings → Secrets to also exercise a real key
+          TEST_KEY: ${{ secrets.TEST_LICENSE_KEY }}
+          TEST_SERIAL: ${{ secrets.TEST_LICENSE_SERIAL }}
+        run: node web/scripts/verify-live.mjs "${{ github.event.inputs.url || 'https://kuro-panel-psi.vercel.app' }}"

@@ -1,0 +1,115 @@
+plugins {
+    id 'com.android.application'
+    id 'org.lsposed.lsparanoid'
+}
+
+class Scrambler {
+    Random random = new Random()
+
+    String getRandomString(int i) {
+        return random.with {(1..(6 + random.nextInt(i))).collect {(('a'..'z')).join()[ nextInt((('a'..'z')).join().length())]}.join()}
+    }
+}
+
+Scrambler scrambler = new Scrambler()
+
+// The upstream build targets Android 9 (28). A build can ask for another
+// behaviour level without touching the file:
+//   ./gradlew assembleDebug -PxloxTargetSdk=34
+def xloxTargetSdk = (findProperty('xloxTargetSdk') ?: '28').toString().toInteger()
+
+android {
+    namespace 'com.xlox'
+    compileSdk 34
+    
+    signingConfigs {
+        // Remove custom debug signing config - use default debug keystore
+        release {
+            storeFile file("xlox.jks")
+            storePassword "11111111"
+            keyPassword "11111111"
+            keyAlias "key0"
+        }
+    }
+    
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
+
+    defaultConfig {
+        applicationId "com.xlox"
+        minSdk 21
+        //noinspection OldTargetApi,EditedTargetSdkVersion,ExpiredTargetSdkVersion
+        targetSdk xloxTargetSdk
+        versionCode 1
+        versionName "2024.09.21"
+
+        vectorDrawables {
+            useSupportLibrary true
+        }
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        externalNativeBuild {
+            cmake {
+                cppFlags ''
+            }
+        }
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+
+        multiDexEnabled true
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            ndk {
+                debugSymbolLevel 'FULL'
+            }
+        }
+        debug {
+            // Don't specify a signingConfig - Android uses default debug keystore
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    
+    lsparanoid {
+        seed = 1919810
+        global = false
+        includeDependencies = false
+        variantFilter = { true }
+    }
+
+    buildFeatures {
+        viewBinding true
+    }
+
+    externalNativeBuild {
+        ndkBuild {
+            path file('src/main/jni/Android.mk')
+        }
+    }
+    ndkVersion "24.0.8215888"
+}
+
+dependencies {
+    implementation 'androidx.multidex:multidex:2.0.1'
+    implementation fileTree(dir: "libs", includes: ["*aar"])
+    implementation 'androidx.appcompat:appcompat:1.2.0'
+    implementation 'androidx.cardview:cardview:1.0.0'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'net.lingala.zip4j:zip4j:2.9.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.squareup.okio:okio:3.9.0'
+    implementation 'com.github.tiann:FreeReflection:3.2.2'
+}

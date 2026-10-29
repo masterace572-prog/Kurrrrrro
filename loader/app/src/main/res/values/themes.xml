@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Base.AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/surface_void</item>
+        <item name="colorOnPrimary">@color/surface_void</item>
+        <item name="colorSecondary">@color/accent</item>
+        <item name="android:colorBackground">@color/surface_void</item>
+        <item name="android:statusBarColor">@color/surface_void</item>
+        <item name="android:navigationBarColor">@color/surface_void</item>
+    </style>
+    <style name="ActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">@color/accent</item>
+    </style>
+    <style name="CustomCheckbox02" parent="Widget.AppCompat.CompoundButton.CheckBox">
+        <item name="android:button">@drawable/checkbox_selector</item>
+        <item name="android:background">@android:color/transparent</item>
+        <item name="android:buttonTint">@color/accent</item>
+    </style>
+</resources>

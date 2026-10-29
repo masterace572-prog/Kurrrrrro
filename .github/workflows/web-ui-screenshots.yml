@@ -1,0 +1,102 @@
+name: Web UI screenshots
+
+# Boots the panel locally (embedded Postgres + seed), logs in with a real
+# browser and publishes the PNGs to the `web-screenshots` branch. Exists because
+# a design change should be looked at, not assumed.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'web/src/**'
+      - 'web/tailwind.config.ts'
+      - 'web/scripts/web-shots.mjs'
+      - '.github/workflows/web-ui-screenshots.yml'
+
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: write
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:55432/postgres
+      AUTH_SECRET: ci-screenshot-secret-not-for-production-0123456789
+      PUBLIC_BASE_URL: http://127.0.0.1:3000
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci || npm install
+
+      - name: Start the local database
+        working-directory: web
+        run: |
+          nohup node scripts/dev-db.mjs > /tmp/pg.log 2>&1 &
+          for i in $(seq 1 40); do
+            if node -e "const pg=require('pg');const c=new pg.Client({connectionString:process.env.DATABASE_URL});c.connect().then(()=>c.end()).then(()=>process.exit(0)).catch(()=>process.exit(1))"; then
+              echo "database up"; break
+            fi
+            sleep 2
+          done
+          tail -5 /tmp/pg.log || true
+
+      - name: Create the schema and seed
+        working-directory: web
+        run: |
+          npm run db:push
+          npm run db:seed || true
+
+      - name: Build the panel
+        working-directory: web
+        run: npx next build
+
+      - name: Start the panel
+        working-directory: web
+        run: |
+          nohup npx next start -H 127.0.0.1 -p 3000 > /tmp/next.log 2>&1 &
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/login || true)
+            if [ "$code" = "200" ]; then echo "panel up"; break; fi
+            sleep 2
+          done
+          tail -20 /tmp/next.log || true
+
+      - name: Install a browser
+        working-directory: web
+        run: |
+          npm i -D playwright@1.49.1
+          npx playwright install --with-deps chromium
+
+      - name: Take the screenshots
+        working-directory: web
+        env:
+          BASE_URL: http://127.0.0.1:3000
+          SHOT_DIR: ../docs/web-shots
+          PANEL_USER: admin
+          PANEL_PASS: admin123
+        run: node scripts/web-shots.mjs
+
+      - name: Publish to the web-screenshots branch
+        if: always()
+        run: |
+          ls -l docs/web-shots || true
+          if ! ls docs/web-shots/*.png >/dev/null 2>&1; then
+            echo "::warning title=screenshots::nothing was captured"
+            exit 0
+          fi
+          git config user.name "Arena Agent"
+          git config user.email "agent@arena.ai"
+          git checkout --orphan web-screenshots
+          git reset
+          mkdir -p shots
+          cp docs/web-shots/*.png shots/ 2>/dev/null || true
+          git add shots
+          git commit -m "Web UI screenshots from ${GITHUB_SHA}" || true
+          git push -f origin web-screenshots || echo "::warning title=screenshots::could not push the branch"
