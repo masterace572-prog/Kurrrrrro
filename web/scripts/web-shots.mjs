@@ -150,13 +150,19 @@ try {
   // the detail page and the dashboard table show their real states.
   await page.goto(`${BASE}/keys/generate`, { waitUntil: 'domcontentloaded' });
   await shot('04-generate');
-  const gen = page.locator('button[type="submit"]').last();
+  // The generate form lives on /keys/generate, so "did we reach /keys" is
+  // always true and the old wait resolved before the action had answered —
+  // the shot then showed the button still spinning. Wait for the redirect the
+  // action actually performs, which carries the new keys in ?fresh=.
+  const gen = page.getByRole('button', { name: /generate keys/i }).last();
   if (await gen.count()) {
     await Promise.all([
-      page.waitForURL((u) => u.pathname.startsWith('/keys'), { timeout: 20000 }).catch(() => {}),
+      page
+        .waitForURL((u) => u.pathname === '/keys' && u.searchParams.has('fresh'), { timeout: 30000 })
+        .catch(() => console.log('::warning title=generate::the generate form did not land on /keys?fresh=')),
       gen.click().catch(() => {}),
     ]);
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(600);
     // the redirect carries the keys that were just made, so this is the screen
     // the user sees straight after generating
     generatedUrl = page.url();
