@@ -246,17 +246,19 @@ export default async function KeysPage({
                 return (
                   <tr key={k.id_keys} className="transition hover:bg-white/[0.03]">
                     <td className="pl-5">
-                      <div className="flex items-center gap-1">
+                      {/* key, copy and NEW on one line: the badge used to wrap
+                          under the key and double the height of every row */}
+                      <div className="flex items-center gap-1 whitespace-nowrap">
                         <Link href={`/keys/${k.id_keys}`} className="font-mono text-xs text-slate-200 hover:text-brand-400">
                           {k.user_key}
                         </Link>
                         <CopyButton value={k.user_key} label="Copy key" iconOnly title={`Copy ${k.user_key}`} />
+                        {fresh ? (
+                          <span className="rounded bg-ink-800 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-400">
+                            new
+                          </span>
+                        ) : null}
                       </div>
-                      {fresh ? (
-                        <span className="ml-2 rounded bg-ink-800 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-400">
-                          new
-                        </span>
-                      ) : null}
                     </td>
                     <td className="text-slate-400">{k.game}</td>
                     <td className="whitespace-nowrap text-slate-400">{durationLabel(k.duration)}</td>
