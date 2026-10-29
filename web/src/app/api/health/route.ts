@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { q1 } from '@/lib/db';
+import { q1, activeHost } from '@/lib/db';
 import { getCurrentRelease } from '@/lib/release';
 
 export const dynamic = 'force-dynamic';
@@ -16,12 +16,15 @@ export async function GET() {
       ? 'DATABASE_URL missing'
       : !process.env.AUTH_SECRET
         ? 'AUTH_SECRET missing'
-        : 'ok',
+        : `ok · ${activeHost()}`,
   };
 
   try {
     const row = await q1<{ now: Date }>('SELECT now() AS now');
-    checks.database = { ok: Boolean(row), detail: row ? `server time ${row.now.toISOString()}` : 'no rows' };
+    checks.database = {
+      ok: Boolean(row),
+      detail: row ? `${activeHost()} · ${row.now.toISOString()}` : 'no rows',
+    };
   } catch (e) {
     checks.database = { ok: false, detail: (e as Error).message };
   }

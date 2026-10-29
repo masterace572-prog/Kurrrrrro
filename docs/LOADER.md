@@ -82,7 +82,7 @@ other and rebuild the APK.**
 `loader/app/src/main/jni/main.cpp`, line ~33:
 
 ```cpp
-#define PANEL_BASE_URL "https://kuro-panel.vercel.app"
+#define PANEL_BASE_URL "https://kuro-panel-psi.vercel.app"
 ```
 
 Set it to your deployment (no trailing slash). It is used as

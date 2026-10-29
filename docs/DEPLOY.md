@@ -55,7 +55,7 @@ Android loader  ───────►  https://<app>.vercel.app/server
    |-----|-------|
    | `DATABASE_URL` | the Supabase pooler URI from step 1 |
    | `AUTH_SECRET` | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-   | `PUBLIC_BASE_URL` | `https://<your-app>.vercel.app` |
+   | `PUBLIC_BASE_URL` | `https://kuro-panel-psi.vercel.app` |
    | `LOADER_LICENSE_SALT` | leave default (see `docs/LOADER.md`) |
 | `FALLBACK_LIB_VERSION` | `1.0` (optional — only used before you publish a lib) |
 | `MAX_LIB_UPLOAD_MB` | `4` (optional; Vercel caps bodies at 4.5 MB) |

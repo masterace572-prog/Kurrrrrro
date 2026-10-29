@@ -1,0 +1,26 @@
+name: Verify deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Base URL of the deployed panel'
+        required: true
+        default: 'https://kuro-panel-psi.vercel.app'
+  push:
+    paths:
+      - 'web/scripts/verify-live.mjs'
+      - '.github/workflows/verify-deploy.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check the live panel from the public internet
+        run: node web/scripts/verify-live.mjs "${{ github.event.inputs.url || 'https://kuro-panel-psi.vercel.app' }}"

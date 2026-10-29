@@ -30,7 +30,7 @@ using json = nlohmann::ordered_json;
  *  CURLOPT_SSL_VERIFYPEER/HOST disabled, so plain HTTP also works, but the
  *  Play/Android build flags may still block cleartext later.
  * ========================================================================= */
-#define PANEL_BASE_URL "https://kuro-panel.vercel.app"
+#define PANEL_BASE_URL "https://kuro-panel-psi.vercel.app"
 
 time_t rng = 0;
 std::string Enc;

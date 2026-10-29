@@ -52,7 +52,7 @@ Deploy for free in ~10 minutes: **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 One line in `loader/app/src/main/jni/main.cpp`:
 
 ```cpp
-#define PANEL_BASE_URL "https://<your-app>.vercel.app"
+#define PANEL_BASE_URL "https://kuro-panel-psi.vercel.app"
 ```
 
 The old hard-coded `https://vipercheat.authapi.xyz/server` is gone. Rebuild the
