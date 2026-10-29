@@ -666,6 +666,14 @@ SCREENS = [
         'text': {'keyValue': MASKED_KEY},
     },
     {
+        'name': '05-license-failed', 'layout': 'activity_main.xml', 'height': 1240,
+        'text': {
+            'keyValue': MASKED_KEY,
+            'subscriptionStatus': 'EXPIRED KEY',
+            'startBgmi': 'Sign in again',
+        },
+    },
+    {
         'name': '04-file-access', 'layout': 'activity_main.xml', 'height': 1240,
         'attrs': {'obbCard': {'visibility': 'visible'},
                   'obbRetryButton': {'visibility': 'visible'}},

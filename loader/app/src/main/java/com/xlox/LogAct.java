@@ -399,5 +399,9 @@ public class LogAct extends AppCompatActivity {
         stepHandler.removeCallbacksAndMessages(null);
     }
 
-    private static native String Check(Context mContext, String userKey);
+    /**
+     * The native panel call. Package-visible so the main screen can re-check a
+     * licence before launching instead of trusting whatever is cached.
+     */
+    static native String Check(Context mContext, String userKey);
 }

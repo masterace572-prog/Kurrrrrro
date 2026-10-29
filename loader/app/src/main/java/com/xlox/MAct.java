@@ -116,6 +116,9 @@ public class MAct extends AppCompatActivity {
     private boolean launchReady = false;
     private boolean obbWorking = false;
 
+    private boolean licenseRejected = false;
+    private String licenseReason = null;
+
     private boolean isObbCopied = false;
     private boolean isGameRunning = false;
     private boolean isGameInstalled = false;
@@ -212,6 +215,10 @@ public class MAct extends AppCompatActivity {
 
         if (startBgmi != null) {
             startBgmi.setOnClickListener(v -> {
+                if (licenseRejected) {
+                    goToLogin();
+                    return;
+                }
                 if (!launchReady) {
                     if (obbWorking) {
                         Toast.makeText(this, "Preparing game data…", Toast.LENGTH_SHORT).show();
@@ -231,6 +238,10 @@ public class MAct extends AppCompatActivity {
                 }
             });
         }
+
+        // The stored key is re-checked with the panel: a revoked or expired key
+        // must not be able to launch anything. Offline, the cached state stands.
+        verifyLicenseInBackground();
 
         // Start Workflow: Update Check -> Download Files (if needed)
         startWorkflow();
@@ -254,6 +265,73 @@ public class MAct extends AppCompatActivity {
                 view.animate().alpha(1f).translationY(0f).setDuration(560).setStartDelay(delay).start();
                 delay += 110;
             }
+        }
+    }
+
+    /**
+     * Quietly asks the panel whether this device's key is still good.
+     *
+     * Deliberately lenient: only an explicit rejection from the panel changes
+     * anything, so a flaky connection never locks a paying user out.
+     */
+    private void verifyLicenseInBackground() {
+        final String key = new Prefs(this).getSt("USER", "");
+        if (key == null || key.trim().isEmpty()) return;
+
+        new Thread(() -> {
+            String result;
+            try {
+                result = LogAct.Check(this, key);
+            } catch (Throwable t) {
+                return;                       // offline / native hiccup: keep cached state
+            }
+            if (result == null || result.trim().isEmpty()) return;
+
+            final String answer = result.trim();
+            if ("OK".equalsIgnoreCase(answer)) {
+                runOnUiThread(() -> {
+                    licenseRejected = false;
+                    licenseReason = null;
+                });
+            } else if (looksLikeRejection(answer)) {
+                runOnUiThread(() -> onLicenseRejected(answer));
+            }
+        }).start();
+    }
+
+    /** The panel answers `OK` on success and a short reason otherwise. */
+    private boolean looksLikeRejection(String answer) {
+        String a = answer.toLowerCase(Locale.US);
+        return a.contains("expired") || a.contains("blocked") || a.contains("not registered")
+                || a.contains("max device") || a.contains("maintenance") || a.contains("bad parameter");
+    }
+
+    private void onLicenseRejected(String reason) {
+        licenseRejected = true;
+        licenseReason = reason;
+        setLicenseState(false);
+        if (subscriptionStatus != null) {
+            subscriptionStatus.setText(shortReason(reason));
+        }
+        showStatusToggle("LICENSE CHECK FAILED — " + reason, true);
+        setLaunchButtonText(R.string.login_again);
+    }
+
+    private String shortReason(String reason) {
+        String r = reason == null ? "" : reason.trim();
+        if (r.length() > 18) r = r.substring(0, 18).trim() + "…";
+        return r.isEmpty() ? getString(R.string.status_expired) : r;
+    }
+
+    private void goToLogin() {
+        try {
+            new Prefs(this).setSt("USER", "");
+            Intent intent = new Intent(this, LogAct.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            finish();
+        } catch (Throwable t) {
+            Log.e("MAct", "cannot return to the login screen", t);
         }
     }
 
@@ -739,9 +817,13 @@ public class MAct extends AppCompatActivity {
         launchReady = ready;
         runOnUiThread(() -> {
             if (startBgmi == null) return;
-            startBgmi.setEnabled(ready);
-            startBgmi.setAlpha(ready ? 1f : 0.45f);
-            if (!ready) setLaunchButtonText(obbWorking ? R.string.preparing_obb : R.string.game_data_required);
+            startBgmi.setEnabled(ready || licenseRejected);
+            startBgmi.setAlpha(ready || licenseRejected ? 1f : 0.45f);
+            if (licenseRejected) {
+                setLaunchButtonText(R.string.login_again);
+            } else if (!ready) {
+                setLaunchButtonText(obbWorking ? R.string.preparing_obb : R.string.game_data_required);
+            }
         });
     }
 
@@ -843,6 +925,18 @@ public class MAct extends AppCompatActivity {
     private void updateButtonState(boolean running) {
         isGameRunning = running;
         runOnUiThread(() -> {
+            if (licenseRejected && !running) {
+                // a dead key outranks every other button state: the only way
+                // forward is signing in again
+                setLaunchButtonText(R.string.login_again);
+                if (startBgmi != null) {
+                    startBgmi.setEnabled(true);
+                    startBgmi.setAlpha(1f);
+                    startBgmi.setTextColor(Color.parseColor("#C98C8C"));
+                    startBgmi.setBackgroundResource(R.drawable.bg_btn_quiet);
+                }
+                return;
+            }
             if (running) {
                 setLaunchButtonText(R.string.stop_game);
                 if (startBgmi != null) {

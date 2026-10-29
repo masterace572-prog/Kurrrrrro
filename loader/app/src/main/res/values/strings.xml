@@ -67,6 +67,7 @@
     <string name="game_data_required">Game data required</string>
     <string name="preparing_obb">Preparing game data…</string>
     <string name="update_available">Update available</string>
+    <string name="login_again">Sign in again</string>
     <string name="no_lib_installed">No lib installed</string>
     <string name="version_unknown">Version —</string>
     <string name="zero_percent">0%</string>
