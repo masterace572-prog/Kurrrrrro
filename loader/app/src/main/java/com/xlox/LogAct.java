@@ -357,7 +357,14 @@ public class LogAct extends AppCompatActivity {
         // them is what made it report "no game data" on a phone that had it.
         if (!StorageAccess.ready(this)) {
             StorageAccess.requestNext(this);
-        } else if (!canRequestPackageInstalls()) {
+        } else {
+            continueAfterPermissions();
+        }
+    }
+
+    /** Everything that has to wait until both storage grants are in place. */
+    private void continueAfterPermissions() {
+        if (!canRequestPackageInstalls()) {
             requestUnknownAppPermissionsDirect();
         }
     }
@@ -369,7 +376,15 @@ public class LogAct extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (StorageAccess.isOurs(requestCode)) checkAndRequestPermissions();
+        if (!StorageAccess.isOurs(requestCode)) return;
+        // Only move on when the dialog was granted. Re-asking from inside its
+        // own callback spins forever once the user ticks "don't ask again".
+        if (!StorageAccess.runtimeGranted(this)) return;
+        if (!StorageAccess.allFilesGranted(this)) {
+            StorageAccess.openAllFilesScreen(this);
+            return;
+        }
+        continueAfterPermissions();
     }
 
     private boolean canRequestPackageInstalls() {
@@ -389,7 +404,9 @@ public class LogAct extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_MANAGE_STORAGE_PERMISSION || StorageAccess.isOurs(requestCode)) {
-            checkAndRequestPermissions();
+            // Back from a Settings screen: continuing unconditionally would
+            // re-open the same screen the user just left.
+            if (StorageAccess.ready(this)) continueAfterPermissions();
         }
     }
 

@@ -86,6 +86,8 @@ public class MAct extends AppCompatActivity {
     /** Why the last copy did not work, shown verbatim instead of "try again". */
     private String obbProblem = "";
     private boolean busy = false;
+    /** True while the user is granting storage: finish what they tapped once it lands. */
+    private boolean wantsCopyAfterGrant = false;
 
     @SuppressLint("SetTextI18n")
     @Override
@@ -685,6 +687,14 @@ public class MAct extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
         if (!StorageAccess.isOurs(requestCode)) return;
+
+        // A denial must not come straight back as another dialog: once "don't
+        // ask again" is ticked the system answers instantly and the two would
+        // bounce forever. The button is the way back in.
+        if (!StorageAccess.runtimeGranted(this)) {
+            afterStorageChange();
+            return;
+        }
 
         // Files granted: the All files screen is the next step.
         if (StorageAccess.requestNext(this)) {
