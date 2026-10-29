@@ -53,13 +53,25 @@ async function login() {
 
 try {
   await login();
+
+  // An empty panel photographs empty. Generate one key first so the lists,
+  // the detail page and the dashboard table show their real states.
+  await page.goto(`${BASE}/keys/generate`, { waitUntil: 'domcontentloaded' });
+  await shot('04-generate');
+  const gen = page.locator('button[type="submit"]').last();
+  if (await gen.count()) {
+    await Promise.all([
+      page.waitForURL((u) => u.pathname.startsWith('/keys'), { timeout: 20000 }).catch(() => {}),
+      gen.click().catch(() => {}),
+    ]);
+    await page.waitForTimeout(800);
+  }
+
+  await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
   await shot('02-dashboard');
 
   await page.goto(`${BASE}/keys`, { waitUntil: 'domcontentloaded' });
   await shot('03-keys');
-
-  await page.goto(`${BASE}/keys/generate`, { waitUntil: 'domcontentloaded' });
-  await shot('04-generate');
 
   await page.goto(`${BASE}/keys/1`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await shot('05-key-detail');
