@@ -1,0 +1,19 @@
+01-login: viewport=1440 scrollWidth=1440 widest=main.relative.flex.min-h-screen.items-center(w=1440,right=1440), div.relative.w-full.max-w-md(w=448,right=944), div.mb-7.text-center(w=448,right=944)
+04-generate: viewport=1440 scrollWidth=1440 widest=div.min-h-screen(w=1440,right=1440), div.flex(w=1440,right=1440), main.min-w-0.flex-1.px-4.py-5(w=1184,right=1440)
+15-keys-after-generate: viewport=1440 scrollWidth=1440 widest=div.min-h-screen(w=1440,right=1440), div.flex(w=1440,right=1440), main.min-w-0.flex-1.px-4.py-5(w=1184,right=1440)
+15-keys-after-generate: copy buttons=15
+02-dashboard: viewport=1440 scrollWidth=1440 widest=div.min-h-screen(w=1440,right=1440), div.flex(w=1440,right=1440), main.min-w-0.flex-1.px-4.py-5(w=1184,right=1440)
+03-keys: viewport=1440 scrollWidth=1440 widest=div.min-h-screen(w=1440,right=1440), div.flex(w=1440,right=1440), main.min-w-0.flex-1.px-4.py-5(w=1184,right=1440)
+03-keys: copy buttons=15
+05-key-detail: viewport=1440 scrollWidth=1440 widest=div.min-h-screen(w=1440,right=1440), div.flex(w=1440,right=1440), main.min-w-0.flex-1.px-4.py-5(w=1184,right=1440)
+06-server: viewport=1440 scrollWidth=1440 widest=div.min-h-screen(w=1440,right=1440), div.flex(w=1440,right=1440), main.min-w-0.flex-1.px-4.py-5(w=1184,right=1440)
+07-users: viewport=1440 scrollWidth=1440 widest=div.min-h-screen(w=1440,right=1440), div.flex(w=1440,right=1440), main.min-w-0.flex-1.px-4.py-5(w=1184,right=1440)
+07b-api-docs: viewport=1440 scrollWidth=1440 widest=div.mx-auto.max-w-3xl.px-4.py-8(w=768,right=1104), header.mb-8(w=720,right=1080), h1.text-2xl.font-bold.tracking-tight.text-slate-50(w=720,right=1080)
+08-mobile-dashboard: viewport=390 scrollWidth=390 widest=div.min-h-screen(w=390,right=390), header.sticky.top-0.z-30.flex(w=390,right=390), div.flex(w=390,right=390)
+09-mobile-nav: viewport=390 scrollWidth=390 widest=div.min-h-screen(w=390,right=390), header.sticky.top-0.z-30.flex(w=390,right=390), div.fixed.inset-0.z-40.lg:hidden(w=390,right=390)
+10-mobile-api-docs: viewport=390 scrollWidth=390 widest=code(w=555,right=601), code(w=548,right=594), code(w=396,right=442)
+11-mobile-server: viewport=390 scrollWidth=390 widest=div.min-h-screen(w=390,right=390), header.sticky.top-0.z-30.flex(w=390,right=390), div.flex(w=390,right=390)
+12-mobile-keys: viewport=390 scrollWidth=390 widest=div.min-h-screen(w=390,right=390), header.sticky.top-0.z-30.flex(w=390,right=390), div.flex(w=390,right=390)
+12-mobile-keys: copy buttons=15
+13-mobile-users: viewport=390 scrollWidth=390 widest=div.min-h-screen(w=390,right=390), header.sticky.top-0.z-30.flex(w=390,right=390), div.flex(w=390,right=390)
+14-mobile-releases: viewport=390 scrollWidth=390 widest=div.min-h-screen(w=390,right=390), header.sticky.top-0.z-30.flex(w=390,right=390), div.flex(w=390,right=390)
