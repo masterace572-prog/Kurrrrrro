@@ -55,6 +55,7 @@ jobs:
 
       - name: Build debug APK
         run: |
+          set -o pipefail
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace -PxloxTargetSdk=$TARGET_SDK 2>&1 | tee /tmp/gradle.log
 
@@ -63,9 +64,17 @@ jobs:
       - name: Explain a failed build
         if: failure()
         run: |
-          grep -nE 'error:|e: |FAILURE: Build failed|Could not resolve|Caused by:|> Task .* FAILED|Execution failed' /tmp/gradle.log \
-            | tail -8 \
-            | while IFS= read -r line; do echo "::error title=gradle::$(echo "$line" | tr -d '\r' | cut -c1-900)"; done
+          if [ ! -s /tmp/gradle.log ]; then
+            echo "::error title=build::gradle produced no output (failed before the build step)"
+            exit 0
+          fi
+          HITS=$(grep -nE 'error:|e: |FAILURE: Build failed|Could not resolve|Caused by:|> Task .* FAILED|Execution failed|What went wrong' /tmp/gradle.log | tail -8)
+          if [ -z "$HITS" ]; then
+            HITS=$(grep -v '^[[:space:]]*$' /tmp/gradle.log | tail -8)
+          fi
+          echo "$HITS" | while IFS= read -r line; do
+            echo "::error title=gradle::$(echo "$line" | tr -d '\r' | cut -c1-900)"
+          done
           exit 0
 
       - name: Rename APK
