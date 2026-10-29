@@ -3,7 +3,6 @@ import com.xlox.utils.ObbSelection;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
 
@@ -63,13 +62,13 @@ public class ObbSelectionTest {
         check("complete copy is ready", ObbSelection.matches(found, dest, PKG));
         check("nothing left to copy", ObbSelection.pending(found, dest, PKG).isEmpty());
 
-        // ---- patch alone is not enough -------------------------------------
-        File mainOnly = new File(root, "mainonly");
-        mkdirs(mainOnly);
-        copyTo(found.get(1), new File(mainOnly, found.get(1).getName()));   // the main one
-        check("no main obb in dest -> hasMainObb false", !ObbSelection.hasMainObb(mainOnly, PKG));
-        copyTo(new File(src, "main.3." + PKG + ".obb"), new File(mainOnly, "main.3." + PKG + ".obb"));
-        check("main obb present -> hasMainObb true", ObbSelection.hasMainObb(mainOnly, PKG));
+        // ---- a patch file alone is not enough -------------------------------
+        File patchOnly = new File(root, "patchonly");
+        mkdirs(patchOnly);
+        copyTo(new File(src, "patch.3." + PKG + ".obb"), new File(patchOnly, "patch.3." + PKG + ".obb"));
+        check("patch only -> hasMainObb false", !ObbSelection.hasMainObb(patchOnly, PKG));
+        copyTo(new File(src, "main.3." + PKG + ".obb"), new File(patchOnly, "main.3." + PKG + ".obb"));
+        check("main obb present -> hasMainObb true", ObbSelection.hasMainObb(patchOnly, PKG));
 
         // ---- missing source is never "ready" -------------------------------
         check("no source files -> not ready", !ObbSelection.matches(ObbSelection.list(src, "com.none.here"), dest, PKG));
@@ -98,9 +97,5 @@ public class ObbSelectionTest {
 
     static void copyTo(File from, File to) throws IOException {
         Files.copy(from.toPath(), to.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-    }
-
-    static String read(File f) throws IOException {
-        return new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
     }
 }
