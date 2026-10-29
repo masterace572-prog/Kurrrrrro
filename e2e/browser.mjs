@@ -69,10 +69,10 @@ try {
     .then(() => true)
     .catch(() => false);
   say(`redirected to /keys after generate: ${redirected}`);
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(1800);
   const toast = await page.locator('text=/key\(s\) generated/i').first().innerText().catch(() => '');
   say(`toast: ${toast || '(none)'}`);
-  const badge = await page.locator('text=new').count();
+  const badge = await page.locator('span:has-text("new")').count();
   say(`NEW badges visible: ${badge}`);
   const body = await page.evaluate(() => document.body.innerText);
   const msg = body.match(/(\d+ key\(s\) generated[^\n]*|[A-Z][^\n]{5,80}(?:error|failed|invalid|Not enough|expired)[^\n]*)/i);

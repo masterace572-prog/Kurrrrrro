@@ -6,43 +6,53 @@ import { Icon } from './ui';
 
 /**
  * Floating toast driven by ?m=<message>&t=success|danger|warning.
- * Auto-dismisses, removes the params from the URL so a refresh doesn't repeat it.
+ *
+ * Important: the URL is only cleaned *after* the toast has been shown. Doing it
+ * in a second effect on mount raced with the "open" state and removed ?m= before
+ * anything painted, so the message never appeared.
  */
 export default function Toast() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const message = params.get('m');
+
+  const incoming = params.get('m');
   const type = (params.get('t') || 'success') as 'success' | 'danger' | 'warning';
-  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState<string | null>(incoming);
+
+  // a new ?m= (e.g. after a redirect) replaces whatever is showing
+  useEffect(() => {
+    setMessage(incoming);
+  }, [incoming]);
 
   useEffect(() => {
     if (!message) return;
-    setOpen(true);
-    const hide = setTimeout(() => setOpen(false), type === 'danger' ? 9000 : 5000);
-    return () => clearTimeout(hide);
-  }, [message, type]);
 
-  useEffect(() => {
-    if (!message || open) return;
-    const next = new URLSearchParams(params.toString());
-    next.delete('m');
-    next.delete('t');
-    const qs = next.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [open, message, params, pathname, router]);
+    const dismiss = () => {
+      setMessage(null);
+      // strip m/t so a refresh does not repeat it
+      const next = new URLSearchParams(window.location.search);
+      next.delete('m');
+      next.delete('t');
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    };
 
-  if (!message || !open) return null;
+    const timer = setTimeout(dismiss, type === 'danger' ? 10000 : 6000);
+    return () => clearTimeout(timer);
+  }, [message, type, pathname, router]);
+
+  if (!message) return null;
 
   const tone =
     type === 'danger'
-      ? 'border-red-500/40 bg-red-950/90 text-red-100'
+      ? 'border-red-500/40 bg-red-950/95 text-red-100'
       : type === 'warning'
-        ? 'border-amber-500/40 bg-amber-950/90 text-amber-100'
-        : 'border-emerald-500/40 bg-emerald-950/90 text-emerald-100';
+        ? 'border-amber-500/40 bg-amber-950/95 text-amber-100'
+        : 'border-emerald-500/40 bg-emerald-950/95 text-emerald-100';
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex justify-center px-4">
       <div
         className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-2xl backdrop-blur animate-[fadeIn_.2s_ease-out] ${tone}`}
         role="status"
@@ -53,7 +63,11 @@ export default function Toast() {
           className="mt-0.5 h-4 w-4 shrink-0"
         />
         <p className="flex-1">{message}</p>
-        <button onClick={() => setOpen(false)} className="opacity-60 transition hover:opacity-100" aria-label="Dismiss">
+        <button
+          onClick={() => setMessage(null)}
+          className="opacity-60 transition hover:opacity-100"
+          aria-label="Dismiss"
+        >
           <Icon name="close" className="h-4 w-4" />
         </button>
       </div>
