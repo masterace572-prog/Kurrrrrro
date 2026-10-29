@@ -122,3 +122,5 @@ if (process.env.GITHUB_ACTIONS === 'true') {
 process.exit(exitCode);
 
 // rerun trigger: 2026-10-29T11:19:55Z
+
+// live UI check: 2026-10-29T12:06:50Z

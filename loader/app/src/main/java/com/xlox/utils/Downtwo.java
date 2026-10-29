@@ -371,7 +371,13 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
         if (jsonUrl != null) {
             ReleaseInfo fromJson = fetchReleaseJson(jsonUrl);
             if (fromJson != null) return fromJson;
-            // fall through to the plain-text form (older panel)
+            // Only fall back to the plain-text form when the panel answered with
+            // something unexpected. A network failure would just burn a second
+            // timeout while the user stares at the splash screen.
+            if (isNetworkProblem(lastError)) {
+                if (lastError.isEmpty()) lastError = "Cannot reach the update server";
+                return null;
+            }
         }
         return fetchReleasePlain();
     }
@@ -751,6 +757,18 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
             return "The connection dropped — check your internet and retry";
         }
         return abbreviate(m, 120);
+    }
+
+    private static boolean isNetworkProblem(String message) {
+        if (message == null) return false;
+        String lower = message.toLowerCase(Locale.US);
+        return lower.contains("no internet")
+                || lower.contains("cannot reach")
+                || lower.contains("too long")
+                || lower.contains("connection")
+                || lower.contains("not found")
+                || lower.contains("host")
+                || lower.contains("secure connection");
     }
 
     private static String clean(String s) {
