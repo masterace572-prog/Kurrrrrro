@@ -426,12 +426,38 @@
                 android:visibility="gone" />
 
             <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/obbPickButton"
+                style="@style/Widget.Button.Quiet"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/pick_obb"
+                android:visibility="gone" />
+
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/obbRetryButton"
                 style="@style/Widget.Button.Quiet"
                 android:layout_width="match_parent"
                 android:layout_height="46dp"
                 android:layout_marginTop="14dp"
                 android:text="@string/allow_access"
+                android:visibility="gone" />
+
+            <!-- the honest answer to "why didn't it copy": a pasteable report -->
+            <TextView
+                android:id="@+id/obbDetails"
+                style="@style/Text.Caption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="8dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:paddingStart="14dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="4dp"
+                android:text="@string/obb_details"
+                android:textColor="@color/text_secondary"
                 android:visibility="gone" />
         </LinearLayout>
 

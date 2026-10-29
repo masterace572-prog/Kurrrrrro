@@ -123,6 +123,10 @@ public class MAct extends AppCompatActivity {
     private boolean isObbCopied = false;
     /** Why the last filesystem probe said the data was not usable. */
     private String obbProblem = "";
+    private TextView obbDetails;
+    private androidx.appcompat.widget.AppCompatButton obbPickButton;
+
+    private static final int REQ_PICK_OBB = 4711;
     private boolean isGameRunning = false;
     private boolean isGameInstalled = false;
     private boolean isUpdateAvailable = false;
@@ -190,6 +194,16 @@ public class MAct extends AppCompatActivity {
         setKeyTimeUnavailable();
         startKeyCountdown();
         startPageAnimation();
+
+        obbPickButton = findViewById(R.id.obbPickButton);
+        if (obbPickButton != null) {
+            obbPickButton.setOnClickListener(v -> pickObbFile());
+        }
+
+        obbDetails = findViewById(R.id.obbDetails);
+        if (obbDetails != null) {
+            obbDetails.setOnClickListener(v -> showObbReport());
+        }
 
         if (obbRetryButton != null) {
             obbRetryButton.setOnClickListener(v -> {
@@ -645,6 +659,17 @@ public class MAct extends AppCompatActivity {
                 return;
             }
 
+            // Already in the sandbox (copied earlier, or handed over through
+            // the picker)? Then nothing else matters.
+            if (isObbInSandbox()) {
+                runOnUiThread(() -> {
+                    obbWorking = false;
+                    isObbCopied = true;
+                    onObbReady();
+                });
+                return;
+            }
+
             // Ask the filesystem, not the permission flag: a folder that lists
             // OBBs is copyable even on the ROMs that misreport the grant.
             AppManager.Probe probe = new AppManager(this).probeAccess(PKG_BGMI);
@@ -658,21 +683,13 @@ public class MAct extends AppCompatActivity {
                 obbProblem = probe.detail;
                 runOnUiThread(() -> {
                     obbWorking = false;
+                    // No auto-jump to the Settings switch any more: since
+                    // Android 11 that switch does not unlock /Android/obb, so
+                    // sending people there was a dead end. The card offers the
+                    // file picker first and the switch as a secondary action.
                     obbState(needsPermission
                             ? (askedBefore ? ACCESS_DENIED : ACCESS_REQUIRED)
                             : ACCESS_NO_DATA);
-                    // first time only: take the user straight to the switch,
-                    // which is what "grant the permission" actually means
-                    if (needsPermission && !askedBefore && !isFinishing()) requestStorageAccess();
-                });
-                return;
-            }
-
-            if (isObbInSandbox()) {
-                runOnUiThread(() -> {
-                    obbWorking = false;
-                    isObbCopied = true;
-                    onObbReady();
                 });
                 return;
             }
@@ -699,6 +716,8 @@ public class MAct extends AppCompatActivity {
             obbIcon.setColorFilter(ContextCompat.getColor(this, R.color.text_secondary));
         }
         if (obbRetryButton != null) obbRetryButton.setText(R.string.retry_copy);
+        if (obbDetails != null) obbDetails.setVisibility(View.GONE);
+        if (obbPickButton != null) obbPickButton.setVisibility(View.GONE);
 
         switch (state) {
             case ACCESS_CHECKING:
@@ -712,6 +731,8 @@ public class MAct extends AppCompatActivity {
             case ACCESS_REQUIRED:
                 setCardText(R.string.access_required_title, getString(R.string.access_required_body));
                 tintCardIcon(R.drawable.ic_shield_alert, R.color.warning);
+                if (obbDetails != null) obbDetails.setVisibility(View.VISIBLE);
+                if (obbPickButton != null) obbPickButton.setVisibility(View.VISIBLE);
                 if (obbRetryButton != null) {
                     obbRetryButton.setText(R.string.allow_access);
                     obbRetryButton.setVisibility(View.VISIBLE);
@@ -721,6 +742,8 @@ public class MAct extends AppCompatActivity {
             case ACCESS_DENIED:
                 setCardText(R.string.access_denied_title, getString(R.string.access_denied_body));
                 tintCardIcon(R.drawable.ic_shield_alert, R.color.warning);
+                if (obbDetails != null) obbDetails.setVisibility(View.VISIBLE);
+                if (obbPickButton != null) obbPickButton.setVisibility(View.VISIBLE);
                 if (obbRetryButton != null) {
                     obbRetryButton.setText(R.string.open_settings);
                     obbRetryButton.setVisibility(View.VISIBLE);
@@ -744,6 +767,8 @@ public class MAct extends AppCompatActivity {
 
             case ACCESS_FAILED:
                 tintCardIcon(R.drawable.ic_alert, R.color.danger);
+                if (obbDetails != null) obbDetails.setVisibility(View.VISIBLE);
+                if (obbPickButton != null) obbPickButton.setVisibility(View.VISIBLE);
                 if (obbRetryButton != null) {
                     obbRetryButton.setText(R.string.retry_copy);
                     obbRetryButton.setVisibility(View.VISIBLE);
@@ -753,6 +778,8 @@ public class MAct extends AppCompatActivity {
             case ACCESS_NO_DATA:
                 setCardText(R.string.game_data_title, withProblem(getString(R.string.game_data_missing)));
                 tintCardIcon(R.drawable.ic_folder, R.color.warning);
+                if (obbDetails != null) obbDetails.setVisibility(View.VISIBLE);
+                if (obbPickButton != null) obbPickButton.setVisibility(View.VISIBLE);
                 if (obbRetryButton != null) {
                     obbRetryButton.setText(R.string.retry_copy);
                     obbRetryButton.setVisibility(View.VISIBLE);
@@ -781,6 +808,113 @@ public class MAct extends AppCompatActivity {
         if (obbIcon == null) return;
         obbIcon.setImageResource(drawableRes);
         obbIcon.setColorFilter(ContextCompat.getColor(this, colorRes));
+    }
+
+    /**
+     * The report the card's "Show details" opens. Built off the UI thread
+     * because it touches the filesystem and the sandbox API, and copyable so it
+     * can be sent on as-is.
+     */
+    private void showObbReport() {
+        Toast.makeText(this, R.string.checking, Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            String report;
+            try {
+                report = new AppManager(this).diagnostics(PKG_BGMI);
+            } catch (Throwable t) {
+                report = "Could not build the report: " + t;
+            }
+            final String text = report;
+            runOnUiThread(() -> {
+                if (isFinishing()) return;
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.obb_details_title)
+                        .setMessage(text)
+                        .setPositiveButton(R.string.copy_report, (d, w) -> {
+                            android.content.ClipboardManager cb =
+                                    (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                            if (cb != null) {
+                                cb.setPrimaryClip(android.content.ClipData.newPlainText("XLOX report", text));
+                                Toast.makeText(this, R.string.report_copied, Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .setNegativeButton(R.string.close, null)
+                        .show();
+            });
+        }, "obb-report").start();
+    }
+
+    /**
+     * Opens the system file picker for the game's .obb.
+     *
+     * On Android 11+ this is the only road left: /Android/obb belongs to the
+     * other app, and neither All files access nor the folder picker can reach
+     * into it. A file the user picks comes with its own read grant, and the
+     * sandbox folder is ours to write.
+     */
+    private void pickObbFile() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        intent.putExtra(Intent.EXTRA_TITLE, getString(R.string.pick_obb_title));
+        try {
+            startActivityForResult(intent, REQ_PICK_OBB);
+        } catch (Throwable t) {
+            Toast.makeText(this, R.string.pick_obb_hint, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_PICK_OBB || resultCode != RESULT_OK || data == null) return;
+
+        java.util.List<Uri> uris = new java.util.ArrayList<>();
+        if (data.getClipData() != null) {
+            android.content.ClipData clip = data.getClipData();
+            for (int i = 0; i < clip.getItemCount(); i++) {
+                Uri uri = clip.getItemAt(i).getUri();
+                if (uri != null) uris.add(uri);
+            }
+        } else if (data.getData() != null) {
+            uris.add(data.getData());
+        }
+        if (uris.isEmpty()) return;
+
+        obbWorking = true;
+        obbState(ACCESS_COPYING);
+        new AppManager(this).copyFromUris(uris, PKG_BGMI, new AppManager.CopyCallback() {
+            @Override
+            public void onCopyCompleted(boolean success) {
+                runOnUiThread(() -> {
+                    obbWorking = false;
+                    if (success) {
+                        onObbReady();
+                    } else {
+                        onObbFailed(getString(R.string.obb_pick_failed));
+                    }
+                });
+            }
+
+            @Override
+            public void onProgressUpdate(int progress) {
+                runOnUiThread(() -> {
+                    if (obbStatusText != null) {
+                        obbStatusText.setText(getString(R.string.copying_game_data) + " · " + progress + "%");
+                    }
+                    if (obbProgressBar != null) obbProgressBar.setProgress(progress);
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    obbWorking = false;
+                    onObbFailed(message);
+                });
+            }
+        });
     }
 
     private boolean isObbInSandbox() {

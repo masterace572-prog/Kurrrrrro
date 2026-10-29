@@ -184,9 +184,15 @@ public class LogAct extends AppCompatActivity {
             dialog.setContentView(R.layout.dialog_verify);
             dialog.setCancelable(false);
             dialog.setCanceledOnTouchOutside(false);
-            if (dialog.getWindow() != null) {
-                dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-                dialog.getWindow().setDimAmount(0.32f);
+            android.view.Window window = dialog.getWindow();
+            if (window != null) {
+                // transparent window: the card itself is the only background,
+                // so the rounded corners are not boxed in by a white rectangle
+                window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(
+                        android.graphics.Color.TRANSPARENT));
+                window.setDimAmount(0.55f);
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+                window.setGravity(android.view.Gravity.CENTER);
             }
             verifyDialog = dialog;
             verifyStep = dialog.findViewById(R.id.verifyStep);
@@ -203,6 +209,8 @@ public class LogAct extends AppCompatActivity {
         if (!isFinishing() && !verifyDialog.isShowing()) {
             try {
                 verifyDialog.show();
+                sizeVerifyDialog();
+                animateVerifyIn();
             } catch (Throwable t) {
                 verifying = false;
                 return;
@@ -213,6 +221,29 @@ public class LogAct extends AppCompatActivity {
         stepAdvance[1] = () -> setVerifyStep(R.string.verify_step_license);
         stepHandler.postDelayed(stepAdvance[0], 900);
         stepHandler.postDelayed(stepAdvance[1], 1800);
+    }
+
+    /**
+     * A dialog with match_parent content stretches to the full screen width on
+     * some Android versions, which is what made this look broken: the card ran
+     * edge to edge with its corners clipped. The width is pinned here instead.
+     */
+    private void sizeVerifyDialog() {
+        if (verifyDialog == null || verifyDialog.getWindow() == null) return;
+        int screen = getResources().getDisplayMetrics().widthPixels;
+        int width = (int) Math.min(screen * 0.86f, 340f * getResources().getDisplayMetrics().density);
+        verifyDialog.getWindow().setLayout(width, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+    }
+
+    private void animateVerifyIn() {
+        if (verifyDialog == null) return;
+        android.view.View content = verifyDialog.findViewById(R.id.verifyKey);
+        android.view.View card = content == null ? null : (android.view.View) content.getParent();
+        if (card == null) return;
+        card.setAlpha(0f);
+        card.setScaleX(0.97f);
+        card.setScaleY(0.97f);
+        card.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(180).start();
     }
 
     private void setVerifyStep(int resId) {

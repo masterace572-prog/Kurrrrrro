@@ -712,23 +712,32 @@ SCREENS = [
     {
         'name': '04b-no-data', 'layout': 'activity_main.xml', 'height': 1240,
         'attrs': {'obbCard': {'visibility': 'visible'},
+                  'obbPickButton': {'visibility': 'visible'},
+                  'obbDetails': {'visibility': 'visible'},
                   'obbRetryButton': {'visibility': 'visible'}},
         'text': {
             'keyValue': MASKED_KEY,
             'obbTitle': 'Game data',
             'obbStatusText': 'Open the game once so it downloads its data, then retry.  Android/obb/com.pubg.imobile is empty',
             'obbRetryButton': 'Retry copy',
+            'obbPickButton': 'Choose the .obb file',
+            'obbDetails': 'Show details',
         },
     },
     {
         'name': '04-file-access', 'layout': 'activity_main.xml', 'height': 1240,
         'attrs': {'obbCard': {'visibility': 'visible'},
+                  'obbPickButton': {'visibility': 'visible'},
+                  'obbDetails': {'visibility': 'visible'},
                   'obbRetryButton': {'visibility': 'visible'}},
         'text': {
             'keyValue': MASKED_KEY,
-            'obbTitle': 'All files access required',
-            'obbStatusText': 'The game data lives in shared \u00a0storage. Allow access and the copy starts by itself \u2014 it is a one-time step.',
+            'obbTitle': 'Add the game data',
+            'obbStatusText': "Android will not let this app read the game's OBB folder. "
+                             'Keep the .obb file in Downloads and pick it below.',
+            'obbPickButton': 'Choose the .obb file',
             'obbRetryButton': 'Allow access',
+            'obbDetails': 'Show details',
         },
     },
 ]
