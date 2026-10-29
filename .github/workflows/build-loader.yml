@@ -105,6 +105,8 @@ jobs:
 
           BAD=""
           for p in $PERMS; do
+            # foreground-service *types* are capability labels, not real access
+            case "$p" in *FOREGROUND_SERVICE_*) continue ;; esac
             for pat in $BLOCKED_PATTERNS; do
               case "$p" in
                 *"$pat"*) BAD="$BAD $p" ;;

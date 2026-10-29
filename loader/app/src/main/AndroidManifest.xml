@@ -29,6 +29,20 @@
         android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- declared by the SDK via uses-permission-sdk-23 / gms aliases, so they get their own removals -->
+    <uses-permission-sdk-23
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        tools:node="remove" />
+    <uses-permission
+        android:name="com.google.android.gms.permission.AD_ID_NOTIFICATION"
+        tools:node="remove" />
+    <uses-permission
+        android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        tools:node="remove" />
+
     <!--
       The bundled sandbox SDK (.aar) declares ~110 permissions — camera, mic,
       location, SMS, contacts, calendar, bluetooth, sensors… None of that is used
