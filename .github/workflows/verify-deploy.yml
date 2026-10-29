@@ -23,4 +23,8 @@ jobs:
           node-version: '22'
 
       - name: Check the live panel from the public internet
+        env:
+          # optional: a real license key, so the full md5(token) handshake is exercised
+          TEST_KEY: ${{ secrets.TEST_LICENSE_KEY }}
+          TEST_SERIAL: ${{ secrets.TEST_LICENSE_SERIAL }}
         run: node web/scripts/verify-live.mjs "${{ github.event.inputs.url || 'https://kuro-panel-psi.vercel.app' }}"

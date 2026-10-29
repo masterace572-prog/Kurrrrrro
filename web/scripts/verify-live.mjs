@@ -94,6 +94,34 @@ try {
   check('lib channel', false, e.message);
 }
 
+/* 3b. real license end-to-end (optional) ------------------------------------ */
+const TEST_KEY = process.env.TEST_KEY || '';
+if (TEST_KEY) {
+  console.log('\nLicense end-to-end');
+  const SALT = process.env.LOADER_LICENSE_SALT || 'Vm8Lk7Uj2JmsjCPVPVjrLa7zgfx3uz9E';
+  const serial = process.env.TEST_SERIAL || 'E2E-DEVICE-1';
+  try {
+    const { createHash } = await import('node:crypto');
+    const res = await get('/server', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `game=PUBG&user_key=${encodeURIComponent(TEST_KEY)}&serial=${encodeURIComponent(serial)}`,
+    });
+    const body = await res.json().catch(() => ({}));
+    const data = body?.data ?? {};
+    check('valid key accepted', body?.status === true, JSON.stringify(body).slice(0, 200));
+    check('token matches md5(PUBG-key-serial-salt)',
+      data.token === createHash('md5').update(`PUBG-${TEST_KEY}-${serial}-${SALT}`).digest('hex'),
+      `got "${data.token}"`);
+    check('rng is fresh (within 60s)', Math.abs(Number(data.rng) - Math.floor(Date.now() / 1000)) < 60, `rng=${data.rng}`);
+    check('EXP date returned', typeof data.EXP === 'string' && data.EXP.length >= 10, `EXP=${data.EXP}`);
+    check('feature flags present', ['ESP', 'Item', 'AIM', 'SilentAim'].every((k) => typeof data[k] === 'string'));
+    check('device slot consumed', Number(data.device) >= 1, `device=${data.device}`);
+  } catch (e) {
+    check('license end-to-end', false, e.message);
+  }
+}
+
 /* 4. panel pages ----------------------------------------------------------- */
 console.log('\nPanel');
 try {
