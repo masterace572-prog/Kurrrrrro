@@ -47,10 +47,19 @@ async function audit(name) {
   const report = await page.evaluate(() => {
     const vw = document.documentElement.clientWidth;
     const bad = [];
+    // an element inside a box that scrolls sideways is not a page bug
+    const inScroller = (el) => {
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        const ox = getComputedStyle(p).overflowX;
+        if ((ox === 'auto' || ox === 'scroll') && p.scrollWidth > p.clientWidth + 1) return true;
+      }
+      return false;
+    };
     for (const el of document.querySelectorAll('body *')) {
       const r = el.getBoundingClientRect();
       if (r.width < 2 || r.height < 2) continue;
       if (r.right <= vw + 1) continue;
+      if (inScroller(el)) continue;
       const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).slice(0, 5).join('.') : '';
       bad.push({
         sel: `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${cls ? `.${cls}` : ''}`,
@@ -68,7 +77,26 @@ async function audit(name) {
       .filter((x) => x.width > 0)
       .sort((a, b) => b.right - a.right)
       .slice(0, 3);
-    return { vw, scrollWidth: document.documentElement.scrollWidth, bad: bad.slice(0, 10), widest };
+    // when the page itself scrolls sideways, name the deepest boxes that are
+    // wider than their own parent: that is where the width came from
+    const roots = [];
+    if (document.documentElement.scrollWidth > vw + 1) {
+      for (const el of document.querySelectorAll('body *')) {
+        const own = el.getBoundingClientRect();
+        const parent = el.parentElement?.getBoundingClientRect();
+        if (!parent || own.width > vw + 1 || own.width < 2) continue;
+        if (own.width <= parent.width + 1) continue;
+        if (inScroller(el)) continue;
+        const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).slice(0, 4).join('.') : '';
+        roots.push({
+          sel: `${el.tagName.toLowerCase()}${cls ? `.${cls}` : ''}`,
+          width: Math.round(own.width),
+          parentWidth: Math.round(parent.width),
+          text: (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30),
+        });
+      }
+    }
+    return { vw, scrollWidth: document.documentElement.scrollWidth, bad: bad.slice(0, 10), widest, roots: roots.slice(-6) };
   });
   // always record the numbers: an empty overflow list has to be
   // distinguishable from an audit that never ran
@@ -80,6 +108,9 @@ async function audit(name) {
   if (!report.bad.length && report.scrollWidth <= report.vw + 1) return;
   const line =
     `${name}: viewport=${report.vw} scrollWidth=${report.scrollWidth} ` +
+    `roots=[${(report.roots || [])
+      .map((r) => `${r.sel} w=${r.width} > parent ${r.parentWidth} "${r.text}"`)
+      .join(' | ')}] ` +
     report.bad.map((b) => `${b.sel} (right=${b.right}, w=${b.width}, "${b.text}")`).join(' | ');
   overflow.push(line);
   console.log(`::warning title=overflow ${name}::${line}`);

@@ -52,10 +52,10 @@ export default async function ServerPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         <ModNameForm modname={modname?.modname ?? 'VIP MOD'} />
 
-        <div id="maintenance">
+        <div id="maintenance" className="min-w-0">
           <MaintenanceForm status={onoff?.status ?? 'off'} message={onoff?.myinput ?? ''} />
         </div>
 
