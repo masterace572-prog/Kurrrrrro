@@ -19,7 +19,7 @@ rebuilding the APK, and without anybody re-downloading when nothing changed.
 
 | Action | What happens on devices |
 |---|---|
-| **Publish update** (upload zip + version) | Every device whose stored version differs downloads the zip once, then remembers the new version. |
+| **Publish update** (upload zip + version) | Every device on an older version downloads the zip once, then remembers it as up to date. |
 | **Bump version** (no upload) | Same zip, new number → every device downloads it again. Use this when you replaced the *file* behind an external URL. |
 | **Use** (on an older row) | Roll back: the version of that row becomes live, so devices that had a newer one download it again. |
 | **Delete** | Removes a row from history (the live one can't be deleted). |
@@ -65,10 +65,17 @@ There are two channels, tried in this order:
 
 A version string identifies the bytes, not the channel: if the panel and the
 mirror both say `1.1.0`, that is the same file. Changing **either** side is
-enough — the first source (panel, then mirror) whose version differs from what
-is installed is the one that gets downloaded, and the same version is never
-downloaded twice. That is why switching channels cannot start a download loop,
-and why an older panel release can never hide a newer mirror version.
+enough — the newest source that is *newer* than what is installed is the one
+that gets downloaded, and the same version is never downloaded twice.
+
+The comparison is ordered, not an equality test. Versions are split on `.`, `_`,
+`-` and `+`, numeric chunks compare as numbers (`1.10` is newer than `1.9`), a
+leading `v` is ignored, and `1.2` equals `1.2.0`. That is what stops the classic
+loop where the panel advertises `1.3`, the mirror still says `1.2`, and the
+loader — after installing `1.3` — sees a "different" version on the other
+channel and asks for an update on every launch. An installed version that is
+equal to or newer than everything on offer means **up to date**, and the login
+screen says so ("Up to date · library 1.3") instead of asking again.
 
 ## What the zip must contain
 
@@ -114,8 +121,10 @@ original panel. The version string is public information anyway.
 
 * 1–32 characters: `A-Z a-z 0-9 . _ -` — e.g. `1.4`, `1.5`, `2026.10.29`.
 * Must be **unique** in the history (so rollbacks stay unambiguous).
-* Anything the loader has stored that differs → one download → cached.
-* Semver is not required; the loader only does an equality check.
+* Newer than the installed version → one download → cached. Equal or older →
+  nothing happens; the device stays "up to date".
+* Semver is not required, but numbering in the same shape is: `1.10` is newer
+  than `1.9`, `1.2` equals `1.2.0`, and build names compare as text.
 
 ## What the client does (already patched in `loader/`)
 

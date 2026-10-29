@@ -3,6 +3,7 @@ package com.xlox.utils;
 import android.annotation.SuppressLint;
 import android.app.Dialog;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
@@ -31,6 +32,20 @@ public class AppManager extends AppCompatActivity {
 
     public static final int INSTALL_APP = 1;
     public static final int COPY_OBB = 3;
+
+    /**
+     * Where a successful copy is remembered.
+     *
+     * The sandbox hands out a virtual path for the game's obb folder and that
+     * path is not always listable on the next launch, so "can I see the file?"
+     * alone made the app ask for a copy every single time even though the data
+     * was already in place. The receipt only ever gets written after a copy
+     * that actually finished.
+     */
+    private static final String PREFS = "com.xlox.download";
+    private static final String RECEIPT_NAME = "obb_name_";
+    private static final String RECEIPT_SIZE = "obb_size_";
+    private static final String RECEIPT_AT = "obb_at_";
 
     public interface CopyCallback {
         void onCopyCompleted(boolean success);
@@ -182,7 +197,13 @@ public class AppManager extends AppCompatActivity {
                     totalBytes = mainObb.length();
                     copiedBytes = 0;
 
-                    return copyFile(mainObb, new File(destDir, mainObb.getName()));
+                    File target = new File(destDir, mainObb.getName());
+                    boolean copied = copyFile(mainObb, target);
+                    if (copied) {
+                        // the only place the receipt is written: the copy finished
+                        rememberObb(pkg, mainObb.getName(), mainObb.length());
+                    }
+                    return copied;
 
                 } catch (Exception e) {
                     errorMessage = e.getMessage();
@@ -194,7 +215,7 @@ public class AppManager extends AppCompatActivity {
                 File[] files = sourceDir.listFiles();
                 if (files == null) return null;
 
-                String pattern = "^main\\.[0-9]+\\." + Pattern.quote(packageName) + "\\.obb$";
+                String pattern = obbPattern(packageName);
                 File selected = null;
                 long selectedVersion = -1L;
                 for (File file : files) {
@@ -284,15 +305,62 @@ public class AppManager extends AppCompatActivity {
 
     // FIXED: Now accepts a String parameter for package name
     public boolean checkObbContainer(String packageName) {
-        File destDir = getMundoObbDir(packageName);
-        if (!destDir.exists() || !destDir.isDirectory()) return false;
-        File[] files = destDir.listFiles();
-        if (files == null) return false;
-        String pattern = "^main\\.[0-9]+\\." + Pattern.quote(packageName) + "\\.obb$";
-        for (File file : files) {
-            if (file.isFile() && file.getName().matches(pattern)) return true;
+        File destDir = null;
+        try {
+            destDir = getMundoObbDir(packageName);
+        } catch (Exception e) {
+            // the sandbox refused the path outright; fall through to the receipt
         }
-        return false;
+
+        if (destDir != null) {
+            File[] files = destDir.listFiles();
+            if (files != null) {
+                String pattern = obbPattern(packageName);
+                for (File file : files) {
+                    if (file.isFile() && file.getName().matches(pattern)) {
+                        rememberObb(packageName, file.getName(), file.length());
+                        return true;
+                    }
+                }
+                // The folder is readable and holds no obb: it really is missing.
+                return false;
+            }
+
+            // Not listable. Asking the recorded file directly still works, and
+            // it is the same file the copy wrote.
+            String recorded = prefs().getString(RECEIPT_NAME + packageName, "");
+            if (!recorded.isEmpty()) {
+                File file = new File(destDir, recorded);
+                if (file.isFile() && file.length() > 0) return true;
+            }
+        }
+
+        // Nothing can be inspected from here. Trust an earlier successful copy
+        // rather than asking the user to copy a 1 GB file again.
+        return !prefs().getString(RECEIPT_NAME + packageName, "").isEmpty();
+    }
+
+    /** "main.<version>.<package>.obb", the file the game loads. */
+    private String obbPattern(String packageName) {
+        return "^main\\.[0-9]+\\." + Pattern.quote(packageName) + "\\.obb$";
+    }
+
+    /** True when a copy finished at least once, even if the folder is unreadable now. */
+    public static boolean hasObbReceipt(Context context, String packageName) {
+        return !context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(RECEIPT_NAME + packageName, "").isEmpty();
+    }
+
+    private SharedPreferences prefs() {
+        return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    private void rememberObb(String packageName, String fileName, long size) {
+        prefs().edit()
+                .putString(RECEIPT_NAME + packageName, fileName)
+                .putLong(RECEIPT_SIZE + packageName, size)
+                .putLong(RECEIPT_AT + packageName, System.currentTimeMillis())
+                .apply();
     }
 
     public void copyObbFolderAsync(String pkg, final CopyCallback callback) {

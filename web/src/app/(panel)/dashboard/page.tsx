@@ -3,7 +3,7 @@ import PageHeader from '@/components/PageHeader';
 import { q, q1 } from '@/lib/db';
 import { currentUser, levelName, isStaff } from '@/lib/session';
 import { fmtLocal, durationLabel, devicesOf } from '@/lib/domain';
-import { Icon } from '@/components/ui';
+import { CopyButton, Icon } from '@/components/ui';
 
 export const metadata = { title: 'Dashboard · KURO PANEL' };
 export const dynamic = 'force-dynamic';
@@ -84,13 +84,20 @@ export default async function DashboardPage() {
               keys.map((k) => {
                 const expired = k.expired_date ? new Date(k.expired_date) < new Date() : false;
                 return (
-                  <Link
+                  <div
                     key={k.id_keys}
-                    href={`/keys/${k.id_keys}`}
-                    className="block rounded-xl border border-line bg-ink-850 px-3 py-2.5"
+                    className="rounded-xl border border-line bg-ink-850 px-3 py-2.5"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="min-w-0 truncate font-mono text-[11px] text-slate-200">{k.user_key}</span>
+                      <div className="flex min-w-0 items-center gap-1">
+                        <Link
+                          href={`/keys/${k.id_keys}`}
+                          className="min-w-0 truncate font-mono text-[11px] text-slate-200"
+                        >
+                          {k.user_key}
+                        </Link>
+                        <CopyButton value={k.user_key} label="Copy key" iconOnly title={`Copy ${k.user_key}`} />
+                      </div>
                       {!k.status ? (
                         <span className="badge shrink-0 bg-ink-800 text-slate-300">blocked</span>
                       ) : expired ? (
@@ -104,7 +111,7 @@ export default async function DashboardPage() {
                     <p className="mt-1 text-[11px] text-slate-500">
                       {durationLabel(k.duration)} · {k.expired_date ? fmtLocal(k.expired_date) : 'not started'}
                     </p>
-                  </Link>
+                  </div>
                 );
               })
             )}
@@ -138,9 +145,12 @@ export default async function DashboardPage() {
                     return (
                       <tr key={k.id_keys} className="transition hover:bg-white/[0.03]">
                         <td className="pl-5">
-                          <Link href={`/keys/${k.id_keys}`} className="font-mono text-xs text-slate-200 hover:text-brand-400">
-                            {k.user_key}
-                          </Link>
+                          <div className="flex items-center gap-1">
+                            <Link href={`/keys/${k.id_keys}`} className="font-mono text-xs text-slate-200 hover:text-brand-400">
+                              {k.user_key}
+                            </Link>
+                            <CopyButton value={k.user_key} label="Copy key" iconOnly title={`Copy ${k.user_key}`} />
+                          </div>
                         </td>
                         <td className="whitespace-nowrap text-slate-400">{durationLabel(k.duration)}</td>
                         <td className="whitespace-nowrap text-xs text-slate-400">

@@ -9,7 +9,7 @@ import {
   ResetHwidButton,
   ToggleStatusButton,
 } from '@/components/forms/keys';
-import { Icon } from '@/components/ui';
+import { CopyButton, Icon } from '@/components/ui';
 
 export const metadata = { title: 'Keys · KURO PANEL' };
 export const dynamic = 'force-dynamic';
@@ -47,6 +47,14 @@ export default async function KeysPage({
       LIMIT 300`,
     [staff, me.username, term]
   );
+
+  // Keys made in the last quarter of an hour, so a fresh batch can be copied
+  // without hunting for it. Read from created_at rather than a query string:
+  // it survives a reload, a bookmark and the phone and desktop both.
+  const recentKeys = rows
+    .filter((k) => k.created_at && Date.now() - new Date(k.created_at).getTime() < 15 * 60_000)
+    .slice(0, 8)
+    .map((k) => k.user_key);
 
   const counts = await q<{ total: string; active: string; expired: string }>(
     `SELECT count(*)::text AS total,
@@ -86,6 +94,37 @@ export default async function KeysPage({
           </div>
         ))}
       </div>
+
+      {recentKeys.length > 0 ? (
+        <div className="card mb-4 border-emerald-500/30 bg-emerald-500/5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-emerald-300">
+                {recentKeys.length === 1 ? 'New key' : `${recentKeys.length} new keys`}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-400">Made in the last 15 minutes. Copy what you need.</p>
+            </div>
+            {recentKeys.length > 1 ? (
+              <CopyButton
+                value={recentKeys.join('\n')}
+                label="Copy all"
+                className="btn-ghost shrink-0 px-2 py-1 text-xs"
+              />
+            ) : null}
+          </div>
+          <ul className="mt-3 space-y-1.5">
+            {recentKeys.map((key) => (
+              <li
+                key={key}
+                className="flex items-center gap-2 rounded-lg border border-line bg-ink-900 px-3 py-2"
+              >
+                <code className="min-w-0 flex-1 truncate font-mono text-xs text-slate-200">{key}</code>
+                <CopyButton value={key} label="Copy key" iconOnly title={`Copy ${key}`} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="card mb-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -141,10 +180,13 @@ export default async function KeysPage({
                     : 'bg-sky-500/10 text-sky-300';
             return (
               <div key={k.id_keys} className="rounded-xl border border-line bg-ink-900 p-3.5">
-                <div className="flex items-start justify-between gap-2">
-                  <Link href={`/keys/${k.id_keys}`} className="min-w-0 truncate font-mono text-xs text-slate-200">
-                    {k.user_key}
-                  </Link>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-1">
+                    <Link href={`/keys/${k.id_keys}`} className="min-w-0 truncate font-mono text-xs text-slate-200">
+                      {k.user_key}
+                    </Link>
+                    <CopyButton value={k.user_key} label="Copy key" iconOnly title={`Copy ${k.user_key}`} />
+                  </div>
                   <span className={`badge shrink-0 ${tone}`}>{state}</span>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
@@ -204,14 +246,19 @@ export default async function KeysPage({
                 return (
                   <tr key={k.id_keys} className="transition hover:bg-white/[0.03]">
                     <td className="pl-5">
-                      <Link href={`/keys/${k.id_keys}`} className="font-mono text-xs text-slate-200 hover:text-brand-400">
-                        {k.user_key}
-                      </Link>
-                      {fresh ? (
-                        <span className="ml-2 rounded bg-ink-800 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-400">
-                          new
-                        </span>
-                      ) : null}
+                      {/* key, copy and NEW on one line: the badge used to wrap
+                          under the key and double the height of every row */}
+                      <div className="flex items-center gap-1 whitespace-nowrap">
+                        <Link href={`/keys/${k.id_keys}`} className="font-mono text-xs text-slate-200 hover:text-brand-400">
+                          {k.user_key}
+                        </Link>
+                        <CopyButton value={k.user_key} label="Copy key" iconOnly title={`Copy ${k.user_key}`} />
+                        {fresh ? (
+                          <span className="rounded bg-ink-800 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-400">
+                            new
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="text-slate-400">{k.game}</td>
                     <td className="whitespace-nowrap text-slate-400">{durationLabel(k.duration)}</td>

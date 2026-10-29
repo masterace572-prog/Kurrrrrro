@@ -197,9 +197,14 @@ public class LogAct extends AppCompatActivity {
             public void onState(LibGate.State state, String detail) {
                 switch (state) {
                     case UP_TO_DATE:
+                        // Nothing to install: the login screen is usable right
+                        // away, and the line says so instead of leaving the
+                        // user wondering whether an update is still pending.
                         hideGate();
                         setLoginEnabled(true);
-                        setStatus("Ready");
+                        setStatus(detail == null || detail.isEmpty()
+                                ? "Up to date"
+                                : "Up to date · library " + detail);
                         break;
                     case UPDATE_AVAILABLE:
                         pendingVersion = detail;
@@ -275,7 +280,7 @@ public class LogAct extends AppCompatActivity {
                 if (state == LibGate.State.READY) {
                     hideGate();
                     setLoginEnabled(true);
-                    setStatus("Library " + detail + " ready");
+                    setStatus("Updated · library " + detail);
                 } else if (state == LibGate.State.FAILED) {
                     showGateFailure(detail);
                 }

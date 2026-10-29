@@ -116,6 +116,14 @@ async function audit(name) {
   console.log(`::warning title=overflow ${name}::${line}`);
 }
 
+/** Records how many copy buttons a screen actually renders. */
+async function countCopies(name) {
+  const n = await page.locator('button[aria-label^="Copy"]').count();
+  auditLog.push(`${name}: copy buttons=${n}`);
+  if (!n) console.log(`::warning title=copy::${name} rendered no copy buttons`);
+  return n;
+}
+
 async function login() {
   await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
   await shot('01-login');
@@ -139,20 +147,30 @@ try {
   // the detail page and the dashboard table show their real states.
   await page.goto(`${BASE}/keys/generate`, { waitUntil: 'domcontentloaded' });
   await shot('04-generate');
-  const gen = page.locator('button[type="submit"]').last();
+  // The form sits on /keys/generate, so waiting for a URL that *starts with*
+  // /keys was satisfied instantly and the capture showed the button mid-spin.
+  // Wait until the page is no longer the form, whatever it lands on.
+  const gen = page.getByRole('button', { name: /generate keys/i }).last();
   if (await gen.count()) {
     await Promise.all([
-      page.waitForURL((u) => u.pathname.startsWith('/keys'), { timeout: 20000 }).catch(() => {}),
+      page
+        .waitForURL((u) => !u.pathname.startsWith('/keys/generate'), { timeout: 25000 })
+        .catch(() => console.log('::warning title=generate::the generate form did not navigate away')),
       gen.click().catch(() => {}),
     ]);
     await page.waitForTimeout(800);
   }
+
+  await page.goto(`${BASE}/keys`, { waitUntil: 'domcontentloaded' });
+  await shot('15-keys-after-generate');
+  await countCopies('15-keys-after-generate');
 
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
   await shot('02-dashboard');
 
   await page.goto(`${BASE}/keys`, { waitUntil: 'domcontentloaded' });
   await shot('03-keys');
+  await countCopies('03-keys');
 
   await page.goto(`${BASE}/keys/1`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await shot('05-key-detail');
@@ -190,12 +208,14 @@ try {
   // break at phone width, so they get their own captures
   await page.goto(`${BASE}/keys`, { waitUntil: 'domcontentloaded' });
   await shot('12-mobile-keys');
+  await countCopies('12-mobile-keys');
 
   await page.goto(`${BASE}/admin/manage-users`, { waitUntil: 'domcontentloaded' });
   await shot('13-mobile-users');
 
   await page.goto(`${BASE}/settings/server/releases`, { waitUntil: 'domcontentloaded' });
   await shot('14-mobile-releases');
+
 } finally {
   writeFileSync(path.join(OUT, 'audit.txt'), auditLog.join('\n') + '\n');
   if (overflow.length) {

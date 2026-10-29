@@ -146,6 +146,29 @@ public class ElfTest {
         check("a newer panel release wins",
                 chosenSource != null && "1.2".equals(chosenSource.version));
 
+        // The other reported bug: the loader asked for an update on every
+        // launch because the two channels advertised different strings, and the
+        // one it had just installed was not the one the other channel offered.
+        LibUpdate.Source panelAhead = new LibUpdate.Source("panel", "1.3", "/api/download");
+        LibUpdate.Source mirrorBehind = new LibUpdate.Source("mirror", "1.2", "libbbb.zip");
+        List<LibUpdate.Source> disagree = new ArrayList<>();
+        disagree.add(panelAhead);
+        disagree.add(mirrorBehind);
+        check("installed 1.3 with the panel on 1.3 is up to date",
+                LibUpdate.choose(disagree, "1.3", true) == null);
+        check("a version older than the installed one is not an update",
+                !LibUpdate.worthDownloading(mirrorBehind, "1.3", true));
+        check("1.10 is newer than 1.9", LibUpdate.isNewer("1.10", "1.9"));
+        check("1.2.0 is not newer than 1.2", !LibUpdate.isNewer("1.2.0", "1.2"));
+        check("a v-prefix does not order differently", !LibUpdate.isNewer("v1.4", "1.4"));
+        check("1.01 is not newer than 1.1", !LibUpdate.isNewer("1.01", "1.1"));
+        check("an empty installed version is always an update", LibUpdate.isNewer("1.2", ""));
+        check("an empty offered version never is", !LibUpdate.isNewer("", "1.2"));
+        check("date-style versions order lexically by segment",
+                LibUpdate.isNewer("2026.10.29", "2026.10.28"));
+        check("the newest of two newer sources wins",
+                "1.3".equals(LibUpdate.choose(disagree, "1.0", true).version));
+
         // Nothing reachable at all must not look like an update.
         check("no sources, lib on disk: no update",
                 LibUpdate.choose(new ArrayList<>(), "1.0", true) == null);
