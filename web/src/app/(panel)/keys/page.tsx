@@ -70,15 +70,19 @@ export default async function KeysPage({
         }
       />
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      {/* three numbers do not deserve three full-width rows on a phone */}
+      <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
         {[
           { label: 'Total', value: stats?.total ?? '0', tone: 'text-slate-100' },
           { label: 'Active', value: stats?.active ?? '0', tone: 'text-emerald-300' },
           { label: 'Expired', value: stats?.expired ?? '0', tone: 'text-red-300' },
         ].map((s) => (
-          <div key={s.label} className="card flex items-center justify-between py-3">
-            <span className="text-xs uppercase tracking-wider text-slate-500">{s.label}</span>
-            <span className={`text-xl font-black ${s.tone}`}>{s.value}</span>
+          <div
+            key={s.label}
+            className="card flex flex-col gap-0.5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3"
+          >
+            <span className="text-[10px] uppercase tracking-wider text-slate-500 sm:text-xs">{s.label}</span>
+            <span className={`text-lg font-black leading-none sm:text-xl ${s.tone}`}>{s.value}</span>
           </div>
         ))}
       </div>
@@ -91,7 +95,7 @@ export default async function KeysPage({
               <input
                 name="q"
                 defaultValue={term}
-                placeholder="Search by key, reseller or device ID…"
+                placeholder="Search keys…"
                 className="input pl-9"
                 maxLength={64}
               />

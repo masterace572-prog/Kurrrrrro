@@ -97,6 +97,9 @@ jobs:
           git reset
           mkdir -p shots
           cp docs/web-shots/*.png shots/ 2>/dev/null || true
+          # the measurement log travels with the images: without it a missing
+          # overflow report is indistinguishable from a page that simply fits
+          cp docs/web-shots/*.txt shots/ 2>/dev/null || true
           git add shots
           git commit -m "Web UI screenshots from ${GITHUB_SHA}" || true
           git push -f origin web-screenshots || echo "::warning title=screenshots::could not push the branch"

@@ -58,10 +58,10 @@ export default async function DashboardPage() {
           <Link
             key={c.label}
             href={c.href}
-            className="card p-4 transition hover:border-line hover:bg-ink-850 sm:p-5"
+            className="card px-3 py-3 transition hover:border-line hover:bg-ink-850 sm:p-5"
           >
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 sm:text-xs">{c.label}</p>
-            <p className={`mt-1.5 text-2xl font-black sm:mt-2 sm:text-3xl ${c.tone}`}>{c.value}</p>
+            <p className={`mt-1 text-xl font-black leading-none sm:mt-2 sm:text-3xl ${c.tone}`}>{c.value}</p>
           </Link>
         ))}
       </div>

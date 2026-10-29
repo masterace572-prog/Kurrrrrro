@@ -40,14 +40,16 @@ export default async function ReleasesPage() {
         }
       />
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <div className="card">
-          <p className="text-xs uppercase tracking-wider text-slate-500">Live version</p>
-          <p className="mt-1 text-2xl font-black text-slate-100">{current ? `v${current.version}` : '—'}</p>
+      <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="card px-3 py-2.5 sm:p-5">
+          <p className="text-[10px] uppercase tracking-wider text-slate-500 sm:text-xs">Live version</p>
+          <p className="mt-1 text-lg font-black leading-none text-slate-100 sm:text-2xl">
+            {current ? `v${current.version}` : '—'}
+          </p>
         </div>
-        <div className="card">
-          <p className="text-xs uppercase tracking-wider text-slate-500">Payload</p>
-          <p className="mt-1 text-sm font-semibold text-slate-200">
+        <div className="card px-3 py-2.5 sm:p-5">
+          <p className="text-[10px] uppercase tracking-wider text-slate-500 sm:text-xs">Payload</p>
+          <p className="mt-1 break-words text-xs font-semibold leading-snug text-slate-200 sm:text-sm">
             {current
               ? current.external_url
                 ? 'external URL'
@@ -56,24 +58,21 @@ export default async function ReleasesPage() {
                   : 'no file'
               : '—'}
           </p>
-          <p className="truncate text-[11px] text-slate-500">{current?.file_name ?? ''}</p>
+          <p className="truncate text-[10px] text-slate-500 sm:text-[11px]">{current?.file_name ?? ''}</p>
         </div>
-        <div className="card">
-          <p className="text-xs uppercase tracking-wider text-slate-500">Published</p>
-          <p className="mt-1 text-sm font-semibold text-slate-200">
+        <div className="card px-3 py-2.5 sm:p-5">
+          <p className="text-[10px] uppercase tracking-wider text-slate-500 sm:text-xs">Published</p>
+          <p className="mt-1 break-words text-xs font-semibold leading-snug text-slate-200 sm:text-sm">
             {current ? fmtLocal(current.created_at) : '—'}
           </p>
-          <p className="text-[11px] text-slate-500">by {current?.uploaded_by ?? '—'}</p>
+          <p className="truncate text-[10px] text-slate-500 sm:text-[11px]">by {current?.uploaded_by ?? '—'}</p>
         </div>
       </div>
 
       {!current ? (
-        <Alert tone="warning" className="mb-4" title="No lib is published here">
-          <code>/api/version</code> answers with the fallback version and <code>/api/download</code> returns
-          404, so loaders fall back to the GitHub mirror: the version line of{' '}
-          <code>Version.txt</code> in the repo and the <code>Lib</code> release asset. Publishing here takes
-          over from the mirror as soon as the versions differ — this page is the only place where the
-          version and the bytes are guaranteed to match.
+        <Alert tone="warning" className="mb-4" title="Nothing published here yet">
+          Loaders are using the GitHub mirror (<code>Version.txt</code> + the <code>Lib</code> release).
+          Publish here to take over — the version you type and the bytes you upload stay together.
         </Alert>
       ) : null}
 
