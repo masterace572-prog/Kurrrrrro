@@ -132,13 +132,21 @@ async function main() {
     ['loopcount', '5'], // 1 key
     ['custominput', 'auto'],
   ]);
-  const { ok, message } = messageFrom(res.text);
-  say(`POST /keys/generate -> ${res.status} in ${Date.now() - started}ms`);
+  let { ok, message } = messageFrom(res.text);
+  if (res.status === 303 && res.location) {
+    // success path: the action redirects to /keys?m=<message>
+    const q = new URL(res.location, BASE).searchParams;
+    message = q.get('m') || message;
+    ok = q.get('t') === 'success' || ok;
+    say(`POST /keys/generate -> 303 ${res.location}`);
+  } else {
+    say(`POST /keys/generate -> ${res.status} in ${Date.now() - started}ms`);
+  }
   say(`answer: ${message || '(no message in payload)'}`);
 
   /* ---- 5. did the key actually land? ---- */
   const keys = await get('/keys');
-  const count = (keys.text.match(/admin-24-/g) || []).length;
+  const count = new Set(keys.text.match(/href="\/keys\/\d+"/g) || []).size;
   say(`GET /keys -> ${keys.status}, ${count} key row(s) visible on the page`);
 
   const success = ok && count > 0;

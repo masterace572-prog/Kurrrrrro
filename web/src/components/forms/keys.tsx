@@ -155,9 +155,15 @@ export function GenerateForm({ saldo }: { saldo: number }) {
         ) : null}
       </div>
 
-      <SubmitButton className="btn-primary w-full sm:w-auto" pendingLabel="Generating…" disabled={!affordable}>
-        <Icon name="plus" /> Generate keys
-      </SubmitButton>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <SubmitButton className="btn-primary w-full sm:w-auto" pendingLabel="Generating…" disabled={!affordable}>
+          <Icon name="plus" /> Generate keys
+        </SubmitButton>
+        <p className="text-xs text-slate-500">
+          The new keys open on the <span className="text-slate-300">Keys</span> page, highlighted as
+          <span className="mx-1 rounded bg-brand-500/20 px-1 text-[10px] font-bold uppercase text-brand-400">new</span>.
+        </p>
+      </div>
     </form>
   );
 }

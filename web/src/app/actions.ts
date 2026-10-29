@@ -216,7 +216,14 @@ export async function generateKeysAction(_prev: FormState, formData: FormData): 
 
     revalidatePath('/keys');
     revalidatePath('/dashboard');
-    return okay(`${created.length} key(s) generated · ${total} credits used.`);
+
+    // Land on the key list so the result is impossible to miss (the toast alone
+    // used to appear at the top of a long form, off-screen on a phone).
+    const preview =
+      created.length > 2
+        ? `${created[0]}, ${created[1]} +${created.length - 2} more`
+        : created.join(', ');
+    flash('/keys', `${created.length} key(s) generated · ${total} credits — ${preview}`, 'success');
   });
 }
 

@@ -24,6 +24,7 @@ type Row = {
   devices: string | null;
   status: number;
   registrator: string | null;
+  created_at: Date | null;
 };
 
 export default async function KeysPage({
@@ -37,7 +38,7 @@ export default async function KeysPage({
   const term = (search ?? '').trim().slice(0, 64);
 
   const rows = await q<Row>(
-    `SELECT id_keys, game, user_key, duration, expired_date, max_devices, devices, status, registrator
+    `SELECT id_keys, game, user_key, duration, expired_date, max_devices, devices, status, registrator, created_at
        FROM keys_code
       WHERE ($1::boolean OR registrator = $2)
         AND ($3 = '' OR user_key ILIKE '%' || $3 || '%' OR coalesce(registrator,'') ILIKE '%' || $3 || '%'
@@ -147,12 +148,18 @@ export default async function KeysPage({
               rows.map((k) => {
                 const expired = k.expired_date ? new Date(k.expired_date) < new Date() : false;
                 const dev = devicesOf(k.devices);
+                const fresh = k.created_at ? Date.now() - new Date(k.created_at).getTime() < 10 * 60_000 : false;
                 return (
                   <tr key={k.id_keys} className="transition hover:bg-white/[0.02]">
                     <td className="pl-5">
                       <Link href={`/keys/${k.id_keys}`} className="font-mono text-xs text-slate-200 hover:text-brand-400">
                         {k.user_key}
                       </Link>
+                      {fresh ? (
+                        <span className="ml-2 rounded bg-brand-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-400">
+                          new
+                        </span>
+                      ) : null}
                     </td>
                     <td className="text-slate-400">{k.game}</td>
                     <td className="whitespace-nowrap text-slate-400">{durationLabel(k.duration)}</td>

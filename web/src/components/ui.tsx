@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { FormState } from '@/lib/result';
 
@@ -77,13 +78,42 @@ export function Alert({
   );
 }
 
-/** Renders the result of a server action that returns FormState. */
+/**
+ * Result of a server action (FormState) as a floating toast.
+ *
+ * It used to render inline at the top of the form, which on a long form (and on
+ * a phone) put the answer above the fold — you tap "Generate", nothing seems to
+ * happen. A fixed toast is always visible wherever you are on the page.
+ */
 export function FormMessage({ state, className = '' }: { state: FormState; className?: string }) {
-  if (!state?.message) return null;
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    setVisible(true);
+    if (!state?.message) return;
+    const t = setTimeout(() => setVisible(false), state.ok ? 6000 : 10000);
+    return () => clearTimeout(t);
+  }, [state]);
+
+  if (!state?.message || !visible) return null;
+
+  const tone = state.ok ? 'success' : 'danger';
   return (
-    <Alert tone={state.ok ? 'success' : 'danger'} className={className}>
-      {state.message}
-    </Alert>
+    <div className={`pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 ${className}`}>
+      <div className="pointer-events-auto w-full max-w-md animate-[fadeIn_.2s_ease-out]">
+        <div className="relative shadow-2xl">
+          <Alert tone={tone}>{state.message}</Alert>
+          <button
+            type="button"
+            onClick={() => setVisible(false)}
+            className="absolute right-2 top-2 rounded p-1 opacity-60 transition hover:opacity-100"
+            aria-label="Dismiss"
+          >
+            <Icon name="close" className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
