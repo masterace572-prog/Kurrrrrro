@@ -13,6 +13,10 @@ import java.io.File;
  * mandatory, there is no "later"), and the main screen shows the installed
  * version. The panel is asked first and the repo mirror second, exactly like
  * {@link Downtwo} does it.
+ *
+ * "Up to date" is the normal case, not an error: when nothing newer is on
+ * offer the gate opens immediately and says so. It only blocks when a version
+ * higher than the installed one exists — see {@link LibUpdate#isNewer}.
  */
 public final class LibGate {
 
@@ -69,7 +73,7 @@ public final class LibGate {
             } else if (installed(activity)) {
                 // offline or the panel is down: the library on disk still works,
                 // so this is not a reason to lock the user out
-                listener.onState(State.UP_TO_DATE, "");
+                listener.onState(State.UP_TO_DATE, installedVersion(activity));
             } else {
                 listener.onState(State.FAILED,
                         result.isEmpty() ? "Could not reach the update server" : result);

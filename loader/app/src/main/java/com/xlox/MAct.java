@@ -181,7 +181,11 @@ public class MAct extends AppCompatActivity {
                 try {
                     copied = new AppManager(this).checkObbContainer(PKG_BGMI);
                 } catch (Exception e) {
+                    // The folder could not be inspected at all. Asking for a
+                    // fresh copy every launch because of that is what this
+                    // used to do; trust the record of the copy instead.
                     Log.w("MAct", "could not inspect the game's obb folder", e);
+                    copied = AppManager.hasObbReceipt(this, PKG_BGMI);
                 }
             }
 
@@ -203,7 +207,7 @@ public class MAct extends AppCompatActivity {
         }
 
         if (obbState != null) {
-            obbState.setText(obbCopied ? "Installed" : "Not installed yet");
+            obbState.setText(obbCopied ? "Ready" : "Not copied yet");
             obbState.setTextColor(Color.parseColor(obbCopied ? "#4CB98A" : "#F2F3F5"));
         }
 
@@ -225,9 +229,10 @@ public class MAct extends AppCompatActivity {
             actionButton.setTextColor(Color.parseColor("#E0737C"));
             return;
         } else if (!obbCopied) {
-            setAction("Copy game data", "Copies the game files once, then you can launch.");
+            setAction("Copy game data", "One-time copy. After this the button just launches.");
         } else {
-            setAction("Launch game", "Everything is in place.");
+            // data is already in place: no copying, straight to the game
+            setAction("Launch game", "Game data ready. Nothing else to do.");
         }
         actionButton.setBackgroundResource(R.drawable.bg_primary_action);
         actionButton.setTextColor(Color.parseColor("#0B0C0E"));
