@@ -166,6 +166,23 @@ permission problem can never again be reported as a missing file. It also names
 the write path that failed, or the exception the sandbox threw. It also offers **Launch anyway** —
 if the data is in place and only the copy is broken, the game still opens.
 
+### When the folder cannot be read at all
+
+On Android 11 and newer a third-party app may be refused `/Android/obb` of
+another app **no matter which permission it holds** — the runtime grant, All
+files access, and the legacy flag together do not always get past it on recent
+releases. Detection cannot be fixed by asking harder, so the screen offers the
+two roads that remain:
+
+| road | what it does |
+|---|---|
+| **Choose an .obb file** | the system picker (`ACTION_OPEN_DOCUMENT`) hands back a readable stream for the file the user picks; the loader copies that stream into the game's obb folder with a percentage. A real copy, no storage grant involved. |
+| **Launch game anyway** | always on screen once the game is installed and the data is not in place, and the failure dialog leads with it. If BGMI already reads its own data, the game simply opens. |
+
+So a copy that cannot see the phone's folder is no longer a dead end. The
+failure dialog says *Game data not found* and offers **Launch game**,
+**Choose .obb**, **Close** — never a bare *Copy failed*.
+
 Two older traps are still worth knowing:
 
 * **The folder has to exist.** A freshly installed BGMI that has never been

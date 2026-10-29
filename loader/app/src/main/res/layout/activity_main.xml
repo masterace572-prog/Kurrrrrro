@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  iOS-style main screen: black canvas, one inset-grouped card per topic,
+  hairline separators, a single filled blue action and quiet text buttons.
+-->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -16,11 +20,11 @@
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:paddingStart="20dp"
-            android:paddingTop="22dp"
+            android:paddingTop="26dp"
             android:paddingEnd="20dp"
             android:paddingBottom="28dp">
 
-            <!-- header: mark, name, state -->
+            <!-- large title, iOS navigation-title size, with a status pill -->
             <LinearLayout
                 android:id="@+id/header"
                 android:layout_width="match_parent"
@@ -28,28 +32,18 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <ImageView
-                    android:id="@+id/mainLogo"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:contentDescription="@string/app_name"
-                    android:scaleType="centerCrop"
-                    android:src="@drawable/logo_transparent" />
-
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:letterSpacing="0.08"
                         android:text="@string/app_name"
                         android:textColor="@color/text_primary"
-                        android:textSize="18sp"
+                        android:textSize="30sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -58,51 +52,41 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:text="BGMI · India"
-                        android:textColor="@color/text_dim"
-                        android:textSize="11sp" />
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <TextView
                     android:id="@+id/deviceStatus"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/bg_pill"
-                    android:letterSpacing="0.08"
-                    android:paddingStart="12dp"
-                    android:paddingTop="6dp"
-                    android:paddingEnd="12dp"
-                    android:paddingBottom="6dp"
+                    android:background="@drawable/bg_ios_pill"
+                    android:paddingStart="14dp"
+                    android:paddingTop="7dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="7dp"
                     android:text="Ready"
                     android:textColor="@color/accent_good"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <!-- access card -->
+            <!-- access, as an inset-grouped card -->
             <LinearLayout
                 android:id="@+id/mainCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:background="@drawable/bg_reference_card"
+                android:layout_marginTop="22dp"
+                android:background="@drawable/bg_ios_card"
                 android:orientation="vertical"
-                android:paddingStart="16dp"
+                android:paddingStart="18dp"
                 android:paddingTop="16dp"
-                android:paddingEnd="16dp"
+                android:paddingEnd="18dp"
                 android:paddingBottom="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:letterSpacing="0.12"
-                    android:text="ACCESS"
-                    android:textColor="@color/text_dim"
-                    android:textSize="10sp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -113,7 +97,7 @@
                         android:layout_weight="1"
                         android:text="Active"
                         android:textColor="@color/accent_good"
-                        android:textSize="15sp"
+                        android:textSize="17sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -123,7 +107,7 @@
                         android:maxLines="1"
                         android:text="--"
                         android:textColor="@color/text_secondary"
-                        android:textSize="11sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <View
@@ -136,6 +120,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:baselineAligned="false"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -148,19 +133,18 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:letterSpacing="0.12"
-                            android:text="TIME LEFT"
-                            android:textColor="@color/text_dim"
-                            android:textSize="10sp" />
+                            android:text="Time left"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="13sp" />
 
                         <TextView
                             android:id="@+id/timeRemaining"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
+                            android:layout_marginTop="3dp"
                             android:text="--"
                             android:textColor="@color/text_primary"
-                            android:textSize="20sp"
+                            android:textSize="22sp"
                             android:textStyle="bold" />
                     </LinearLayout>
 
@@ -173,82 +157,80 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:letterSpacing="0.12"
-                            android:text="DEVICE"
-                            android:textColor="@color/text_dim"
-                            android:textSize="10sp" />
+                            android:text="Device"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="13sp" />
 
                         <TextView
                             android:id="@+id/deviceValue"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
+                            android:layout_marginTop="3dp"
                             android:ellipsize="end"
                             android:maxLines="1"
-                            android:maxWidth="150dp"
+                            android:maxWidth="160dp"
                             android:text="This device"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="12sp" />
+                            android:textColor="@color/text_primary"
+                            android:textSize="15sp" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- game data card: the one thing that has to happen before a launch -->
+            <!-- game data -->
             <LinearLayout
                 android:id="@+id/obbCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:background="@drawable/bg_reference_card"
+                android:background="@drawable/bg_ios_card"
                 android:orientation="vertical"
-                android:paddingStart="16dp"
+                android:paddingStart="18dp"
                 android:paddingTop="16dp"
-                android:paddingEnd="16dp"
+                android:paddingEnd="18dp"
                 android:paddingBottom="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:letterSpacing="0.12"
-                    android:text="GAME DATA"
-                    android:textColor="@color/text_dim"
-                    android:textSize="10sp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
                     <TextView
-                        android:id="@+id/obbState"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Not installed yet"
+                        android:text="Game data"
                         android:textColor="@color/text_primary"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
+                        android:textSize="15sp" />
 
                     <TextView
                         android:id="@+id/percentText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:minWidth="40dp"
                         android:gravity="end"
+                        android:minWidth="40dp"
                         android:text=""
                         android:textColor="@color/accent"
-                        android:textSize="12sp"
+                        android:textSize="13sp"
                         android:textStyle="bold" />
                 </LinearLayout>
+
+                <TextView
+                    android:id="@+id/obbState"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:lineSpacingExtra="2dp"
+                    android:text="Not copied yet"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
 
                 <ProgressBar
                     android:id="@+id/downloadProgressBar"
                     style="?android:attr/progressBarStyleHorizontal"
                     android:layout_width="match_parent"
                     android:layout_height="3dp"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:max="100"
                     android:progress="0"
                     android:progressBackgroundTint="@color/line"
@@ -256,20 +238,19 @@
                     android:visibility="gone" />
             </LinearLayout>
 
-            <!-- primary action -->
+            <!-- the one filled action -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/startBgmi"
                 android:layout_width="match_parent"
-                android:layout_height="54dp"
-                android:layout_marginTop="20dp"
-                android:background="@drawable/bg_primary_action"
+                android:layout_height="52dp"
+                android:layout_marginTop="22dp"
+                android:background="@drawable/bg_ios_cta"
                 android:backgroundTint="@null"
                 android:stateListAnimator="@null"
                 android:text="Copy game data"
                 android:textAllCaps="false"
-                android:letterSpacing="0.04"
-                android:textColor="@color/surface_void"
-                android:textSize="15sp"
+                android:textColor="@color/white"
+                android:textSize="17sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -278,28 +259,56 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:gravity="center"
+                android:lineSpacingExtra="2dp"
                 android:text="Copies the game files once, then you can launch."
-                android:textColor="@color/text_dim"
-                android:textSize="11sp" />
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+
+            <!-- quiet ways past a copy that cannot read the phone's own folder -->
+            <TextView
+                android:id="@+id/pickObbButton"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="6dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:text="Choose an .obb file"
+                android:textColor="@color/accent"
+                android:textSize="15sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/launchAnywayButton"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:text="Launch game anyway"
+                android:textColor="@color/accent"
+                android:textSize="15sp"
+                android:visibility="gone" />
 
             <LinearLayout
                 android:id="@+id/statusToggle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                android:background="@drawable/bg_reference_card"
+                android:background="@drawable/bg_ios_card"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="14dp"
-                android:paddingTop="11dp"
-                android:paddingEnd="14dp"
-                android:paddingBottom="11dp"
+                android:paddingStart="16dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="12dp"
                 android:visibility="gone">
 
                 <ProgressBar
                     android:id="@+id/statusLoader"
                     android:layout_width="14dp"
                     android:layout_height="14dp"
+                    android:layout_marginEnd="10dp"
                     android:indeterminateTint="@color/accent"
                     android:visibility="gone" />
 
@@ -309,10 +318,11 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:ellipsize="end"
-                    android:maxLines="2"
+                    android:lineSpacingExtra="2dp"
+                    android:maxLines="3"
                     android:text=""
                     android:textColor="@color/text_secondary"
-                    android:textSize="11sp" />
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <Space
@@ -320,7 +330,6 @@
                 android:layout_height="0dp"
                 android:layout_weight="1" />
 
-            <!-- footer: what is installed, and a way to ask again -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -337,22 +346,22 @@
                     android:maxLines="1"
                     android:text="Library"
                     android:textColor="@color/text_faint"
-                    android:textSize="10sp" />
+                    android:textSize="12sp" />
 
                 <TextView
                     android:id="@+id/checkUpdateButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/bg_ghost_button"
+                    android:background="@drawable/bg_ios_ghost"
                     android:clickable="true"
                     android:focusable="true"
-                    android:paddingStart="12dp"
-                    android:paddingTop="6dp"
-                    android:paddingEnd="12dp"
-                    android:paddingBottom="6dp"
-                    android:text="Check"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="10sp"
+                    android:paddingStart="14dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="8dp"
+                    android:text="Check for updates"
+                    android:textColor="@color/accent"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
