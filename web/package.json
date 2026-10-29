@@ -1,6 +1,6 @@
 {
   "name": "kuro-panel",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Serverless rewrite of the Kuro/Aalyan PHP auth panel (Next.js + Postgres, deployable on Vercel + Supabase)",
   "scripts": {
