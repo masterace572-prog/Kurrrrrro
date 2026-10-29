@@ -190,7 +190,35 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="13dp"
-                    android:orientation="horizontal" />
+                    android:orientation="horizontal">
+                    <include
+                        android:id="@+id/daysBox"
+                        layout="@layout/item_time_box"
+                        android:layout_width="0dp"
+                        android:layout_height="58dp"
+                        android:layout_weight="1" />
+                    <include
+                        android:id="@+id/hoursBox"
+                        layout="@layout/item_time_box"
+                        android:layout_width="0dp"
+                        android:layout_height="58dp"
+                        android:layout_marginStart="7dp"
+                        android:layout_weight="1" />
+                    <include
+                        android:id="@+id/minutesBox"
+                        layout="@layout/item_time_box"
+                        android:layout_width="0dp"
+                        android:layout_height="58dp"
+                        android:layout_marginStart="7dp"
+                        android:layout_weight="1" />
+                    <include
+                        android:id="@+id/secondsBox"
+                        layout="@layout/item_time_box"
+                        android:layout_width="0dp"
+                        android:layout_height="58dp"
+                        android:layout_marginStart="7dp"
+                        android:layout_weight="1" />
+                </LinearLayout>
             </LinearLayout>
 
             <LinearLayout
