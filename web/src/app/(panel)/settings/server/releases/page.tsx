@@ -76,7 +76,7 @@ export default async function ReleasesPage() {
         </Alert>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <LibUploadForm maxMb={maxMb} />
         <div className="space-y-4">
           <BumpVersionForm current={current?.version ?? null} />

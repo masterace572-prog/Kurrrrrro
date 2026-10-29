@@ -66,7 +66,7 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="card min-w-0 p-0 lg:col-span-2">
           <div className="flex items-center justify-between px-5 py-4">
             <h2 className="font-semibold text-slate-200">Latest keys</h2>
@@ -188,7 +188,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="card">
           <div className="flex items-center gap-2">
             <Icon name="server" className="h-4 w-4 text-brand-400" />

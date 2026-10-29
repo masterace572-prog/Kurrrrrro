@@ -20,7 +20,7 @@ export default async function SettingsPage() {
         breadcrumb={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Account' }]}
       />
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <ProfileForm fullname={me.fullname ?? ''} email={me.email ?? ''} />
         </div>

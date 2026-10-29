@@ -43,7 +43,7 @@ export function UserForm({
         </Alert>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Username" name="username">
           <input value={user.username} className="input opacity-60" readOnly />
         </Field>
@@ -52,7 +52,7 @@ export function UserForm({
         </Field>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Email" name="email" error={err('email')}>
           <input id="email" name="email" type="email" defaultValue={user.email} className="input" readOnly={!owner} />
         </Field>
@@ -65,7 +65,7 @@ export function UserForm({
         </Field>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Field label="Balance" name="saldo" error={err('saldo')}>
           <input id="saldo" name="saldo" type="number" min={0} defaultValue={user.saldo} className="input" />
         </Field>
@@ -143,7 +143,7 @@ export function ReferralForm({ isOwner }: { isOwner: boolean }) {
         </select>
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Starting balance" name="set_saldo" error={err('set_saldo')}>
           <input id="set_saldo" name="set_saldo" type="number" min={0} defaultValue={0} className="input" />
         </Field>
@@ -180,7 +180,7 @@ export function ProfileForm({
         <p className="text-xs text-slate-500">This is what other staff see next to your keys.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Full name" name="fullname" error={err('fullname')}>
           <input id="fullname" name="fullname" defaultValue={fullname} className="input" maxLength={155} />
         </Field>
@@ -194,7 +194,7 @@ export function ProfileForm({
         <p className="text-xs text-slate-500">Leave all three fields empty to keep your current password.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Field label="Current password" name="current_password" error={err('current_password')}>
           <input id="current_password" name="current_password" type="password" className="input" autoComplete="current-password" />
         </Field>

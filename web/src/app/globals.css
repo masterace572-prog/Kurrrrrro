@@ -32,7 +32,9 @@
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-line bg-ink-900 p-4 shadow-card sm:p-5;
+    /* min-w-0: as a grid or flex child a card would otherwise be sized by its
+       widest line, which pushed whole pages sideways on a phone */
+    @apply min-w-0 rounded-2xl border border-line bg-ink-900 p-4 shadow-card sm:p-5;
   }
   .label {
     @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500;

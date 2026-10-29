@@ -35,7 +35,7 @@ export function GenerateForm({ saldo }: { saldo: number }) {
     <form action={action} className="space-y-5" noValidate>
       <FormMessage state={state} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Game" name="game">
           <select id="game" name="game" className="input" defaultValue="PUBG">
             {Object.entries(GAMES).map(([id, label]) => (
@@ -63,7 +63,7 @@ export function GenerateForm({ saldo }: { saldo: number }) {
         </Field>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Max devices per key" name="max_devices" error={err('max_devices')}>
           <input
             id="max_devices"
@@ -95,7 +95,7 @@ export function GenerateForm({ saldo }: { saldo: number }) {
         </Field>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Key naming" name="custominput">
           <select id="custominput" name="custominput" className="input" value={mode} onChange={(e) => setMode(e.target.value)}>
             <option value="auto">Automatic (username-duration-xxxxx)</option>
@@ -267,7 +267,7 @@ export function EditKeyForm({
       <input type="hidden" name="id_keys" value={initial.id_keys} />
       <FormMessage state={state} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Key" name="user_key" error={err('user_key')}>
           <input
             id="user_key"
@@ -288,7 +288,7 @@ export function EditKeyForm({
 
       {owner ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Game" name="game">
               <select id="game" name="game" defaultValue={initial.game} className="input">
                 {Object.keys(GAMES).map((g) => (
@@ -303,7 +303,7 @@ export function EditKeyForm({
             </Field>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="Duration (hours)" name="duration" hint="2 = 2h, 24 = 1 day, 720 = 30 days">
               <input id="duration" name="duration" type="number" min={1} defaultValue={initial.duration} className="input" />
             </Field>

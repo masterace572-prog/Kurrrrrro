@@ -68,7 +68,7 @@ export default async function EditKeyPage({ params }: { params: Promise<{ id: st
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="card xl:col-span-2">
           <EditKeyForm
             initial={{

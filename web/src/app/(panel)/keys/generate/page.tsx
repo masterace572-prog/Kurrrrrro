@@ -17,7 +17,7 @@ export default async function GeneratePage() {
         breadcrumb={[{ label: 'Keys', href: '/keys' }, { label: 'Generate' }]}
       />
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="card xl:col-span-2">
           <GenerateForm saldo={Number(me.saldo)} />
         </div>
