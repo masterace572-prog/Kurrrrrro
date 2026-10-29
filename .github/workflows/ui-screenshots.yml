@@ -63,29 +63,30 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
-            set -x
-            adb install -r loader/app/build/outputs/apk/debug/app-debug.apk
-            # grant the storage access up front so the system dialog does not
-            # cover the screens we want to photograph
-            adb shell appops set com.xlox MANAGE_EXTERNAL_STORAGE allow || true
-            adb shell am start -n com.xlox/.SplashActivity || true
+            LOG=/tmp/steps.log
+            note() { echo "::notice title=$1::$2" | tee -a $LOG; }
+            : > $LOG
+            note phase "install"
+            adb install -r loader/app/build/outputs/apk/debug/app-debug.apk >> $LOG 2>&1 || note install-failed "adb install failed"
+            adb shell appops set com.xlox MANAGE_EXTERNAL_STORAGE allow >> $LOG 2>&1 || true
+            note phase "launch"
+            adb shell am start -n com.xlox/.SplashActivity >> $LOG 2>&1 || true
             sleep 3
-            adb exec-out screencap -p > shot-1-splash.png || true
-            sleep 24
-            adb exec-out screencap -p > shot-2-login.png || true
-            # dismiss anything the system may have put in front
-            adb shell input keyevent 4 || true
-            sleep 2
-            adb exec-out screencap -p > shot-2b-login.png || true
+            adb exec-out screencap -p > shot-1-splash.png 2>>$LOG || true
+            sleep 26
+            adb exec-out screencap -p > shot-2-login.png 2>>$LOG || true
+            note phase "login-screen"
 
             if [ -n "$PANEL_KEY" ]; then
-              # tap the field, type the key, tap Continue — coordinates read from
-              # the live view hierarchy instead of being guessed
-              adb shell uiautomator dump /sdcard/ui.xml >/dev/null
-              adb pull /sdcard/ui.xml ui.xml >/dev/null
-              read FIELD_X FIELD_Y BUTTON_X BUTTON_Y <<< "$(python3 - <<'PY'
+              note phase "type-key"
+              adb shell uiautomator dump /sdcard/ui.xml >> $LOG 2>&1 || true
+              adb pull /sdcard/ui.xml ui.xml >> $LOG 2>&1 || true
+              COORDS=$(python3 - <<'PY'
             import re, xml.etree.ElementTree as ET
-            root = ET.parse('ui.xml').getroot()
+            try:
+                root = ET.parse('ui.xml').getroot()
+            except Exception:
+                print(''); raise SystemExit
             field = button = None
             for node in root.iter('node'):
                 cls = node.get('class', '')
@@ -99,29 +100,34 @@ jobs:
                     field = (cx, cy)
                 if node.get('clickable') == 'true' and 'Continue' in text:
                     button = (cx, cy)
-            print(*field, *button)
+            if field and button:
+                print(field[0], field[1], button[0], button[1])
             PY
-            )"
-              adb shell input tap "$FIELD_X" "$FIELD_Y"
-              sleep 1
-              adb shell input text "$PANEL_KEY"
-              sleep 1
-              adb shell input keyevent 111   # dismiss the keyboard
-              sleep 1
-              adb shell input tap "$BUTTON_X" "$BUTTON_Y"
-              sleep 6
-              adb exec-out screencap -p > shot-3-gate.png || true
-              sleep 14
-              adb exec-out screencap -p > shot-4-main.png || true
-              # the OBB card + launch button should be visible now
-              adb shell uiautomator dump /sdcard/ui2.xml >/dev/null 2>&1 || true
-              adb pull /sdcard/ui2.xml ui2.xml >/dev/null 2>&1 || true
-              adb exec-out screencap -p > shot-5-main.png || true
+            )
+              note coords "$COORDS"
+              if [ -n "$COORDS" ]; then
+                read FX FY BX BY <<< "$COORDS"
+                adb shell input tap $FX $FY >> $LOG 2>&1 || true
+                sleep 1
+                adb shell input text "$PANEL_KEY" >> $LOG 2>&1 || true
+                sleep 1
+                adb shell input keyevent 111 >> $LOG 2>&1 || true
+                sleep 1
+                adb exec-out screencap -p > shot-3-typed.png 2>>$LOG || true
+                adb shell input tap $BX $BY >> $LOG 2>&1 || true
+                sleep 5
+                adb exec-out screencap -p > shot-4-gate.png 2>>$LOG || true
+                sleep 15
+                adb exec-out screencap -p > shot-5-main.png 2>>$LOG || true
+                note phase "main-screen"
+              fi
             fi
-            true
 
-            adb logcat -d | tail -200 > logcat.txt
-            ls -l shot-*.png || true
+            adb logcat -d >> logcat.txt 2>&1 || true
+            grep -i "com.xlox" logcat.txt | tail -40 >> $LOG || true
+            ls -l shot-*.png >> $LOG 2>&1 || true
+            cp $LOG steps.log 2>/dev/null || true
+            true
 
       - name: Publish the screenshots to the ui-screenshots branch
         if: always()
@@ -134,6 +140,8 @@ jobs:
           mkdir -p ui
           cp shot-*.png ui/ 2>/dev/null || true
           cp logcat.txt ui/ 2>/dev/null || true
+          cp steps.log ui/ 2>/dev/null || true
+          cp ui.xml ui2.xml 2>/dev/null ui/ || true
           git add ui
           git commit -m "UI screenshots from ${GITHUB_SHA}" || true
           git push -f origin ui-screenshots || echo "::warning title=screenshots::could not push the branch"
