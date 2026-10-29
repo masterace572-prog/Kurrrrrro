@@ -145,7 +145,14 @@ export default function ApiDocsPage() {
         <Endpoint method="GET" path="/api/download" title="The lib zip itself, or a 302 to it.">
           <p className="text-sm text-slate-400">
             Extracted into the client&apos;s private folder. The loader expects{' '}
-            <code className="text-slate-200">libbgmi.so</code> (arm64-v8a) inside.
+            <code className="text-slate-200">libbgmi.so</code> (arm64-v8a) inside — a zip with several ABIs
+            is fine, the 64-bit copy is the one kept.
+          </p>
+          <p className="text-sm text-slate-400">
+            With nothing published here, both endpoints fall back to a mirror: the version line of{' '}
+            <code className="text-slate-200">Version.txt</code> in the repository and the{' '}
+            <code className="text-slate-200">Lib</code> release asset. A panel release takes precedence as
+            soon as its version differs from what the device installed.
           </p>
         </Endpoint>
 

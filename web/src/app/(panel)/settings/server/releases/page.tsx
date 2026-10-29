@@ -68,9 +68,12 @@ export default async function ReleasesPage() {
       </div>
 
       {!current ? (
-        <Alert tone="warning" className="mb-4" title="No lib is published">
-          Until you publish a release, <code>/api/version</code> answers with the fallback version and{' '}
-          <code>/api/download</code> returns 404. The loader keeps working with whatever lib it already has.
+        <Alert tone="warning" className="mb-4" title="No lib is published here">
+          <code>/api/version</code> answers with the fallback version and <code>/api/download</code> returns
+          404, so loaders fall back to the GitHub mirror: the version line of{' '}
+          <code>Version.txt</code> in the repo and the <code>Lib</code> release asset. Publishing here takes
+          over from the mirror as soon as the versions differ — this page is the only place where the
+          version and the bytes are guaranteed to match.
         </Alert>
       ) : null}
 
