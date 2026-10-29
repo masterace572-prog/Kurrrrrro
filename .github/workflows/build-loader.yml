@@ -10,6 +10,8 @@ on:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: loader
@@ -35,14 +37,44 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-${{ hashFiles('loader/**/*.gradle', 'loader/gradle/wrapper/gradle-wrapper.properties') }}
 
+      - name: Show the endpoint compiled into the APK
+        run: grep -n 'define PANEL_BASE_URL' app/src/main/jni/main.cpp
+
       - name: Build debug APK
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Upload APK
+      - name: Rename APK
+        run: |
+          mkdir -p out
+          find app/build/outputs/apk -name '*.apk' -exec cp {} out/xlox-loader.apk \;
+          ls -lh out/xlox-loader.apk
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: xlox-loader-debug
-          path: loader/app/build/outputs/apk/**/*.apk
-          if-no-files-found: warn
+          path: out/xlox-loader.apk
+          if-no-files-found: error
+
+      # A GitHub Release gives a permanent download URL that never expires,
+      # unlike the artifact (90 days, and requires being signed in).
+      - name: Publish release with the APK
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/arena/38338797-kurrrrrro'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: loader-${{ github.run_number }}
+          name: XLOX loader build ${{ github.run_number }}
+          body: |
+            Debug APK built from `${{ github.sha }}`.
+
+            Compiled endpoint: **https://kuro-panel-psi.vercel.app**
+            (license check → `/server`, lib version → `/api/version`, lib zip → `/api/download`)
+
+            Install with `adb install xlox-loader.apk` or copy it to the phone.
+            The APK is **debug-signed** — fine for testing, replace the keystore before selling it.
+          files: out/xlox-loader.apk
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
