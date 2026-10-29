@@ -35,6 +35,8 @@ public class Downtwo extends AsyncTask<String, String, String> {
     private final Callback callback;
     private ProgressListener progressListener;
     private String serverVersion = "0.0";
+    /** Why the last download/extract did not produce a lib ("" when it did). */
+    private String lastError = "";
     private static final String PREF_NAME = "com.xlox.download";
     private static final String PREF_VERSION_KEY = "version";
     private static final String PREF_LAST_NOTIFIED = "last_notified_version";
@@ -52,6 +54,10 @@ public class Downtwo extends AsyncTask<String, String, String> {
 
     public String getFetchedServerVersion() {
         return serverVersion;
+    }
+
+    public String getLastError() {
+        return lastError;
     }
 
     @Override
@@ -103,6 +109,9 @@ public class Downtwo extends AsyncTask<String, String, String> {
                          "No Update Available".equals(result) || 
                          "Update Available".equals(result) || 
                          "Already Notified".equals(result);
+
+        lastError = success ? "" : (result == null ? "unknown error" : result);
+        if (!success) Log.e(TAG, "lib update failed: " + lastError);
         
         if (callback != null) {
             callback.onComplete(success);
@@ -132,8 +141,22 @@ public class Downtwo extends AsyncTask<String, String, String> {
     private String downloadAndExtract(String urlString) {
         try {
             URL url = new URL(urlString);
+            Log.i(TAG, "lib download: " + urlString);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setInstanceFollowRedirects(true);
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(30000);
             connection.connect();
+
+            int code = connection.getResponseCode();
+            Log.i(TAG, "lib download: HTTP " + code
+                    + ", " + connection.getContentLength() + " bytes, "
+                    + connection.getContentType());
+            if (code < 200 || code >= 300) {
+                // a 404 here means the panel has no lib published: the body is a
+                // JSON message, not a zip, so unzipping it used to fail silently
+                return "HTTP " + code + " from " + urlString;
+            }
 
             int totalSize = connection.getContentLength();
             int downloaded = 0;
@@ -158,6 +181,15 @@ public class Downtwo extends AsyncTask<String, String, String> {
             output.close();
             input.close();
 
+            // A panel that answered with an error page instead of a zip would be
+            // written out happily and then fail inside the unzipper; say so here.
+            if (!looksLikeZip(pathOutput)) {
+                Log.e(TAG, "downloaded file is not a zip (" + pathOutput.length() + " bytes)");
+                //noinspection ResultOfMethodCallIgnored
+                pathOutput.delete();
+                return "The server did not return a zip (" + pathOutput.length() + " bytes)";
+            }
+
             File loaderDirectory = new File(pathBase, LOADER_DIR_NAME);
             if (!loaderDirectory.exists()) {
                 loaderDirectory.mkdirs();
@@ -165,6 +197,26 @@ public class Downtwo extends AsyncTask<String, String, String> {
 
             // Extract ZIP
             new ZipFile(pathOutput, "".toCharArray()).extractAll(loaderDirectory.getAbsolutePath());
+
+            // The loader only ever loads <files>/loader/libbgmi.so, so whatever
+            // shape the zip has inside, the library is put where it is looked
+            // for: a zip packing it under a folder used to extract "successfully"
+            // and still never load.
+            File lib = new File(loaderDirectory, "libbgmi.so");
+            if (!lib.exists()) {
+                File found = find(loaderDirectory, "libbgmi.so");
+                if (found != null && !found.getAbsolutePath().equals(lib.getAbsolutePath())) {
+                    Log.i(TAG, "libbgmi.so was nested at " + found + " — moving it to the root");
+                    if (!found.renameTo(lib)) {
+                        copy(found, lib);
+                    }
+                }
+            }
+            if (!lib.exists()) {
+                Log.e(TAG, "the zip does not contain libbgmi.so");
+                return "The zip has no libbgmi.so in it";
+            }
+            Log.i(TAG, "lib ready: " + lib.getAbsolutePath() + " (" + lib.length() + " bytes)");
 
             setPermissions(loaderDirectory);
 
@@ -183,6 +235,46 @@ public class Downtwo extends AsyncTask<String, String, String> {
             Log.e(TAG, "Error downloading or extracting file: ", e);
             // The caller handles this state silently; do not surface a failure message as a popup.
             return "UPDATE_UNAVAILABLE";
+        }
+    }
+
+    /** The first file with this name anywhere under `dir`, or null. */
+    private File find(File dir, String name) {
+        File[] files = dir.listFiles();
+        if (files == null) return null;
+        for (File f : files) {
+            if (f.isFile() && f.getName().equals(name)) return f;
+        }
+        for (File f : files) {
+            if (f.isDirectory()) {
+                File hit = find(f, name);
+                if (hit != null) return hit;
+            }
+        }
+        return null;
+    }
+
+    private void copy(File from, File to) {
+        try (FileInputStream in = new FileInputStream(from);
+             FileOutputStream out = new FileOutputStream(to)) {
+            byte[] buffer = new byte[8192];
+            int n;
+            while ((n = in.read(buffer)) > 0) out.write(buffer, 0, n);
+            out.flush();
+        } catch (Exception e) {
+            Log.e(TAG, "could not copy " + from + " to " + to, e);
+        }
+    }
+
+    /** A zip starts with "PK\003\004" (or "PK\005\006" when empty). */
+    private boolean looksLikeZip(File file) {
+        if (!file.isFile() || file.length() < 4) return false;
+        try (FileInputStream in = new FileInputStream(file)) {
+            int a = in.read();
+            int b = in.read();
+            return a == 'P' && b == 'K';
+        } catch (Exception e) {
+            return false;
         }
     }
 

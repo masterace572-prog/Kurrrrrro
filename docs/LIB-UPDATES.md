@@ -35,6 +35,26 @@ caps request bodies at 4.5 MB. Larger libs are published as a URL instead:
 4. `/api/download` answers with a `302` to that URL; `HttpURLConnection` follows
    redirects, so the loader needs no changes.
 
+## What the zip must contain
+
+The library is loaded from exactly one path:
+
+    /data/data/com.xlox/files/loader/libbgmi.so
+
+So the zip has to contain `libbgmi.so` — at the root or inside a folder, both
+work now (the loader moves a nested one to the root after extracting). Two more
+things have to be true or the load fails even though the file is there:
+
+* **arm64-v8a.** The APK ships `arm64-v8a` only, so a 32-bit lib cannot be
+  loaded into the process (`is 32-bit instead of 64-bit` in logcat).
+* **A real shared object.** `file libbgmi.so` should say "ELF 64-bit LSB shared
+  object, ARM aarch64".
+
+The loader now says what went wrong instead of failing quietly: on a failed
+update the main screen shows `LIB FAILED: …` with the HTTP status, "not a zip"
+or "no libbgmi.so in it", and logcat (`adb logcat -s Downtwo Load`) names the
+URL, the size and the extracted path.
+
 ## Endpoints
 
 | Endpoint | Response |

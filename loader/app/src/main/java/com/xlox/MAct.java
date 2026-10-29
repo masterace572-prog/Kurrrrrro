@@ -347,8 +347,15 @@ public class MAct extends AppCompatActivity {
             if (loadingCursor != null) loadingCursor.setVisibility(View.VISIBLE);
         });
 
-        Downtwo task = new Downtwo(this, success -> {
+        // the callback needs the task's error message, and the task is the thing
+        // the callback is handed to — hence the one-element holder
+        final Downtwo[] ref = new Downtwo[1];
+        ref[0] = new Downtwo(this, success -> {
             if (success) {
+                File installedLib = new File(getFilesDir(), "loader/libbgmi.so");
+                if (!installedLib.exists()) {
+                    runOnUiThread(() -> showStatusToggle("LIB MISSING AFTER UPDATE", true));
+                }
                 runOnUiThread(() -> {
                     isUpdateAvailable = false;
                     if (downloadStatusText != null) downloadStatusText.setText("All process done");
@@ -367,8 +374,12 @@ public class MAct extends AppCompatActivity {
                 });
             } else {
                 runOnUiThread(() -> {
-                    // Keep update failures silent instead of showing a popup/toast.
-                    isUpdateAvailable = false;
+                    // A lib that did not arrive is the reason LAUNCH does
+                    // nothing, so it is said out loud instead of hidden.
+                    isUpdateAvailable = true;
+                    String why = ref[0].getLastError();
+                    showStatusToggle(why == null || why.isEmpty()
+                            ? "LIB DOWNLOAD FAILED" : "LIB FAILED: " + why, true);
                     if (downloadBox != null) downloadBox.setVisibility(View.GONE);
                     if (loadingCursor != null) loadingCursor.setVisibility(View.GONE);
                     setLaunchButtonText(isGameInstalled ? "LAUNCH GAME" : "INSTALL GAME");
@@ -376,6 +387,7 @@ public class MAct extends AppCompatActivity {
             }
         });
 
+        Downtwo task = ref[0];
         task.setProgressListener(progress -> runOnUiThread(() -> {
             if (downloadProgressBar != null) {
                 downloadProgressBar.setIndeterminate(false);
