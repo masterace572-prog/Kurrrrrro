@@ -1,39 +1,30 @@
 package com.xlox;
 
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
-import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
-import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
-import android.app.Dialog;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
-import android.provider.Settings;
 import android.text.InputType;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.view.animation.DecelerateInterpolator;
-import android.view.animation.LinearInterpolator;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -59,16 +50,26 @@ public class LogAct extends AppCompatActivity {
     private EditText textUsername;
     private AppCompatButton btnLogin;
 
-    private Dialog loadingDialog;
 
     // UI
     private TextView premium;
     private TextView pasteKey;
     private LinearLayout loginCard;
-    private LinearLayout mainContainer;
     private ImageView logo;
     private ImageView eyeToggle;
     private boolean isPasswordVisible = false;
+
+    // verification state (replaces the blocking dialog)
+    private View verifyOverlay;
+    private TextView verifyStep;
+    private TextView verifyKey;
+    private ProgressBar verifySpinner;
+    private ImageView verifyDone;
+    private TextView loginError;
+
+    private final Handler stepHandler = new Handler();
+    private final Runnable[] stepAdvance = new Runnable[2];
+    private boolean verifying = false;
 
     // Permissions
 
@@ -79,11 +80,6 @@ public class LogAct extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        if (iskokofm()) {
-            new AlertDialog.Builder(LogAct.this).setTitle("VPN Detected").setMessage("Please disable VPN to continue").setPositiveButton("OK", null).show();
-            return;
-        }
-
         setContentView(R.layout.activity_login);
         prefs = new Prefs(this);
 
@@ -91,10 +87,15 @@ public class LogAct extends AppCompatActivity {
         btnLogin = findViewById(R.id.login);
         premium = findViewById(R.id.premium);
         loginCard = findViewById(R.id.loginCard);
-        mainContainer = findViewById(R.id.mainContainer);
         logo = findViewById(R.id.logo);
         eyeToggle = findViewById(R.id.eyeToggle);
         pasteKey = findViewById(R.id.pasteKey);
+        loginError = findViewById(R.id.loginError);
+        verifyOverlay = findViewById(R.id.verifyOverlay);
+        verifyStep = findViewById(R.id.verifyStep);
+        verifyKey = findViewById(R.id.verifyKey);
+        verifySpinner = findViewById(R.id.verifySpinner);
+        verifyDone = findViewById(R.id.verifyDone);
 
         textUsername.setText(prefs.getSt(USER, ""));
 
@@ -119,36 +120,134 @@ public class LogAct extends AppCompatActivity {
         startIntroAnimation();
 
         btnLogin.setOnClickListener(v -> {
+            if (verifying) return;
             String userKey = textUsername.getText().toString().trim();
             if (userKey.isEmpty()) {
-                textUsername.setError("Please enter key");
+                showLoginError(getString(R.string.key_hint));
                 return;
             }
             if (iskokofm()) {
-                new AlertDialog.Builder(LogAct.this).setTitle("VPN Detected").setMessage("Please disable VPN to continue").setPositiveButton("OK", null).show();
+                showLoginError("VPN detected — switch it off and try again");
                 return;
             }
-
             if (!hasNetwork()) {
                 showLoginError("No internet connection — connect and try again");
                 return;
             }
 
             prefs.setSt(USER, userKey);
-
-            btnLogin.setEnabled(false);
-            btnLogin.setText(R.string.checking_key);
-            btnLogin.setTextColor(Color.WHITE);
-
+            hideKeyboard();
             Login(this, userKey);
         });
+
+        textUsername.setOnEditorActionListener((view, actionId, event) -> {
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                btnLogin.performClick();
+                return true;
+            }
+            return false;
+        });
+
+        if (textUsername != null) {
+            textUsername.setOnFocusChangeListener((view, hasFocus) -> {
+                if (hasFocus) clearLoginError();
+            });
+        }
+    }
+
+    /* ------------------------------------------------------ key verification */
+
+    /**
+     * The panel is asked for the license; while that runs the form is replaced
+     * by a calm three-step state so the screen never freezes behind a modal.
+     * The steps mirror what the check actually does: reach the panel, bind this
+     * device to the slot, read the subscription back.
+     */
+    private void showVerifying(String userKey) {
+        verifying = true;
+        clearLoginError();
+
+        if (verifyOverlay != null) {
+            verifyOverlay.setVisibility(View.VISIBLE);
+            verifyOverlay.setAlpha(0f);
+            verifyOverlay.animate().alpha(1f).setDuration(260).start();
+        }
+        if (verifyKey != null) verifyKey.setText(maskKey(userKey));
+        if (verifyStep != null) verifyStep.setText(R.string.verify_step_panel);
+        if (verifySpinner != null) {
+            verifySpinner.setVisibility(View.VISIBLE);
+            verifySpinner.setAlpha(0f);
+            verifySpinner.animate().alpha(1f).setDuration(240).start();
+        }
+        if (verifyDone != null) {
+            verifyDone.setVisibility(View.GONE);
+            verifyDone.setScaleX(0.6f);
+            verifyDone.setScaleY(0.6f);
+        }
+
+        stepAdvance[0] = () -> setVerifyStep(R.string.verify_step_device);
+        stepAdvance[1] = () -> setVerifyStep(R.string.verify_step_license);
+        stepHandler.postDelayed(stepAdvance[0], 900);
+        stepHandler.postDelayed(stepAdvance[1], 1900);
+    }
+
+    private void setVerifyStep(int resId) {
+        if (verifyStep == null || !verifying) return;
+        verifyStep.animate().alpha(0f).setDuration(120).withEndAction(() -> {
+            verifyStep.setText(resId);
+            verifyStep.animate().alpha(1f).setDuration(180).start();
+        }).start();
+    }
+
+    /** Success beat: the tick lands before the next screen opens. */
+    private void showVerified() {
+        if (verifyStep != null) {
+            verifyStep.animate().alpha(0f).setDuration(120).withEndAction(() -> {
+                verifyStep.setText(R.string.verify_step_ready);
+                verifyStep.animate().alpha(1f).setDuration(160).start();
+            }).start();
+        }
+        if (verifySpinner != null) verifySpinner.animate().alpha(0f).setDuration(200).start();
+        if (verifyDone != null) {
+            verifyDone.setVisibility(View.VISIBLE);
+            verifyDone.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(320).start();
+        }
+    }
+
+    private void hideVerifying() {
+        verifying = false;
+        stepHandler.removeCallbacks(stepAdvance[0]);
+        stepHandler.removeCallbacks(stepAdvance[1]);
+        if (verifyOverlay == null) return;
+        verifyOverlay.animate().alpha(0f).setDuration(220).withEndAction(() -> {
+            if (verifyOverlay != null) verifyOverlay.setVisibility(View.GONE);
+            if (verifySpinner != null) verifySpinner.setAlpha(1f);
+            if (verifyDone != null) verifyDone.setVisibility(View.GONE);
+        }).start();
+    }
+
+    /** Keys are quoted back masked; the full key is never re-printed. */
+    private String maskKey(String key) {
+        if (key == null || key.isEmpty()) return "";
+        int show = Math.min(4, key.length() / 4);
+        if (show == 0) return "••••";
+        String head = key.substring(0, show);
+        String tail = key.substring(key.length() - show);
+        return head + " •••• " + tail;
+    }
+
+    private void hideKeyboard() {
+        try {
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null && textUsername != null) {
+                imm.hideSoftInputFromWindow(textUsername.getWindowToken(), 0);
+                textUsername.clearFocus();
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     private void startIntroAnimation() {
-        if (mainContainer != null) {
-            mainContainer.setVisibility(View.VISIBLE);
-            mainContainer.setAlpha(1f);
-        }
         if (logo != null) {
             logo.setAlpha(0f);
             logo.setTranslationY(-180f);
@@ -172,30 +271,29 @@ public class LogAct extends AppCompatActivity {
     }
 
     private void Login(final Context m_Context, final String userKey) {
-        final AlertDialog[] verifying = new AlertDialog[1];
-        try {
-            verifying[0] = new AlertDialog.Builder(this)
-                    .setTitle("Verifying key")
-                    .setMessage("Checking your license with the panel…")
-                    .setCancelable(false)
-                    .create();
-            verifying[0].show();
-        } catch (Throwable ignored) {
+        showVerifying(userKey);
+        if (btnLogin != null) {
+            btnLogin.setEnabled(false);
+            btnLogin.setText(R.string.checking_key);
         }
 
         Handler loginHandler = new Handler(msg -> {
-            if (verifying[0] != null && verifying[0].isShowing()) {
-                verifying[0].dismiss();
+            if (btnLogin != null) {
+                btnLogin.setEnabled(true);
+                btnLogin.setText(R.string.continue_label);
             }
             if (msg.what == 0) {
-                // key is valid — the startup gate runs once more (instantly when
-                // the lib is current) before the main screen opens
-                Intent i = new Intent(m_Context, SplashActivity.class);
-                i.putExtra(SplashActivity.EXTRA_NEXT, SplashActivity.NEXT_MAIN);
-                startActivity(i);
-                finish();
-            } else if (msg.what == 1) {
-                resetLoginButton();
+                showVerified();
+                // let the tick settle, then hand over to the startup gate once
+                // more (it is instant when the lib is already current)
+                new Handler().postDelayed(() -> {
+                    Intent i = new Intent(m_Context, SplashActivity.class);
+                    i.putExtra(SplashActivity.EXTRA_NEXT, SplashActivity.NEXT_MAIN);
+                    startActivity(i);
+                    finish();
+                }, 620);
+            } else {
+                hideVerifying();
                 showLoginError((String) msg.obj);
             }
             return true;
@@ -224,34 +322,27 @@ public class LogAct extends AppCompatActivity {
         }).start();
     }
 
-    private void resetLoginButton() {
-        runOnUiThread(() -> {
-            if (btnLogin == null) return;
-            btnLogin.setEnabled(true);
-            btnLogin.setText(R.string.login_button);
-            btnLogin.setTextColor(Color.parseColor("#0D0F12"));
-        });
-    }
-
-    /** A dialog, not a toast: a rejected key must stay on screen until read. */
+    /** Inline, under the field: a rejected key stays visible until corrected. */
     private void showLoginError(String message) {
         if (isFinishing()) return;
         String text = message == null || message.trim().isEmpty()
                 ? "The key could not be verified"
                 : message.trim();
-        try {
-            new AlertDialog.Builder(this)
-                    .setTitle("Key not accepted")
-                    .setMessage(text)
-                    .setPositiveButton("Try again", (d, w) -> d.dismiss())
-                    .setNegativeButton("Paste key", (d, w) -> {
-                        d.dismiss();
-                        pasteFromClipboard();
-                    })
-                    .show();
-        } catch (Throwable t) {
+        if (loginError == null) {
             Toast.makeText(this, text, Toast.LENGTH_LONG).show();
+            return;
         }
+        loginError.setText(text);
+        loginError.setVisibility(View.VISIBLE);
+        loginError.setAlpha(0f);
+        loginError.setTranslationY(-4f);
+        loginError.animate().alpha(1f).translationY(0f).setDuration(220).start();
+    }
+
+    private void clearLoginError() {
+        if (loginError == null) return;
+        loginError.setVisibility(View.GONE);
+        loginError.setText("");
     }
 
     private void pasteFromClipboard() {
@@ -299,6 +390,12 @@ public class LogAct extends AppCompatActivity {
             }
         } catch (Exception ignored) {}
         return false;
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        stepHandler.removeCallbacksAndMessages(null);
     }
 
     private static native String Check(Context mContext, String userKey);

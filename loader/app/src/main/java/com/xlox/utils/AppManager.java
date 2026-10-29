@@ -19,6 +19,9 @@ import org.lsposed.lsparanoid.Obfuscate;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.regex.Pattern;
 
 import net_62v.external.MetaPackageManager;
@@ -182,40 +185,73 @@ public class AppManager extends AppCompatActivity {
                         return false;
                     }
 
-                    File mainObb = findMainObb(sourceDir, pkg);
-                    if (mainObb == null) {
-                        errorMessage = "BGMI's main OBB is missing — open the game once so it downloads its data";
-                        return false;
-                    }
-                    if (mainObb.length() <= 0) {
-                        errorMessage = "The game OBB file is empty or unreadable";
-                        return false;
+                    // BGMI ships a main OBB and, on larger builds, a patch OBB.
+                    // Both have to be inside the sandbox or the game boots without
+                    // its data.
+                    List<File> pending = new ArrayList<>();
+                    long needed = 0L;
+                    for (File obb : findObbFiles(sourceDir, pkg)) {
+                        if (obb.length() <= 0) continue;
+                        File already = new File(destDir, obb.getName());
+                        if (already.isFile() && already.length() == obb.length()) continue;
+                        pending.add(obb);
+                        needed += obb.length();
                     }
 
-                    totalBytes = mainObb.length();
-                    copiedBytes = 0;
+                    if (pending.isEmpty()) {
+                        if (findMainObb(sourceDir, pkg) == null) {
+                            errorMessage = "BGMI's main OBB is missing — open the game once so it downloads its data";
+                            return false;
+                        }
+                        // both sides already agree
+                        return true;
+                    }
 
                     long free = freeBytes(destDir);
-                    if (free > 0 && free < totalBytes + (8L * 1024L * 1024L)) {
+                    if (free > 0 && free < needed + (8L * 1024L * 1024L)) {
                         errorMessage = "Not enough free storage for the game data";
                         return false;
                     }
 
-                    File target = new File(destDir, mainObb.getName());
-                    boolean ok = copyFile(mainObb, target);
-                    if (ok && target.length() != totalBytes) {
-                        errorMessage = "The copy stopped early ("
-                                + human(target.length()) + " of " + human(totalBytes) + ")";
-                        //noinspection ResultOfMethodCallIgnored
-                        target.delete();
-                        return false;
+                    totalBytes = needed;
+                    copiedBytes = 0;
+
+                    for (File obb : pending) {
+                        File target = new File(destDir, obb.getName());
+                        if (!copyFile(obb, target)) return false;
+                        long written = target.length();
+                        if (written != obb.length()) {
+                            errorMessage = "The copy stopped early (" + human(written)
+                                    + " of " + human(obb.length()) + ")";
+                            //noinspection ResultOfMethodCallIgnored
+                            target.delete();
+                            return false;
+                        }
                     }
-                    return ok;
+                    return true;
 
                 } catch (Exception e) {
                     errorMessage = e.getMessage();
                     return false;
                 }
+            }
+
+            /**
+             * Every main/patch OBB BGMI keeps on shared storage, smallest first so
+             * the progress bar climbs steadily.
+             */
+            private List<File> findObbFiles(File sourceDir, String packageName) {
+                List<File> out = new ArrayList<>();
+                File[] files = sourceDir.listFiles();
+                if (files == null) return out;
+
+                Pattern p = Pattern.compile(
+                        "^(main|patch)\\.[0-9]+\\." + Pattern.quote(packageName) + "\\.obb$");
+                for (File file : files) {
+                    if (file.isFile() && p.matcher(file.getName()).matches()) out.add(file);
+                }
+                Collections.sort(out, (a, b) -> Long.compare(a.length(), b.length()));
+                return out;
             }
 
             private File findMainObb(File sourceDir, String packageName) {
@@ -336,15 +372,42 @@ public class AppManager extends AppCompatActivity {
         }
     }
 
-    // FIXED: Now accepts a String parameter for package name
+    /**
+     * True when every OBB the game keeps on shared storage already sits in the
+     * sandbox with the same size — i.e. the copy genuinely finished. Without
+     * storage access the source cannot be listed, so it falls back to "a main
+     * OBB is present".
+     */
     public boolean checkObbContainer(String packageName) {
-        File destDir = getMundoObbDir(packageName);
-        if (!destDir.exists() || !destDir.isDirectory()) return false;
-        File[] files = destDir.listFiles();
-        if (files == null) return false;
-        String pattern = "^main\\.[0-9]+\\." + Pattern.quote(packageName) + "\\.obb$";
-        for (File file : files) {
-            if (file.isFile() && file.getName().matches(pattern)) return true;
+        File destDir;
+        try {
+            destDir = getMundoObbDir(packageName);
+        } catch (Throwable t) {
+            return false;
+        }
+        if (destDir == null || !destDir.exists() || !destDir.isDirectory()) return false;
+        File[] local = destDir.listFiles();
+        if (local == null) return false;
+
+        Pattern both = Pattern.compile(
+                "^(main|patch)\\.[0-9]+\\." + Pattern.quote(packageName) + "\\.obb$");
+        File[] source = new File("/storage/emulated/0/Android/obb/" + packageName).listFiles();
+
+        if (source != null) {
+            boolean seen = false;
+            for (File file : source) {
+                if (!file.isFile() || !both.matcher(file.getName()).matches()) continue;
+                seen = true;
+                File copy = new File(destDir, file.getName());
+                if (!copy.isFile() || copy.length() != file.length()) return false;
+            }
+            if (seen) return true;
+        }
+
+        Pattern main = Pattern.compile(
+                "^main\\.[0-9]+\\." + Pattern.quote(packageName) + "\\.obb$");
+        for (File file : local) {
+            if (file.isFile() && main.matcher(file.getName()).matches()) return true;
         }
         return false;
     }

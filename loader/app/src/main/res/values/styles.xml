@@ -120,6 +120,13 @@
         <item name="android:paddingEnd">0dp</item>
     </style>
 
+    <style name="Widget.Button.Icon" parent="Widget.AppCompat.Button.Borderless">
+        <item name="android:background">@drawable/bg_btn_quiet</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">0dp</item>
+    </style>
+
     <style name="Widget.Progress" parent="Widget.AppCompat.ProgressBar.Horizontal">
         <item name="android:progressDrawable">@drawable/progress_line</item>
         <item name="android:minHeight">4dp</item>

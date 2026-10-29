@@ -15,8 +15,18 @@
     <string name="continue_label">Continue</string>
     <string name="toggle_key_visibility">Show or hide the key</string>
     <string name="login_footer">Your key is bound to this device</string>
+    <string name="license_label">LICENSE</string>
+    <string name="license_bound">Bound to this device</string>
     <string name="login_button">LOGIN</string>
     <string name="checking_key">Checking…</string>
+
+    <!-- key verification -->
+    <string name="verify_title">VERIFYING</string>
+    <string name="verify_step_panel">Checking the key with the panel…</string>
+    <string name="verify_step_device">Binding this device…</string>
+    <string name="verify_step_license">Reading your subscription…</string>
+    <string name="verify_step_ready">Key verified</string>
+    <string name="verify_try_again">Try again</string>
 
     <!-- startup gate -->
     <string name="checking_for_updates">Checking for updates…</string>
@@ -41,6 +51,16 @@
     <string name="retry_copy">Retry copy</string>
     <string name="grant_file_access">Grant file access</string>
     <string name="copying_game_data">Copying game data</string>
+    <string name="game_data_title">Game data</string>
+    <string name="game_data_ready">Game data ready</string>
+    <string name="access_required_title">All files access required</string>
+    <string name="access_required_body">The game data lives in shared storage. Allow access and the copy starts by itself — it is a one-time step.</string>
+    <string name="access_granted">File access granted</string>
+    <string name="access_denied_title">File access not granted</string>
+    <string name="access_denied_body">Without it the game data cannot be copied. Open Settings → Apps → XLOX LOADER → Permissions.</string>
+    <string name="open_settings">Open settings</string>
+    <string name="allow_access">Allow access</string>
+    <string name="checking_access">Checking file access…</string>
     <string name="launch_game">Launch game</string>
     <string name="stop_game">Stop game</string>
     <string name="install_game">Install game</string>

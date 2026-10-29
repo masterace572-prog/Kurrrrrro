@@ -33,6 +33,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.xlox.utils.AppManager;
+import com.xlox.utils.Prefs;
 import com.xlox.utils.Downtwo;
 
 import org.lsposed.lsparanoid.Obfuscate;
@@ -94,9 +95,24 @@ public class MAct extends AppCompatActivity {
 
     // OBB gate
     private View obbCard;
+    private TextView obbTitle;
     private TextView obbStatusText;
+    private ImageView obbIcon;
+    private ImageView obbStateIcon;
     private ProgressBar obbProgressBar;
     private Button obbRetryButton;
+    private TextView keyValue;
+    private View statusDot;
+
+    // file access states
+    private static final int ACCESS_CHECKING = 0;
+    private static final int ACCESS_REQUIRED = 1;
+    private static final int ACCESS_DENIED = 2;
+    private static final int ACCESS_COPYING = 3;
+    private static final int ACCESS_READY = 4;
+    private static final int ACCESS_FAILED = 5;
+    private static final int ACCESS_NO_GAME = 6;
+    private boolean accessAskedOnce = false;
     private boolean launchReady = false;
     private boolean obbWorking = false;
 
@@ -150,7 +166,12 @@ public class MAct extends AppCompatActivity {
         }
 
         obbCard = findViewById(R.id.obbCard);
+        obbTitle = findViewById(R.id.obbTitle);
         obbStatusText = findViewById(R.id.obbStatusText);
+        obbIcon = findViewById(R.id.obbIcon);
+        obbStateIcon = findViewById(R.id.obbStateIcon);
+        keyValue = findViewById(R.id.keyValue);
+        statusDot = findViewById(R.id.statusDot);
         obbProgressBar = findViewById(R.id.obbProgressBar);
         obbRetryButton = findViewById(R.id.obbRetryButton);
 
@@ -162,6 +183,7 @@ public class MAct extends AppCompatActivity {
         label(findViewById(R.id.hoursBox), R.string.label_hours);
         label(findViewById(R.id.minutesBox), R.string.label_minutes);
         label(findViewById(R.id.secondsBox), R.string.label_seconds);
+        showMaskedKey();
         setKeyTimeUnavailable();
         startKeyCountdown();
         startPageAnimation();
@@ -170,6 +192,7 @@ public class MAct extends AppCompatActivity {
             obbRetryButton.setOnClickListener(v -> {
                 obbWorking = false;
                 if (!hasStorageAccess()) {
+                    accessAskedOnce = true;
                     requestStorageAccess();
                     return;
                 }
@@ -234,6 +257,31 @@ public class MAct extends AppCompatActivity {
         }
     }
 
+    /** The panel key, quoted back as head •••• tail so a screenshot leaks nothing. */
+    private void showMaskedKey() {
+        if (keyValue == null) return;
+        String key = new Prefs(this).getSt("USER", "");
+        keyValue.setText(maskKey(key));
+    }
+
+    private String maskKey(String key) {
+        if (key == null || key.trim().isEmpty()) return getString(R.string.dash);
+        key = key.trim();
+        int show = Math.min(4, key.length() / 4);
+        if (show == 0) return "••••";
+        return key.substring(0, show) + " •••• " + key.substring(key.length() - show);
+    }
+
+    /** Keeps the little status dot in step with the chip text. */
+    private void tintStatusDot(int colorRes) {
+        if (statusDot == null) return;
+        try {
+            statusDot.getBackground().mutate()
+                    .setTint(ContextCompat.getColor(this, colorRes));
+        } catch (Throwable ignored) {
+        }
+    }
+
     private void setKeyTimeUnavailable() {
         if (daysValue != null) daysValue.setText(R.string.dash);
         if (hoursValue != null) hoursValue.setText(R.string.dash);
@@ -269,17 +317,11 @@ public class MAct extends AppCompatActivity {
                 long remaining = expiryMillis - System.currentTimeMillis();
                 if (remaining <= 0L) {
                     setTimeValues(0, 0, 0, 0);
-                    if (subscriptionStatus != null) {
-                        subscriptionStatus.setText(R.string.status_expired);
-                        subscriptionStatus.setTextColor(Color.parseColor("#C98C8C"));
-                    }
+                    setLicenseState(false);
                     if (timeRemaining != null) timeRemaining.setText(R.string.status_expired);
                     return;
                 }
-                if (subscriptionStatus != null) {
-                    subscriptionStatus.setText(R.string.status_active);
-                    subscriptionStatus.setTextColor(Color.parseColor("#8FB3A0"));
-                }
+                setLicenseState(true);
                 long totalSeconds = TimeUnit.MILLISECONDS.toSeconds(remaining);
                 long days = totalSeconds / 86400L;
                 long hours = (totalSeconds % 86400L) / 3600L;
@@ -290,6 +332,17 @@ public class MAct extends AppCompatActivity {
             }
         };
         timer.run();
+    }
+
+    /** Chip text, chip colour and the little dot always move together. */
+    private void setLicenseState(boolean active) {
+        int labelRes = active ? R.string.status_active : R.string.status_expired;
+        int colorRes = active ? R.color.success : R.color.danger;
+        if (subscriptionStatus != null) {
+            subscriptionStatus.setText(labelRes);
+            subscriptionStatus.setTextColor(ContextCompat.getColor(this, colorRes));
+        }
+        tintStatusDot(colorRes);
     }
 
     private long parseExpiryMillis(String value) {
@@ -476,54 +529,136 @@ public class MAct extends AppCompatActivity {
 
     /**
      * Makes sure the game's OBB sits inside the sandbox before launch is
-     * offered. Runs by itself when the screen opens; every failure is shown on
-     * the OBB card with a RETRY button instead of failing silently.
+     * offered. Runs by itself when the screen opens and again whenever the app
+     * comes back to the foreground (so granting access in Settings is all the
+     * user has to do). Every state — waiting for access, copying, failed — is
+     * shown on one card with a single action.
      */
     private void ensureObbReady() {
         if (obbWorking || isFinishing()) return;
         obbWorking = true;
         setLaunchReady(false);
-
-        runOnUiThread(() -> {
-            if (obbCard != null) obbCard.setVisibility(View.VISIBLE);
-            if (obbRetryButton != null) obbRetryButton.setVisibility(View.GONE);
-            setObbStatus(getString(R.string.preparing));
-            if (obbProgressBar != null) {
-                obbProgressBar.setVisibility(View.VISIBLE);
-                obbProgressBar.setIndeterminate(true);
-            }
-        });
+        runOnUiThread(() -> obbState(ACCESS_CHECKING));
 
         new Thread(() -> {
-            String problem = null;
-            try {
-                if (!isGameInstalled) {
-                    problem = "BGMI is not installed on this device";
-                } else if (!hasStorageAccess()) {
-                    problem = "All files access is needed to read the game files";
-                    runOnUiThread(() -> {
-                        if (obbRetryButton != null) {
-                            obbRetryButton.setText(R.string.grant_file_access);
-                            obbRetryButton.setVisibility(View.VISIBLE);
-                        }
-                    });
-                } else if (isObbInSandbox()) {
-                    isObbCopied = true;
-                    runOnUiThread(this::onObbReady);
-                    return;
-                }
-            } catch (Throwable t) {
-                Log.e("MAct", "OBB check failed", t);
-                problem = "Cannot read the game storage: " + brief(t);
-            }
+            boolean access = hasStorageAccess();
+            boolean installed = isGameInstalled;
 
-            if (problem != null) {
-                final String message = problem;
-                runOnUiThread(() -> onObbFailed(message));
+            if (!installed) {
+                runOnUiThread(() -> {
+                    obbWorking = false;
+                    obbState(ACCESS_NO_GAME);
+                });
                 return;
             }
+
+            if (!access) {
+                boolean askedBefore = accessAskedOnce;
+                runOnUiThread(() -> {
+                    obbWorking = false;
+                    obbState(askedBefore ? ACCESS_DENIED : ACCESS_REQUIRED);
+                });
+                return;
+            }
+
+            if (isObbInSandbox()) {
+                runOnUiThread(() -> {
+                    obbWorking = false;
+                    isObbCopied = true;
+                    onObbReady();
+                });
+                return;
+            }
+
             runOnUiThread(this::startObbCopy);
         }).start();
+    }
+
+    /**
+     * One place that draws the file-access / game-data card, so the title, the
+     * icon and the single action can never disagree with each other.
+     */
+    private void obbState(int state) {
+        if (obbCard == null) return;
+        obbCard.setVisibility(View.VISIBLE);
+        if (obbProgressBar != null) {
+            obbProgressBar.setVisibility(View.GONE);
+            obbProgressBar.setIndeterminate(false);
+        }
+        if (obbStateIcon != null) obbStateIcon.setVisibility(View.GONE);
+        if (obbRetryButton != null) obbRetryButton.setVisibility(View.GONE);
+        if (obbIcon != null) {
+            obbIcon.setImageResource(R.drawable.ic_folder);
+            obbIcon.setColorFilter(ContextCompat.getColor(this, R.color.text_secondary));
+        }
+        if (obbRetryButton != null) obbRetryButton.setText(R.string.retry_copy);
+
+        switch (state) {
+            case ACCESS_CHECKING:
+                setCardText(R.string.game_data_title, getString(R.string.checking_access));
+                if (obbProgressBar != null) {
+                    obbProgressBar.setVisibility(View.VISIBLE);
+                    obbProgressBar.setIndeterminate(true);
+                }
+                break;
+
+            case ACCESS_REQUIRED:
+                setCardText(R.string.access_required_title, getString(R.string.access_required_body));
+                tintCardIcon(R.drawable.ic_shield_alert, R.color.warning);
+                if (obbRetryButton != null) {
+                    obbRetryButton.setText(R.string.allow_access);
+                    obbRetryButton.setVisibility(View.VISIBLE);
+                }
+                break;
+
+            case ACCESS_DENIED:
+                setCardText(R.string.access_denied_title, getString(R.string.access_denied_body));
+                tintCardIcon(R.drawable.ic_shield_alert, R.color.warning);
+                if (obbRetryButton != null) {
+                    obbRetryButton.setText(R.string.open_settings);
+                    obbRetryButton.setVisibility(View.VISIBLE);
+                }
+                break;
+
+            case ACCESS_COPYING:
+                setCardText(R.string.copying_game_data, getString(R.string.copying_game_data));
+                if (obbProgressBar != null) {
+                    obbProgressBar.setVisibility(View.VISIBLE);
+                    obbProgressBar.setIndeterminate(false);
+                    obbProgressBar.setMax(100);
+                    obbProgressBar.setProgress(0);
+                }
+                break;
+
+            case ACCESS_READY:
+                setCardText(R.string.game_data_ready, getString(R.string.access_granted));
+                if (obbStateIcon != null) obbStateIcon.setVisibility(View.VISIBLE);
+                break;
+
+            case ACCESS_FAILED:
+                tintCardIcon(R.drawable.ic_alert, R.color.danger);
+                if (obbRetryButton != null) {
+                    obbRetryButton.setText(R.string.retry_copy);
+                    obbRetryButton.setVisibility(View.VISIBLE);
+                }
+                break;
+
+            case ACCESS_NO_GAME:
+                setCardText(R.string.game_data_title, getString(R.string.not_installed));
+                tintCardIcon(R.drawable.ic_alert, R.color.warning);
+                break;
+        }
+    }
+
+    private void setCardText(int titleRes, String status) {
+        if (obbTitle != null) obbTitle.setText(titleRes);
+        if (obbStatusText != null) obbStatusText.setText(status);
+    }
+
+    private void tintCardIcon(int drawableRes, int colorRes) {
+        if (obbIcon == null) return;
+        obbIcon.setImageResource(drawableRes);
+        obbIcon.setColorFilter(ContextCompat.getColor(this, colorRes));
     }
 
     private boolean isObbInSandbox() {
@@ -538,14 +673,7 @@ public class MAct extends AppCompatActivity {
     private void startObbCopy() {
         if (isFinishing()) return;
         obbWorking = true;
-        if (obbCard != null) obbCard.setVisibility(View.VISIBLE);
-        setObbStatus(getString(R.string.copying_game_data));
-        if (obbProgressBar != null) {
-            obbProgressBar.setVisibility(View.VISIBLE);
-            obbProgressBar.setIndeterminate(false);
-            obbProgressBar.setMax(100);
-            obbProgressBar.setProgress(0);
-        }
+        obbState(ACCESS_COPYING);
 
         AppManager appManager = new AppManager(this);
         appManager.copyObbFolderAsync(PKG_BGMI, new AppManager.CopyCallback() {
@@ -563,7 +691,10 @@ public class MAct extends AppCompatActivity {
             @Override
             public void onProgressUpdate(int progress) {
                 runOnUiThread(() -> {
-                    setObbStatus(getString(R.string.copying_game_data) + " " + progress + "%");
+                    if (obbStatusText != null) {
+                        obbStatusText.setText(getString(R.string.copying_game_data)
+                                + " · " + Math.max(0, Math.min(100, progress)) + "%");
+                    }
                     if (obbProgressBar != null) obbProgressBar.setProgress(progress);
                 });
             }
@@ -578,36 +709,30 @@ public class MAct extends AppCompatActivity {
     private void onObbReady() {
         obbWorking = false;
         isObbCopied = true;
-        if (obbProgressBar != null) {
-            obbProgressBar.setIndeterminate(false);
-            obbProgressBar.setProgress(100);
-        }
+        obbState(ACCESS_READY);
         setLaunchReady(true);
-        if (obbCard != null) obbCard.setVisibility(View.GONE);
         updateButtonState(isGameRunning);
         updateLibState();
+
+        // the card has said what it needed to say
+        new Handler(getMainLooper()).postDelayed(() -> {
+            if (obbCard != null && launchReady) {
+                obbCard.animate().alpha(0f).setDuration(260).withEndAction(() -> {
+                    obbCard.setVisibility(View.GONE);
+                    obbCard.setAlpha(1f);
+                }).start();
+            }
+        }, 2200);
     }
 
     private void onObbFailed(String message) {
         obbWorking = false;
         setLaunchReady(false);
         String reason = message == null || message.trim().isEmpty() ? "Game data is not ready" : message;
-        if (obbCard != null) obbCard.setVisibility(View.VISIBLE);
-        setObbStatus(reason);
-        if (obbProgressBar != null) {
-            obbProgressBar.setIndeterminate(false);
-            obbProgressBar.setProgress(0);
-        }
-        if (obbRetryButton != null) {
-            obbRetryButton.setText(hasStorageAccess() ? R.string.retry_copy : R.string.grant_file_access);
-            obbRetryButton.setVisibility(View.VISIBLE);
-        }
+        obbState(ACCESS_FAILED);
+        if (obbStatusText != null) obbStatusText.setText(reason);
         setLaunchButtonText(R.string.game_data_required);
         Log.w("MAct", "OBB not ready: " + reason);
-    }
-
-    private void setObbStatus(String text) {
-        if (obbStatusText != null) obbStatusText.setText(text);
     }
 
     private void setLaunchReady(boolean ready) {
@@ -620,28 +745,45 @@ public class MAct extends AppCompatActivity {
         });
     }
 
+    /**
+     * Android 11+ needs the "all files" grant (the OBB lives in shared storage);
+     * older versions only need the classic read/write pair. Either one being
+     * present is enough for the copy to start.
+     */
     private boolean hasStorageAccess() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
-                return Environment.isExternalStorageManager();
-            } catch (Throwable t) {
-                return false;
+                if (Environment.isExternalStorageManager()) return true;
+            } catch (Throwable ignored) {
             }
         }
         return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                == PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
                 == PackageManager.PERMISSION_GRANTED;
     }
 
+    /** Sends the user straight to the one switch the OBB copy needs. */
     private void requestStorageAccess() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
                 Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
                 intent.setData(Uri.parse("package:" + getPackageName()));
                 startActivity(intent);
-            } else {
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 100);
+                return;
+            } catch (Throwable t) {
+                // some ROMs do not publish the per-app screen; fall back to the list
+                try {
+                    startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+                    return;
+                } catch (Throwable ignored) {
+                }
             }
+        }
+        try {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                            Manifest.permission.READ_EXTERNAL_STORAGE}, 100);
         } catch (Throwable t) {
             Log.e("MAct", "cannot open the storage settings", t);
             Toast.makeText(this, "Open Settings → Apps → XLOX LOADER → Permissions", Toast.LENGTH_LONG).show();

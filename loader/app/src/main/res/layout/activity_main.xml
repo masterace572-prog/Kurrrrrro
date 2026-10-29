@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The whole main screen: license card, game row, quiet progress areas, one
-  primary action. Everything is grouped so the eye moves top → bottom once.
+  The whole main screen: license card, game row, one file-access / game-data
+  card, quiet progress areas, one primary action pinned to the bottom.
+  Everything is grouped so the eye moves top → bottom once.
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -17,7 +18,7 @@
         android:paddingStart="20dp"
         android:paddingTop="22dp"
         android:paddingEnd="20dp"
-        android:paddingBottom="28dp">
+        android:paddingBottom="20dp">
 
         <!-- ============================================================ header -->
 
@@ -30,8 +31,7 @@
 
             <FrameLayout
                 android:layout_width="44dp"
-                android:layout_height="44dp"
-                >
+                android:layout_height="44dp">
 
                 <ImageView
                     android:id="@+id/mainLogo"
@@ -106,6 +106,7 @@
                     android:paddingBottom="5dp">
 
                     <View
+                        android:id="@+id/statusDot"
                         android:layout_width="6dp"
                         android:layout_height="6dp"
                         android:layout_marginEnd="7dp"
@@ -166,7 +167,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="12dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -255,6 +256,49 @@
                     android:layout_height="wrap_content"
                     android:text="@string/dash" />
             </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="16dp"
+                android:background="@color/stroke_soft" />
+
+            <!-- the key this device is running on, masked -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_key"
+                    android:tint="@color/text_tertiary" />
+
+                <TextView
+                    style="@style/Text.Secondary"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:text="@string/license_key"
+                    android:textAllCaps="false"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/keyValue"
+                    style="@style/Text.Body"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.06"
+                    android:maxLines="1"
+                    android:text="@string/dash"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- ========================================================= game row -->
@@ -306,7 +350,7 @@
                 android:textColor="@color/success" />
         </LinearLayout>
 
-        <!-- ================================================ game data (OBB) -->
+        <!-- ======================================== file access / game data -->
 
         <LinearLayout
             android:id="@+id/obbCard"
@@ -322,29 +366,64 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <TextView
-                    style="@style/Text.Label"
+                <FrameLayout
+                    android:layout_width="34dp"
+                    android:layout_height="34dp">
+
+                    <ImageView
+                        android:id="@+id/obbIcon"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_folder"
+                        android:tint="@color/text_secondary" />
+                </FrameLayout>
+
+                <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
                     android:layout_weight="1"
-                    android:text="@string/game_data" />
+                    android:orientation="vertical">
 
-                <ProgressBar
-                    android:id="@+id/obbProgressBar"
-                    style="?android:attr/progressBarStyleSmall"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:indeterminateTint="@color/text_secondary" />
+                    <TextView
+                        android:id="@+id/obbTitle"
+                        style="@style/Text.Body"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/game_data_title" />
+
+                    <TextView
+                        android:id="@+id/obbStatusText"
+                        style="@style/Text.Caption"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:lineSpacingExtra="2dp"
+                        android:text="@string/preparing" />
+                </LinearLayout>
+
+                <ImageView
+                    android:id="@+id/obbStateIcon"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_marginStart="10dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_check_circle"
+                    android:tint="@color/success"
+                    android:visibility="gone" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/obbStatusText"
-                style="@style/Text.Secondary"
+            <ProgressBar
+                android:id="@+id/obbProgressBar"
+                style="@style/Widget.Progress.Thin"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:lineSpacingExtra="3dp"
-                android:text="@string/preparing" />
+                android:layout_height="3dp"
+                android:layout_marginTop="14dp"
+                android:indeterminate="false"
+                android:progress="0"
+                android:visibility="gone" />
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/obbRetryButton"
@@ -352,7 +431,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="46dp"
                 android:layout_marginTop="14dp"
-                android:text="@string/retry_copy"
+                android:text="@string/allow_access"
                 android:visibility="gone" />
         </LinearLayout>
 
@@ -446,34 +525,33 @@
 
         <!-- ============================================================ action -->
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/startBgmi"
-            style="@style/Widget.Button.Action"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="22dp"
-            android:text="@string/launch_game" />
-
         <LinearLayout
+            android:id="@+id/actionBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:gravity="center"
+            android:layout_marginTop="22dp"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/startBgmi"
+                style="@style/Widget.Button.Action"
+                android:layout_width="0dp"
+                android:layout_height="58dp"
+                android:layout_weight="1"
+                android:text="@string/launch_game" />
+
+            <ImageButton
                 android:id="@+id/restartButton"
-                style="@style/Widget.Button.Link"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:drawableStart="@drawable/ic_restart"
-                android:drawablePadding="7dp"
-                android:drawableTint="@color/text_tertiary"
-                android:gravity="center_vertical"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:text="@string/restart_app"
-                android:textSize="12sp" />
+                style="@style/Widget.Button.Icon"
+                android:layout_width="58dp"
+                android:layout_height="58dp"
+                android:layout_marginStart="10dp"
+                android:contentDescription="@string/restart_app"
+                android:padding="18dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_restart"
+                android:tint="@color/text_secondary" />
         </LinearLayout>
 
     </LinearLayout>

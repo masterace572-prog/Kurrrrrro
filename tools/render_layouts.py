@@ -136,12 +136,60 @@ def font(sp, bold):
 _scratch = ImageDraw.Draw(Image.new('RGB', (4, 4)))
 
 
-def text_w(text, sp, bold):
-    return int(_scratch.textlength(text or ' ', font=font(sp, bold)))
+def tracking(em, sp):
+    """Android letterSpacing is in em; return the extra px per gap."""
+    try:
+        return px(sp) * float(em)
+    except Exception:
+        return 0.0
+
+
+def text_w(text, sp, bold, em=0.0):
+    base = _scratch.textlength(text or ' ', font=font(sp, bold))
+    if em and text and len(text) > 1:
+        base += tracking(em, sp) * (len(text) - 1)
+    return int(base)
+
+
+def draw_tracked(d, xy, text, fnt, fill, em, anchor):
+    if not em or not text:
+        d.text(xy, text, font=fnt, fill=fill, anchor=anchor)
+        return
+    gap = tracking(em, fnt.size / (px(1) or 1))
+    total = sum(d.textlength(ch, font=fnt) for ch in text) + gap * (len(text) - 1)
+    tx, ty = xy
+    if anchor in ('mm', 'lm'):
+        start = tx - total / 2 if anchor == 'mm' else tx
+    elif anchor == 'rm':
+        start = tx - total
+    else:
+        start = tx
+    for ch in text:
+        d.text((start, ty), ch, font=fnt, fill=fill, anchor='lm')
+        start += d.textlength(ch, font=fnt) + gap
 
 
 def text_h(sp):
     return int(px(sp) * TEXT_BASELINE)
+
+
+DEBUG_WRAP = False
+
+
+def wrap(text, sp, bold, em, width):
+    """Greedy word wrap, the way Android breaks a TextView."""
+    if width <= 0:
+        return [text]
+    out, line = [], ''
+    for word in text.split(' '):
+        candidate = word if not line else line + ' ' + word
+        if text_w(candidate, sp, bold, em) <= width or not line:
+            line = candidate
+        else:
+            out.append(line)
+            line = word
+    out.append(line)
+    return out or [text]
 
 
 # ------------------------------------------------------------------- drawing
@@ -159,7 +207,12 @@ SHAPES = {
 
 
 def draw_shape(image, box, name):
-    if not name or not name.startswith('@drawable/'):
+    if not name:
+        return
+    if name.startswith('@color/'):
+        ImageDraw.Draw(image).rectangle(box, fill=color(name))
+        return
+    if not name.startswith('@drawable/'):
         return
     shape = SHAPES.get(name[10:])
     if not shape:
@@ -306,10 +359,16 @@ def measure(node, avail):
             width = 0
             height = 0
             for k in kids_of(node):
+                real = inflate(k)
+                ka = attrs(real)
                 ml, mt, mr, mb = margins(k)
-                own = dim(k.get(A + 'layout_width'))
-                cw = inner if own in ('match',) else min(inner, measure(k, inner)[0])
-                if own != 'wrap' and own != 'match':
+                own = dim(real.get(A + 'layout_width'))
+                weight = float(ka.get('layout_weight', 0) or 0)
+                if own == 'match' or (weight and own == 0):
+                    cw = inner              # a weighted child takes the whole line
+                elif own == 'wrap':
+                    cw = min(inner, measure(k, inner)[0])
+                else:
                     cw = min(inner, own)
                 _, ch = measure(k, max(cw, 1))
                 height += ch + mt + mb
@@ -317,6 +376,8 @@ def measure(node, avail):
             content = (width, height)
 
         w = content[0] + pl + pr
+        if w_spec in ('match', 0) or (isinstance(w_spec, int) and w_spec == 0):
+            w = max(w, avail)
         h = content[1] + pt + pb
         out_w = avail if w_spec == 'match' else (w if w_spec == 'wrap' else w_spec)
         out_h = h if h_spec in ('wrap',) else (content[1] if h_spec == 'match' else h_spec)
@@ -326,15 +387,20 @@ def measure(node, avail):
         text = text_of(a.get('text')) or text_of(a.get('hint'))
         sp = size_of(a.get('textSize'), 14.0)
         lead = px(size_of(a.get('drawablePadding'), 0)) + px(16) if a.get('drawableStart') else 0
-        w = text_w(text, sp, is_bold(a)) + pl + pr + lead
-        h = text_h(sp) + max(pt + pb, px(6))
+        em = size_of(a.get('letterSpacing'), 0.0)
+        full = text_w(text, sp, is_bold(a), em)
+        avail_text = max(1, avail - pl - pr)
+        lines = wrap(text, sp, is_bold(a), em, avail_text) if text else ['']
+        w = max(text_w(line, sp, is_bold(a), em) for line in lines) + pl + pr + lead
+        h = text_h(sp) * len(lines) + max(pt + pb, px(6))
         if a.get('minHeight'):
             h = max(h, px(size_of(a['minHeight'])))
         if a.get('layout_height') and dim(node.get(A + 'layout_height')) not in ('wrap', 'match'):
             h = dim(node.get(A + 'layout_height'))
-        return (avail if w_spec == 'match' else min(w, avail)), h
+        resolved = avail if (w_spec == 'match' or w_spec == 0) else min(w, avail)
+        return resolved, h
 
-    if tag == 'ImageView':
+    if tag in ('ImageView', 'ImageButton'):
         side = dim(node.get(A + 'layout_width'))
         height = dim(node.get(A + 'layout_height'))
         if side == 'match':
@@ -369,8 +435,8 @@ def draw(node, image, x, y, avail, avail_h=None):
     tag = node.tag.split('.')[-1]
     a = attrs(node)
     w, h = measure(node, avail)
-    if dim(node.get(A + 'layout_width')) == 'match':
-        w = avail
+    if dim(node.get(A + 'layout_width')) in ('match', 0):
+        w = avail                     # 0dp without a weight still fills its slot
     if avail_h is not None and dim(node.get(A + 'layout_height')) == 'match':
         h = avail_h - y        # the root fills the window, not its content
     pl, pt, pr, pb = padding(node)
@@ -387,7 +453,20 @@ def draw(node, image, x, y, avail, avail_h=None):
             kw, kh = measure(k, w)
             kw = w if dim(k.get(A + 'layout_width')) == 'match' else kw
             kh = h if dim(k.get(A + 'layout_height')) == 'match' else kh
-            draw(k, image, x + (w - kw) // 2, y + (h - kh) // 2, w)
+            lg = str(attrs(k).get('layout_gravity', ''))
+            if 'end' in lg or 'right' in lg:
+                kx = x + w - kw
+            elif 'start' in lg or 'left' in lg:
+                kx = x
+            else:
+                kx = x + (w - kw) // 2
+            if 'bottom' in lg:
+                ky = y + h - kh
+            elif 'top' in lg:
+                ky = y
+            else:
+                ky = y + (h - kh) // 2
+            draw(k, image, kx, ky, kw, avail_h=ky + kh)
         return h
 
     if tag == 'LinearLayout':
@@ -453,8 +532,12 @@ def draw(node, image, x, y, avail, avail_h=None):
             real = inflate(k)
             ka = attrs(real)
             own = dim(real.get(A + 'layout_width'))
-            cw = inner if own == 'match' else min(inner, measure(k, inner)[0])
-            if own not in ('wrap', 'match'):
+            weight = float(ka.get('layout_weight', 0) or 0)
+            if own == 'match' or (weight and own == 0):
+                cw = inner
+            elif own == 'wrap':
+                cw = min(inner, measure(k, inner)[0])
+            else:
                 cw = min(inner, own)
             kh = measure(k, max(1, cw))[1]
             ml, mt, mr, mb = margins(k)
@@ -481,6 +564,16 @@ def draw(node, image, x, y, avail, avail_h=None):
 
     # ---- leaves -----------------------------------------------------------
     if tag == 'ProgressBar':
+        style = str(a.get('style', ''))
+        if 'progressBarStyle' in style and 'Horizontal' not in style and w > 0 and h > 0:
+            # indeterminate circular spinner: a thin ring, no fill
+            ring = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+            ImageDraw.Draw(ring).arc((2, 2, w - 2, h - 2), 0, 360,
+                                     fill=color('@color/stroke'), width=max(2, w // 40))
+            ImageDraw.Draw(ring).arc((2, 2, w - 2, h - 2), 210, 330,
+                                     fill=color('@color/text_secondary'), width=max(2, w // 40))
+            image.alpha_composite(ring, (x, y))
+            return h
         bar_bg = color('#1B1F24')
         ImageDraw.Draw(image).rounded_rectangle((x, y, x + w, y + h), radius=max(1, h // 2), fill=bar_bg)
         progress = float(a.get('progress', 0) or 0)
@@ -493,7 +586,7 @@ def draw(node, image, x, y, avail, avail_h=None):
         ImageDraw.Draw(image).rectangle((x, y, x + w, y + h), fill=color(a.get('background'), (37, 42, 49, 255)))
         return h
 
-    if tag == 'ImageView':
+    if tag in ('ImageView', 'ImageButton'):
         side = max(8, min(w, h if h else w))
         name = (a.get('src') or '').split('/')[-1]
         tint = color(a.get('tint')) if a.get('tint') else (242, 244, 246, 255)
@@ -533,7 +626,16 @@ def draw(node, image, x, y, avail, avail_h=None):
             tx = x + w - pr
             anchor = 'rm'
         if text:
-            ImageDraw.Draw(image).text((tx, y + h // 2), text, font=font(sp, is_bold(a)), fill=fill, anchor=anchor)
+            em = size_of(a.get('letterSpacing'), 0.0)
+            lead_px = px(size_of(a.get('drawablePadding'), 0)) + px(16) if a.get('drawableStart') else 0
+            if DEBUG_WRAP and text:
+                print('DBG', text[:18], 'w', w, 'avail', avail, 'pl', pl, 'pr', pr)
+            lines = wrap(text, sp, is_bold(a), em, max(1, w - pl - pr - lead_px))
+            line_h = text_h(sp)
+            top = y + pt + (max(0, (h - pt - pb) - line_h * len(lines)) // 2)
+            for i, line in enumerate(lines):
+                draw_tracked(ImageDraw.Draw(image), (tx, top + line_h * i + line_h // 2), line,
+                             font(sp, is_bold(a)), fill, em, anchor)
         return h
 
     return h
@@ -547,21 +649,60 @@ def status_bar(image):
            fill=(152, 162, 174, 255), anchor='rm')
 
 
+MASKED_KEY = 'KD9X \u2022\u2022\u2022\u2022 8F2A'
+
 SCREENS = [
-    ('01-splash', 'activity_splash.xml', 869),
-    ('02-login', 'activity_login.xml', 869),
-    ('03-main', 'activity_main.xml', 1240),
+    {'name': '01-splash', 'layout': 'activity_splash.xml', 'height': 869},
+    {'name': '02-login', 'layout': 'activity_login.xml', 'height': 869},
+    {
+        'name': '02b-verify', 'layout': 'activity_login.xml', 'height': 869,
+        'attrs': {'verifyOverlay': {'visibility': 'visible'},
+                  'verifySpinner': {'visibility': 'visible'},
+                  'verifyDone': {'visibility': 'visible'}},
+        'text': {'verifyStep': 'Key verified', 'verifyKey': MASKED_KEY},
+    },
+    {
+        'name': '03-main', 'layout': 'activity_main.xml', 'height': 1240,
+        'text': {'keyValue': MASKED_KEY},
+    },
+    {
+        'name': '04-file-access', 'layout': 'activity_main.xml', 'height': 1240,
+        'attrs': {'obbCard': {'visibility': 'visible'},
+                  'obbRetryButton': {'visibility': 'visible'}},
+        'text': {
+            'keyValue': MASKED_KEY,
+            'obbTitle': 'All files access required',
+            'obbStatusText': 'The game data lives in shared \u00a0storage. Allow access and the copy starts by itself \u2014 it is a one-time step.',
+            'obbRetryButton': 'Allow access',
+        },
+    },
 ]
+
+
+def apply_overrides(root, attrs_map, text_map):
+    """Force a view's state (visibility, text) so alt states can be previewed."""
+    for node in root.iter():
+        if not isinstance(node.tag, str):
+            continue
+        nid = str(node.get(A + 'id', '')).split('/')[-1]
+        if nid in attrs_map:
+            for key, value in attrs_map[nid].items():
+                node.set(A + key, value)
+        if nid in text_map and node.tag.split('.')[-1] in (
+                'TextView', 'Button', 'AppCompatButton', 'EditText'):
+            node.set(A + 'text', text_map[nid])
 
 
 def main():
     os.makedirs(OUT, exist_ok=True)
     scale = 1.6  # crisp output for review
-    for name, layout, height_dp in SCREENS:
+    for screen in SCREENS:
+        name, layout, height_dp = screen['name'], screen['layout'], screen['height']
         w = px(411)
         h = px(height_dp)
         image = Image.new('RGBA', (w, h), color('@color/bg'))
         root = ET.parse(os.path.join(RES, 'layout', layout)).getroot()
+        apply_overrides(root, screen.get('attrs', {}), screen.get('text', {}))
         draw(root, image, 0, 0, w, avail_h=h)
         canvas = Image.new('RGBA', (w, h), color('@color/bg'))
         canvas.alpha_composite(image)
