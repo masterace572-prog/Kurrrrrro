@@ -35,9 +35,9 @@ export default async function DashboardPage() {
 
   const cards = [
     { label: 'Total keys', value: stats?.total ?? '0', href: '/keys', tone: 'text-slate-100' },
-    { label: 'Active', value: stats?.active ?? '0', href: '/keys', tone: 'text-emerald-400' },
-    { label: 'Expired', value: stats?.expired ?? '0', href: '/keys', tone: 'text-red-400' },
-    { label: staff ? 'Accounts' : 'Devices', value: staff ? (stats?.resellers ?? '0') : (stats?.devices ?? '0'), href: staff ? '/admin/manage-users' : '/keys', tone: 'text-sky-400' },
+    { label: 'Active', value: stats?.active ?? '0', href: '/keys', tone: 'text-emerald-700' },
+    { label: 'Expired', value: stats?.expired ?? '0', href: '/keys', tone: 'text-red-700' },
+    { label: staff ? 'Accounts' : 'Devices', value: staff ? (stats?.resellers ?? '0') : (stats?.devices ?? '0'), href: staff ? '/admin/manage-users' : '/keys', tone: 'text-sky-700' },
   ];
 
   return (
@@ -54,7 +54,7 @@ export default async function DashboardPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((c) => (
-          <Link key={c.label} href={c.href} className="card transition hover:border-white/10 hover:bg-ink-850">
+          <Link key={c.label} href={c.href} className="card transition hover:border-slate-200/10 hover:bg-ink-850">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{c.label}</p>
             <p className={`mt-2 text-3xl font-black ${c.tone}`}>{c.value}</p>
           </Link>
@@ -110,13 +110,13 @@ export default async function DashboardPage() {
                         </td>
                         <td className="pr-5">
                           {!k.status ? (
-                            <span className="badge bg-slate-500/15 text-slate-300">blocked</span>
+                            <span className="badge bg-ink-800 text-slate-300">blocked</span>
                           ) : expired ? (
-                            <span className="badge bg-red-500/15 text-red-300">expired</span>
+                            <span className="badge bg-red-50 text-red-700">expired</span>
                           ) : k.expired_date ? (
-                            <span className="badge bg-emerald-500/15 text-emerald-300">active</span>
+                            <span className="badge bg-emerald-50 text-emerald-700">active</span>
                           ) : (
-                            <span className="badge bg-sky-500/15 text-sky-300">unused</span>
+                            <span className="badge bg-sky-50 text-sky-700">unused</span>
                           )}
                         </td>
                       </tr>
@@ -135,7 +135,7 @@ export default async function DashboardPage() {
           ) : (
             <ul className="space-y-3">
               {history.map((h, i) => (
-                <li key={i} className="border-b border-white/5 pb-2 last:border-0 last:pb-0">
+                <li key={i} className="border-b border-line pb-2 last:border-0 last:pb-0">
                   <p className="text-xs text-slate-400">
                     <span className="font-semibold text-slate-200">{h.user_do || 'system'}</span> · {fmtLocal(h.created_at)}
                   </p>
@@ -154,7 +154,7 @@ export default async function DashboardPage() {
             <h2 className="font-semibold text-slate-200">Loader endpoint</h2>
           </div>
           <p className="mt-1 text-sm text-slate-400">POST, form-urlencoded: game, user_key, serial</p>
-          <pre className="mt-3 overflow-x-auto rounded-lg bg-ink-850 p-3 text-xs text-emerald-300">
+          <pre className="mt-3 overflow-x-auto rounded-lg bg-ink-850 p-3 text-xs text-emerald-700">
             {`${process.env.PUBLIC_BASE_URL || 'https://<your-vercel-app>'}/server`}
           </pre>
           <div className="mt-3 flex flex-wrap gap-2">

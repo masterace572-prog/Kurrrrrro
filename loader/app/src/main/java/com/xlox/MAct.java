@@ -8,7 +8,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -129,16 +128,14 @@ public class MAct extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            getWindow().setStatusBarColor(Color.BLACK);
+        // light theme: dark icons on the light status bar
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            getWindow().setStatusBarColor(col(R.color.bg));
             getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            );
+                    View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
         }
 
         setContentView(R.layout.activity_main);
-
-        checkPermissions();
 
         // Download UI
         downloadBox = findViewById(R.id.downloadBox);
@@ -348,6 +345,11 @@ public class MAct extends AppCompatActivity {
         int show = Math.min(4, key.length() / 4);
         if (show == 0) return "••••";
         return key.substring(0, show) + " •••• " + key.substring(key.length() - show);
+    }
+
+    /** @color lookup without repeating ContextCompat everywhere. */
+    private int col(int colorRes) {
+        return ContextCompat.getColor(this, colorRes);
     }
 
     /** Keeps the little status dot in step with the chip text. */
@@ -632,9 +634,13 @@ public class MAct extends AppCompatActivity {
 
             if (!access) {
                 boolean askedBefore = accessAskedOnce;
+                accessAskedOnce = true;
                 runOnUiThread(() -> {
                     obbWorking = false;
                     obbState(askedBefore ? ACCESS_DENIED : ACCESS_REQUIRED);
+                    // first time only: take the user straight to the switch,
+                    // which is what "grant the permission" actually means
+                    if (!askedBefore && !isFinishing()) requestStorageAccess();
                 });
                 return;
             }
@@ -828,20 +834,21 @@ public class MAct extends AppCompatActivity {
     }
 
     /**
-     * Android 11+ needs the "all files" grant (the OBB lives in shared storage);
-     * older versions only need the classic read/write pair. Either one being
-     * present is enough for the copy to start.
+     * Android 11+ can only read /Android/obb through the "all files" grant —
+     * a granted READ_EXTERNAL_STORAGE means nothing there and used to make this
+     * return true while the copy still failed. Android 10 and below use the
+     * classic storage pair instead.
      */
     private boolean hasStorageAccess() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
-                if (Environment.isExternalStorageManager()) return true;
-            } catch (Throwable ignored) {
+                return Environment.isExternalStorageManager();
+            } catch (Throwable t) {
+                Log.w("MAct", "cannot read the all-files state", t);
+                return false;
             }
         }
         return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                == PackageManager.PERMISSION_GRANTED
-                || ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
                 == PackageManager.PERMISSION_GRANTED;
     }
 
@@ -896,7 +903,7 @@ public class MAct extends AppCompatActivity {
                 if (gameStatus != null) gameStatus.setText(R.string.installed);
                 if (deviceStatus != null) {
                     deviceStatus.setText(getString(R.string.this_device));
-                    deviceStatus.setTextColor(Color.parseColor("#8FB3A0"));
+                    deviceStatus.setTextColor(col(R.color.success));
                 }
                 updateButtonState(false);
             }
@@ -905,7 +912,7 @@ public class MAct extends AppCompatActivity {
             if (gameStatus != null) gameStatus.setText(R.string.not_installed);
             if (deviceStatus != null) {
                 deviceStatus.setText(R.string.not_installed);
-                deviceStatus.setTextColor(Color.parseColor("#C7A87C"));
+                deviceStatus.setTextColor(col(R.color.warning));
             }
             setLaunchButtonText(R.string.install_game);
         }
@@ -932,7 +939,7 @@ public class MAct extends AppCompatActivity {
                 if (startBgmi != null) {
                     startBgmi.setEnabled(true);
                     startBgmi.setAlpha(1f);
-                    startBgmi.setTextColor(Color.parseColor("#C98C8C"));
+                    startBgmi.setTextColor(col(R.color.danger));
                     startBgmi.setBackgroundResource(R.drawable.bg_btn_quiet);
                 }
                 return;
@@ -940,7 +947,7 @@ public class MAct extends AppCompatActivity {
             if (running) {
                 setLaunchButtonText(R.string.stop_game);
                 if (startBgmi != null) {
-                    startBgmi.setTextColor(Color.parseColor("#C98C8C"));
+                    startBgmi.setTextColor(col(R.color.danger));
                 }
                 if (startBgmi != null) {
                     startBgmi.setBackgroundResource(R.drawable.bg_btn_stop);
@@ -961,14 +968,14 @@ public class MAct extends AppCompatActivity {
                     if (startBgmi != null) {
                         startBgmi.setEnabled(false);
                         startBgmi.setAlpha(0.45f);
-                        startBgmi.setTextColor(Color.parseColor("#98A2AE"));
+                        startBgmi.setTextColor(col(R.color.text_secondary));
                     }
                 } else if (isUpdateAvailable) {
                     setLaunchButtonText(R.string.update_available);
-                    if (startBgmi != null) startBgmi.setTextColor(Color.parseColor("#0D0F12"));
+                    if (startBgmi != null) startBgmi.setTextColor(col(R.color.on_action));
                 } else {
                     setLaunchButtonText(R.string.launch_game);
-                    if (startBgmi != null) startBgmi.setTextColor(Color.parseColor("#0D0F12"));
+                    if (startBgmi != null) startBgmi.setTextColor(col(R.color.on_action));
                 }
                 if (startBgmi != null) {
                     startBgmi.setBackgroundResource(R.drawable.bg_btn_primary);
@@ -1033,7 +1040,7 @@ public class MAct extends AppCompatActivity {
             
             if (statusToggleText != null) {
                 statusToggleText.setText(message);
-                statusToggleText.setTextColor(isError ? Color.parseColor("#C98C8C") : Color.WHITE);
+                statusToggleText.setTextColor(col(isError ? R.color.danger : R.color.text_primary));
             }
             
             if (statusLoader != null) {
@@ -1119,10 +1126,4 @@ public class MAct extends AppCompatActivity {
         if (!launchReady && !obbWorking) ensureObbReady();
     }
 
-    /** Asks once, quietly, for the storage access the OBB copy needs. */
-    private void checkPermissions() {
-        if (!hasStorageAccess()) {
-            requestStorageAccess();
-        }
-    }
 }

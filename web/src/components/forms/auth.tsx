@@ -131,10 +131,9 @@ export function RegisterForm() {
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-5">
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-96 w-[36rem] -translate-x-1/2 rounded-full bg-brand-500/20 blur-3xl" />
       <div className="relative w-full max-w-md">
         <div className="mb-7 text-center">
-          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-brand-500 text-2xl font-black text-white shadow-glow">
+          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-brand-500 text-2xl font-black text-white">
             K
           </div>
           <h1 className="text-2xl font-black tracking-[0.25em] text-slate-100">{title}</h1>

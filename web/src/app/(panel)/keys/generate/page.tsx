@@ -25,7 +25,7 @@ export default async function GeneratePage() {
         <div className="space-y-4">
           <div className="card">
             <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-500/15 text-brand-400">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-ink-800 text-brand-400">
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <circle cx="8" cy="15" r="4" />
                   <path d="M10.8 12.2 20 3m-3 3 2.5 2.5M14 6l2.5 2.5" strokeLinecap="round" />
@@ -43,7 +43,7 @@ export default async function GeneratePage() {
 
           <div className="card">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Price list</p>
-            <ul className="divide-y divide-white/5 text-sm">
+            <ul className="divide-y divide-line text-sm">
               {Object.entries(DURATIONS).map(([hours, d]) => (
                 <li key={hours} className="flex items-center justify-between py-1.5">
                   <span className="text-slate-400">{d.label}</span>

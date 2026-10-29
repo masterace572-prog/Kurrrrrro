@@ -68,7 +68,7 @@ export default function Shell({
   const nav = (
     <nav className="flex h-full flex-col">
       <div className="flex items-center gap-2.5 px-2 pb-6">
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 text-lg font-black text-white shadow-glow">
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-500 text-lg font-black text-white">
           K
         </span>
         <div className="min-w-0">
@@ -84,9 +84,9 @@ export default function Shell({
         </button>
       </div>
 
-      <div className="mb-6 rounded-xl border border-white/5 bg-ink-850/80 p-3">
+      <div className="mb-6 rounded-xl border border-line bg-ink-850/80 p-3">
         <div className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-500/15 text-sm font-bold text-brand-400">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink-800 text-sm font-bold text-brand-400">
             {username.slice(0, 1).toUpperCase()}
           </span>
           <div className="min-w-0">
@@ -94,7 +94,7 @@ export default function Shell({
             <p className="text-[11px] font-medium text-brand-400">{roleName}</p>
           </div>
         </div>
-        <div className="mt-3 flex items-center justify-between rounded-lg bg-ink-900/70 px-2.5 py-1.5">
+        <div className="mt-3 flex items-center justify-between rounded-lg bg-ink-900 px-2.5 py-1.5">
           <span className="text-[10px] uppercase tracking-wider text-slate-500">Balance</span>
           <span className="text-xs font-bold text-slate-200">{saldo.toLocaleString()}</span>
         </div>
@@ -119,7 +119,7 @@ export default function Shell({
                       aria-current={active ? 'page' : undefined}
                       className={`group flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition ${
                         active
-                          ? 'bg-brand-500/15 font-semibold text-brand-400 ring-1 ring-inset ring-brand-500/25'
+                          ? 'bg-ink-800 font-semibold text-brand-400 ring-1 ring-inset ring-ink-700'
                           : 'text-slate-400 hover:bg-ink-800 hover:text-slate-200'
                       }`}
                     >
@@ -137,7 +137,7 @@ export default function Shell({
 
       <a
         href="/logout"
-        className="mt-4 flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm text-slate-400 transition hover:bg-red-500/10 hover:text-red-300"
+        className="mt-4 flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm text-slate-400 transition hover:bg-red-50 hover:text-red-700"
       >
         <Icon name="logout" className="h-4 w-4" />
         Sign out
@@ -148,7 +148,7 @@ export default function Shell({
   return (
     <div className="min-h-screen">
       {/* mobile top bar */}
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/5 bg-ink-950/85 px-4 py-3 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-ink-900/90 px-4 py-3 backdrop-blur lg:hidden">
         <button
           onClick={() => setOpen(true)}
           className="rounded-lg border border-ink-600 bg-ink-850 p-2 text-slate-300"
@@ -163,15 +163,15 @@ export default function Shell({
       {/* mobile drawer */}
       {open ? (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 max-w-[85%] border-r border-white/5 bg-ink-900 p-4 shadow-2xl">
+          <div className="absolute inset-0 bg-slate-100/30" onClick={() => setOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-72 max-w-[85%] border-r border-line bg-ink-900 p-4 shadow-card">
             {nav}
           </aside>
         </div>
       ) : null}
 
       <div className="flex">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-white/5 bg-ink-900/50 p-4 lg:block">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-line bg-ink-900 p-4 lg:block">
           {nav}
         </aside>
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">{children}</main>

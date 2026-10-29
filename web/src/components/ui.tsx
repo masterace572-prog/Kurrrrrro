@@ -49,10 +49,10 @@ const PATHS: Record<IconName, React.ReactNode> = {
 /* ------------------------------------------------------------------ alert */
 
 const TONES = {
-  success: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
-  danger: 'border-red-500/40 bg-red-500/10 text-red-200',
-  warning: 'border-amber-500/40 bg-amber-500/10 text-amber-200',
-  info: 'border-sky-500/40 bg-sky-500/10 text-sky-200',
+  success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+  danger: 'border-red-200 bg-red-50 text-red-800',
+  warning: 'border-amber-200 bg-amber-50 text-amber-800',
+  info: 'border-sky-200 bg-sky-50 text-sky-800',
 } as const;
 
 export function Alert({
@@ -101,7 +101,7 @@ export function FormMessage({ state, className = '' }: { state: FormState; class
   return (
     <div className={`pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 ${className}`}>
       <div className="pointer-events-auto w-full max-w-md animate-[fadeIn_.2s_ease-out]">
-        <div className="relative shadow-2xl">
+        <div className="relative shadow-card">
           <Alert tone={tone}>{state.message}</Alert>
           <button
             type="button"
@@ -184,7 +184,7 @@ export function Field({
       {children}
       {hint && !error ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
       {error ? (
-        <p className="mt-1 flex items-center gap-1 text-xs text-red-300">
+        <p className="mt-1 flex items-center gap-1 text-xs text-red-700">
           <Icon name="alert" className="h-3 w-3" />
           {error}
         </p>

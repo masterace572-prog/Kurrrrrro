@@ -129,10 +129,10 @@ export default async function ReleasesPage() {
               </tr>
             ) : (
               releases.map((r) => (
-                <tr key={r.id} className={r.is_current ? 'bg-emerald-500/[0.04]' : ''}>
+                <tr key={r.id} className={r.is_current ? 'bg-emerald-50/[0.04]' : ''}>
                   <td className="pl-5">
                     <span className="font-mono text-sm font-semibold text-slate-100">v{r.version}</span>
-                    {r.is_current ? <span className="ml-2 badge bg-emerald-500/15 text-emerald-300">live</span> : null}
+                    {r.is_current ? <span className="ml-2 badge bg-emerald-50 text-emerald-700">live</span> : null}
                   </td>
                   <td className="font-mono text-[11px] text-slate-400">{r.file_name}</td>
                   <td className="text-slate-400">{r.external_url ? '—' : humanSize(r.file_size)}</td>

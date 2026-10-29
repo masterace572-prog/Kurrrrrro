@@ -29,7 +29,7 @@ export default function Sidebar({
 
   return (
     <>
-      <div className="flex items-center justify-between border-b border-white/5 bg-ink-900/70 p-4 lg:hidden">
+      <div className="flex items-center justify-between border-b border-line bg-ink-900 p-4 lg:hidden">
         <span className="font-black tracking-widest text-brand-400">KURO PANEL</span>
         <button className="btn-ghost px-3 py-1" onClick={() => setOpen((v) => !v)}>
           ☰
@@ -37,7 +37,7 @@ export default function Sidebar({
       </div>
 
       <aside
-        className={`${open ? 'block' : 'hidden'} w-full shrink-0 border-r border-white/5 bg-ink-900/60 p-4 lg:block lg:w-64`}
+        className={`${open ? 'block' : 'hidden'} w-full shrink-0 border-r border-line bg-ink-900 p-4 lg:block lg:w-64`}
       >
         <div className="mb-6 hidden items-center gap-2 px-2 lg:flex">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-500 font-black text-white">
@@ -49,7 +49,7 @@ export default function Sidebar({
           </div>
         </div>
 
-        <div className="mb-5 rounded-xl border border-white/5 bg-ink-850 p-3">
+        <div className="mb-5 rounded-xl border border-line bg-ink-850 p-3">
           <p className="truncate text-sm font-semibold text-slate-100">{username}</p>
           <p className="text-xs text-brand-400">{roleName}</p>
         </div>
@@ -67,7 +67,7 @@ export default function Sidebar({
                 onClick={() => setOpen(false)}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
                   active
-                    ? 'bg-brand-500/15 text-brand-400 ring-1 ring-inset ring-brand-500/30'
+                    ? 'bg-ink-800 text-brand-400 ring-1 ring-inset ring-ink-700'
                     : 'text-slate-300 hover:bg-ink-800'
                 }`}
               >

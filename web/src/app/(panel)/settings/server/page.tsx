@@ -43,7 +43,7 @@ export default async function ServerPage() {
       />
 
       {maintenance ? (
-        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <Icon name="warning" className="h-4 w-4 shrink-0" />
           <p>
             <span className="font-semibold">Maintenance mode is ON.</span> Every loader login is currently rejected.

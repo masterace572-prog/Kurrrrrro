@@ -46,15 +46,15 @@ export default function Toast() {
 
   const tone =
     type === 'danger'
-      ? 'border-red-500/40 bg-red-950/95 text-red-100'
+      ? 'border-red-200 bg-white text-red-800'
       : type === 'warning'
-        ? 'border-amber-500/40 bg-amber-950/95 text-amber-100'
-        : 'border-emerald-500/40 bg-emerald-950/95 text-emerald-100';
+        ? 'border-amber-200 bg-white text-amber-800'
+        : 'border-emerald-200 bg-white text-emerald-800';
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex justify-center px-4">
       <div
-        className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-2xl backdrop-blur animate-[fadeIn_.2s_ease-out] ${tone}`}
+        className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-card animate-[fadeIn_.2s_ease-out] ${tone}`}
         role="status"
         aria-live="polite"
       >

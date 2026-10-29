@@ -7,8 +7,8 @@
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>
         <item name="android:navigationBarColor">@color/bg</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:windowTranslucentStatus">false</item>
         <item name="android:windowTranslucentNavigation">false</item>
         <item name="android:colorBackground">@color/bg</item>
@@ -18,7 +18,7 @@
         <item name="android:editTextColor">@color/text_primary</item>
         <item name="colorAccent">@color/action</item>
         <item name="colorPrimary">@color/action</item>
-        <item name="colorControlHighlight">#14FFFFFF</item>
+        <item name="colorControlHighlight">#0F16191F</item>
         <item name="colorControlActivated">@color/text_primary</item>
         <item name="alertDialogTheme">@style/DarkAlertDialogStyle</item>
         <item name="materialAlertDialogTheme">@style/DarkAlertDialogStyle</item>
@@ -143,8 +143,8 @@
         <item name="android:indeterminateTintMode">src_in</item>
     </style>
 
-    <style name="DarkAlertDialogStyle" parent="Theme.MaterialComponents.Dialog">
-        <item name="android:windowBackground">@color/surface</item>
+    <style name="DarkAlertDialogStyle" parent="Theme.MaterialComponents.Light.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/bg_dialog</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
         <item name="colorAccent">@color/action</item>

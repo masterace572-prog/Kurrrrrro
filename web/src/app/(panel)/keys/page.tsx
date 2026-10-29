@@ -73,8 +73,8 @@ export default async function KeysPage({
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
         {[
           { label: 'Total', value: stats?.total ?? '0', tone: 'text-slate-100' },
-          { label: 'Active', value: stats?.active ?? '0', tone: 'text-emerald-400' },
-          { label: 'Expired', value: stats?.expired ?? '0', tone: 'text-red-400' },
+          { label: 'Active', value: stats?.active ?? '0', tone: 'text-emerald-700' },
+          { label: 'Expired', value: stats?.expired ?? '0', tone: 'text-red-700' },
         ].map((s) => (
           <div key={s.label} className="card flex items-center justify-between py-3">
             <span className="text-xs uppercase tracking-wider text-slate-500">{s.label}</span>
@@ -156,7 +156,7 @@ export default async function KeysPage({
                         {k.user_key}
                       </Link>
                       {fresh ? (
-                        <span className="ml-2 rounded bg-brand-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-400">
+                        <span className="ml-2 rounded bg-ink-800 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-400">
                           new
                         </span>
                       ) : null}
@@ -168,7 +168,7 @@ export default async function KeysPage({
                     </td>
                     <td>
                       <span
-                        className={`text-sm ${dev.length >= k.max_devices ? 'text-amber-300' : 'text-slate-300'}`}
+                        className={`text-sm ${dev.length >= k.max_devices ? 'text-amber-700' : 'text-slate-300'}`}
                         title={dev.join(', ') || 'no devices bound'}
                       >
                         {dev.length}/{k.max_devices}
@@ -177,13 +177,13 @@ export default async function KeysPage({
                     {staff ? <td className="text-xs text-slate-400">{k.registrator ?? '—'}</td> : null}
                     <td>
                       {!k.status ? (
-                        <span className="badge bg-slate-500/15 text-slate-300">blocked</span>
+                        <span className="badge bg-ink-800 text-slate-300">blocked</span>
                       ) : expired ? (
-                        <span className="badge bg-red-500/15 text-red-300">expired</span>
+                        <span className="badge bg-red-50 text-red-700">expired</span>
                       ) : k.expired_date ? (
-                        <span className="badge bg-emerald-500/15 text-emerald-300">active</span>
+                        <span className="badge bg-emerald-50 text-emerald-700">active</span>
                       ) : (
-                        <span className="badge bg-sky-500/15 text-sky-300">unused</span>
+                        <span className="badge bg-sky-50 text-sky-700">unused</span>
                       )}
                     </td>
                     <td className="pr-5">

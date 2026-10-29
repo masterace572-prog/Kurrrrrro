@@ -1,18 +1,15 @@
 package com.xlox.utils;
 
 import android.annotation.SuppressLint;
-import android.app.Dialog;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.os.AsyncTask;
-import android.widget.ProgressBar;
-import android.widget.TextView;
+import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 
-import androidx.appcompat.app.AppCompatActivity;
-
-import com.xlox.R;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import androidx.core.content.ContextCompat;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
@@ -20,6 +17,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -27,13 +25,34 @@ import java.util.regex.Pattern;
 import net_62v.external.MetaPackageManager;
 import net_62v.external.MetaStorageManager;
 
+/**
+ * Copies the game's OBB files into the sandbox.
+ *
+ * This used to be an AsyncTask living inside an AppCompatActivity subclass that
+ * was created with {@code new AppManager(ctx)} — an Activity that never went
+ * through onCreate. It also swallowed the reason a copy failed. Both are gone:
+ * this is a plain object, the work runs on its own thread and every failure
+ * carries a message that can be shown to the user.
+ *
+ * The game keeps its data at
+ *   /storage/emulated/0/Android/obb/<pkg>/{main,patch}.<version>.<pkg>.obb
+ * and the sandbox reads it from
+ *   <sandbox external dir for <pkg>>/Android/obb/<pkg>/
+ */
 @Obfuscate
-public class AppManager extends AppCompatActivity {
+public class AppManager {
 
-    private final Context ctx;
+    private static final String TAG = "AppManager";
 
     public static final int INSTALL_APP = 1;
     public static final int COPY_OBB = 3;
+
+    /** Where the game keeps its shared-storage data, newest-looking first. */
+    private static final String[] SOURCE_ROOTS = {
+            "/storage/emulated/0",
+            "/sdcard",
+            "/storage/self/primary",
+    };
 
     public interface CopyCallback {
         void onCopyCompleted(boolean success);
@@ -42,388 +61,304 @@ public class AppManager extends AppCompatActivity {
         default void onError(String message) {}
     }
 
+    private final Context ctx;
+    private final Handler main = new Handler(Looper.getMainLooper());
+
     public AppManager(Context ctx) {
-        this.ctx = ctx;
+        this.ctx = ctx.getApplicationContext();
     }
 
-    @SuppressLint("StaticFieldLeak")
-    public void appManager(String pkg, int method, CopyCallback callback, boolean showDialog) {
+    /* ------------------------------------------------------------ entry points */
 
-        new AsyncTask<Void, Integer, Boolean>() {
-
-            String errorMessage = "";
-
-            Dialog progressDialog;
-            ProgressBar progressBar;
-            TextView progressText;
-
-            long totalBytes = 0;
-            long copiedBytes = 0;
-
-            @Override
-            protected void onPreExecute() {
-
-                if (method == COPY_OBB && showDialog) {
-
-                    progressDialog = new Dialog(ctx);
-                    progressDialog.setContentView(R.layout.progress_dialog);
-                    progressDialog.setCancelable(false);
-
-                    progressBar = progressDialog.findViewById(R.id.progressBar);
-                    progressText = progressDialog.findViewById(R.id.progressText);
-
-                    if (progressBar != null) {
-                        progressBar.setMax(100);
-                        progressBar.setProgress(0);
-                    }
-
-                    if (progressText != null) {
-                        progressText.setText("0%");
-                    }
-
-                    progressDialog.show();
-                }
-            }
-
-            @Override
-            protected Boolean doInBackground(Void... voids) {
-
-                if (method == COPY_OBB) {
-                    return copyObbFolder();
-                }
-
-                if (method == INSTALL_APP) {
-                    return installApp(pkg);
-                }
-
-                return false;
-            }
-
-            @Override
-            protected void onProgressUpdate(Integer... values) {
-                if (callback != null) {
-                    callback.onProgressUpdate(values[0]);
-                }
-
-                if (progressBar != null) {
-                    progressBar.setProgress(values[0]);
-                }
-
-                if (progressText != null) {
-                    progressText.setText(values[0] + "%");
-                }
-            }
-
-            @Override
-            protected void onPostExecute(Boolean success) {
-
-                if (progressDialog != null && progressDialog.isShowing()) {
-                    progressDialog.dismiss();
-                }
-
-                if (callback != null) {
-                    if (success) {
-                        callback.onCopyCompleted(true);
-                    } else {
-                        callback.onError(errorMessage == null || errorMessage.trim().isEmpty()
-                                ? "Unknown error while copying the game data"
-                                : errorMessage);
-                    }
-                } else {
-                    showResultDialog(success, errorMessage);
-                }
-            }
-
-            private boolean installApp(String pkg) {
-
-                try {
-
-                    PackageInfo packageInfo = ctx.getPackageManager().getPackageInfo(pkg, 0);
-
-                    String apkPath = packageInfo.applicationInfo.sourceDir;
-
-                    net_62v.external.MetaApplicationInstaller.installAppByPath(apkPath);
-
-                    boolean result = MetaPackageManager.isInnerAppInstalled(pkg);
-
-                    if (!result) {
-                        errorMessage = "Sandbox install failed!";
-                        return false;
-                    }
-
-                    return true;
-
-                } catch (PackageManager.NameNotFoundException e) {
-                    errorMessage = "Package not found!";
-                    return false;
-
-                } catch (Exception e) {
-                    errorMessage = e.getMessage();
-                    return false;
-                }
-            }
-
-            private boolean copyObbFolder() {
-
-                try {
-
-                    File sourceDir = new File("/storage/emulated/0/Android/obb/" + pkg);
-
-                    if (!sourceDir.exists()) {
-                        errorMessage = "OBB folder not found!";
-                        return false;
-                    }
-
-                    File destDir = getMundoObbDir(pkg);
-
-                    if (sourceDir.getAbsolutePath().equals(destDir.getAbsolutePath())) {
-                        return true;
-                    }
-
-                    if (!destDir.exists() && !destDir.mkdirs() && !destDir.isDirectory()) {
-                        errorMessage = "Cannot create the sandbox OBB folder";
-                        return false;
-                    }
-
-                    // BGMI ships a main OBB and, on larger builds, a patch OBB.
-                    // Both have to be inside the sandbox or the game boots without
-                    // its data.
-                    List<File> pending = new ArrayList<>();
-                    long needed = 0L;
-                    for (File obb : findObbFiles(sourceDir, pkg)) {
-                        if (obb.length() <= 0) continue;
-                        File already = new File(destDir, obb.getName());
-                        if (already.isFile() && already.length() == obb.length()) continue;
-                        pending.add(obb);
-                        needed += obb.length();
-                    }
-
-                    if (pending.isEmpty()) {
-                        if (findMainObb(sourceDir, pkg) == null) {
-                            errorMessage = "BGMI's main OBB is missing — open the game once so it downloads its data";
-                            return false;
-                        }
-                        // both sides already agree
-                        return true;
-                    }
-
-                    long free = freeBytes(destDir);
-                    if (free > 0 && free < needed + (8L * 1024L * 1024L)) {
-                        errorMessage = "Not enough free storage for the game data";
-                        return false;
-                    }
-
-                    totalBytes = needed;
-                    copiedBytes = 0;
-
-                    for (File obb : pending) {
-                        File target = new File(destDir, obb.getName());
-                        if (!copyFile(obb, target)) return false;
-                        long written = target.length();
-                        if (written != obb.length()) {
-                            errorMessage = "The copy stopped early (" + human(written)
-                                    + " of " + human(obb.length()) + ")";
-                            //noinspection ResultOfMethodCallIgnored
-                            target.delete();
-                            return false;
-                        }
-                    }
-                    return true;
-
-                } catch (Exception e) {
-                    errorMessage = e.getMessage();
-                    return false;
-                }
-            }
-
-            /**
-             * Every main/patch OBB BGMI keeps on shared storage, smallest first so
-             * the progress bar climbs steadily.
-             */
-            private List<File> findObbFiles(File sourceDir, String packageName) {
-                List<File> out = new ArrayList<>();
-                File[] files = sourceDir.listFiles();
-                if (files == null) return out;
-
-                Pattern p = Pattern.compile(
-                        "^(main|patch)\\.[0-9]+\\." + Pattern.quote(packageName) + "\\.obb$");
-                for (File file : files) {
-                    if (file.isFile() && p.matcher(file.getName()).matches()) out.add(file);
-                }
-                Collections.sort(out, (a, b) -> Long.compare(a.length(), b.length()));
-                return out;
-            }
-
-            private File findMainObb(File sourceDir, String packageName) {
-                File[] files = sourceDir.listFiles();
-                if (files == null) return null;
-
-                String pattern = "^main\\.[0-9]+\\." + Pattern.quote(packageName) + "\\.obb$";
-                File selected = null;
-                long selectedVersion = -1L;
-                for (File file : files) {
-                    if (!file.isFile() || !file.getName().matches(pattern)) continue;
-                    String[] parts = file.getName().split("\\.");
-                    long version = -1L;
-                    if (parts.length > 1) {
-                        try {
-                            version = Long.parseLong(parts[1]);
-                        } catch (NumberFormatException ignored) {}
-                    }
-                    if (selected == null || version > selectedVersion) {
-                        selected = file;
-                        selectedVersion = version;
-                    }
-                }
-                return selected;
-            }
-
-            private boolean copyFile(File source, File target) {
-                FileOutputStream output = null;
-                try (FileInputStream input = new FileInputStream(source)) {
-                    File parent = target.getParentFile();
-                    if (parent != null && !parent.exists()) parent.mkdirs();
-
-                    output = new FileOutputStream(target);
-                    byte[] buffer = new byte[1024 * 1024];
-                    int length;
-
-                    while ((length = input.read(buffer)) > 0) {
-                        output.write(buffer, 0, length);
-                        copiedBytes += length;
-                        int progress = totalBytes > 0 ? (int) ((copiedBytes * 100) / totalBytes) : 100;
-                        publishProgress(progress);
-                    }
-
-                    output.flush();
-                    output.getFD().sync();
-                    return true;
-                } catch (Exception e) {
-                    errorMessage = e.getMessage() == null || e.getMessage().trim().isEmpty()
-                            ? "Cannot write the game data (storage full or permission denied)"
-                            : e.getMessage();
-                    // never leave a half-copied OBB behind
-                    //noinspection ResultOfMethodCallIgnored
-                    target.delete();
-                    return false;
-                } finally {
-                    if (output != null) {
-                        try {
-                            output.close();
-                        } catch (Exception ignored) {
-                        }
-                    }
-                }
-            }
-
-            private long freeBytes(File dir) {
-                try {
-                    android.os.StatFs stat = new android.os.StatFs(dir.getAbsolutePath());
-                    return stat.getAvailableBlocksLong() * stat.getBlockSizeLong();
-                } catch (Throwable t) {
-                    return -1L;
-                }
-            }
-
-            private String human(long bytes) {
-                if (bytes < 1024) return bytes + " B";
-                if (bytes < 1024 * 1024) return (bytes / 1024) + " KB";
-                return (bytes / (1024 * 1024)) + " MB";
-            }
-
-            private long getFolderSize(File dir) {
-
-                long size = 0;
-                File[] files = dir.listFiles();
-
-                if (files != null) {
-                    for (File file : files) {
-                        if (file.isDirectory()) {
-                            size += getFolderSize(file);
-                        } else {
-                            size += file.length();
-                        }
-                    }
-                }
-
-                return size;
-            }
-
-            private void showResultDialog(boolean success, String errorMessage) {
-
-                new MaterialAlertDialogBuilder(ctx)
-                        .setTitle(success ? "Success" : "Error")
-                        .setMessage(success ? (method == INSTALL_APP ? "App installed successfully." : "OBB ready successfully.") : errorMessage)
-                        .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
-                        .show();
-            }
-
-        }.execute();
-    }
-
-    private File getMundoObbDir(String pkg) {
-        try {
-            return new File(
-                    MetaStorageManager.obtainAppExternalStorageDir(pkg) + "/Android/obb",
-                    pkg
-            );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public void copyObbFolderAsync(String pkg, final CopyCallback callback, boolean unusedDialogFlag) {
+        new Thread(() -> copyObbFolder(pkg, callback), "obb-copy").start();
     }
 
     /**
-     * True when every OBB the game keeps on shared storage already sits in the
-     * sandbox with the same size — i.e. the copy genuinely finished. Without
-     * storage access the source cannot be listed, so it falls back to "a main
-     * OBB is present".
+     * True when every OBB the game has on shared storage is already in the
+     * sandbox at the same size. Falls back to "a main OBB exists" when the
+     * source cannot be listed (no storage access yet).
      */
     public boolean checkObbContainer(String packageName) {
         File destDir;
         try {
-            destDir = getMundoObbDir(packageName);
+            destDir = getSandboxObbDir(packageName);
         } catch (Throwable t) {
+            Log.w(TAG, "sandbox dir unavailable: " + t.getMessage());
             return false;
         }
-        if (destDir == null || !destDir.exists() || !destDir.isDirectory()) return false;
-        File[] local = destDir.listFiles();
-        if (local == null) return false;
+        if (destDir == null || !destDir.isDirectory()) return false;
 
-        Pattern both = Pattern.compile(
-                "^(main|patch)\\.[0-9]+\\." + Pattern.quote(packageName) + "\\.obb$");
-        File[] source = new File("/storage/emulated/0/Android/obb/" + packageName).listFiles();
-
-        if (source != null) {
-            boolean seen = false;
-            for (File file : source) {
-                if (!file.isFile() || !both.matcher(file.getName()).matches()) continue;
-                seen = true;
-                File copy = new File(destDir, file.getName());
-                if (!copy.isFile() || copy.length() != file.length()) return false;
+        File sourceDir = findSourceDir(packageName);
+        if (sourceDir != null) {
+            List<File> obbs = listObbFiles(sourceDir, packageName);
+            if (!obbs.isEmpty()) {
+                for (File obb : obbs) {
+                    File copy = new File(destDir, obb.getName());
+                    if (!copy.isFile() || copy.length() != obb.length()) return false;
+                }
+                return true;
             }
-            if (seen) return true;
+            return false;                    // source readable, but nothing to copy
         }
 
-        Pattern main = Pattern.compile(
-                "^main\\.[0-9]+\\." + Pattern.quote(packageName) + "\\.obb$");
+        // cannot see the source: trust a complete-looking destination
+        Pattern main = mainPattern(packageName);
+        File[] local = destDir.listFiles();
+        if (local == null) return false;
         for (File file : local) {
-            if (file.isFile() && main.matcher(file.getName()).matches()) return true;
+            if (file.isFile() && main.matcher(file.getName()).matches() && file.length() > 0) {
+                return true;
+            }
         }
         return false;
     }
 
-    public void copyObbFolderAsync(String pkg, final CopyCallback callback) {
-        copyObbFolderAsync(pkg, callback, true);
+    /* ------------------------------------------------------------------ the copy */
+
+    private void copyObbFolder(String pkg, CopyCallback callback) {
+        try {
+            File sourceDir = findSourceDir(pkg);
+            if (sourceDir == null) {
+                fail(callback, "The game's OBB folder was not found.\n\n"
+                        + "Open " + pkg + " once so it finishes downloading its data, "
+                        + "and make sure All files access is allowed.");
+                return;
+            }
+
+            File destDir;
+            try {
+                destDir = getSandboxObbDir(pkg);
+            } catch (Throwable t) {
+                fail(callback, "The sandbox storage is not available — is the game installed in the sandbox?"
+                        + detail(t));
+                return;
+            }
+            if (destDir == null) {
+                fail(callback, "The sandbox storage is not available.");
+                return;
+            }
+            if (sourceDir.getAbsolutePath().equals(destDir.getAbsolutePath())) {
+                ok(callback);
+                return;
+            }
+            if (!destDir.isDirectory() && !destDir.mkdirs() && !destDir.isDirectory()) {
+                fail(callback, "Cannot create the game data folder inside the sandbox.");
+                return;
+            }
+
+            List<File> obbs = listObbFiles(sourceDir, pkg);
+            List<File> pending = new ArrayList<>();
+            long needed = 0L;
+            for (File obb : obbs) {
+                if (obb.length() <= 0) continue;
+                File already = new File(destDir, obb.getName());
+                if (already.isFile() && already.length() == obb.length()) continue;
+                pending.add(obb);
+                needed += obb.length();
+            }
+
+            if (obbs.isEmpty()) {
+                fail(callback, "The game's OBB file is missing.\n\n"
+                        + "Open the game once so it downloads its data, then try again.");
+                return;
+            }
+            if (pending.isEmpty()) {
+                ok(callback);
+                return;
+            }
+
+            long free = freeBytes(destDir);
+            if (free > 0 && free < needed + (8L * 1024L * 1024L)) {
+                fail(callback, "Not enough free storage — "
+                        + human(needed) + " of game data still has to be copied.");
+                return;
+            }
+
+            long done = 0L;
+            for (File obb : pending) {
+                File target = new File(destDir, obb.getName());
+                if (!copyFile(obb, target, done, needed, callback)) {
+                    //noinspection ResultOfMethodCallIgnored
+                    target.delete();
+                    return;                  // copyFile already reported
+                }
+                if (target.length() != obb.length()) {
+                    //noinspection ResultOfMethodCallIgnored
+                    target.delete();
+                    fail(callback, "The copy stopped early (" + human(target.length())
+                            + " of " + human(obb.length()) + "). Free some space and retry.");
+                    return;
+                }
+                done += obb.length();
+            }
+
+            ok(callback);
+
+        } catch (Throwable t) {
+            Log.e(TAG, "OBB copy failed", t);
+            fail(callback, "Copying the game data failed" + detail(t));
+        }
     }
 
-    public void copyObbFolderAsync(String pkg, final CopyCallback callback, boolean showDialog) {
-        if (checkObbContainer(pkg)) {
-            if (callback != null) {
-                callback.onCopyCompleted(true);
+    private boolean copyFile(File source, File target, long doneBefore, long total,
+                             CopyCallback callback) {
+        FileOutputStream output = null;
+        try (FileInputStream input = new FileInputStream(source)) {
+            File parent = target.getParentFile();
+            if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
+                fail(callback, "Cannot create the sandbox folder for the game data.");
+                return false;
             }
-            return;
-        }
 
-        appManager(pkg, COPY_OBB, callback, showDialog);
+            output = new FileOutputStream(target);
+            byte[] buffer = new byte[1024 * 512];
+            int length;
+            long written = 0L;
+            long lastPush = 0L;
+
+            while ((length = input.read(buffer)) > 0) {
+                output.write(buffer, 0, length);
+                written += length;
+                long now = System.currentTimeMillis();
+                if (callback != null && total > 0 && now - lastPush > 120L) {
+                    lastPush = now;
+                    final int percent = (int) Math.min(100L, ((doneBefore + written) * 100L) / total);
+                    main.post(() -> callback.onProgressUpdate(percent));
+                }
+            }
+
+            output.flush();
+            output.getFD().sync();
+            return true;
+
+        } catch (Throwable t) {
+            Log.e(TAG, "writing " + target + " failed", t);
+            fail(callback, "Cannot write the game data" + detail(t)
+                    + "\n\nFree some space or allow All files access, then retry.");
+            return false;
+        } finally {
+            if (output != null) {
+                try {
+                    output.close();
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
+    /* ----------------------------------------------------------------- helpers */
+
+    /** The first readable OBB directory for this package, or null. */
+    private File findSourceDir(String pkg) {
+        for (String root : SOURCE_ROOTS) {
+            File dir = new File(root + "/Android/obb/" + pkg);
+            if (dir.isDirectory() && dir.canRead()) {
+                String[] names = dir.list();
+                if (names != null && names.length > 0) return dir;
+                return dir;                  // readable but empty: still the right place
+            }
+        }
+        // last resort: the API's own idea of external storage
+        try {
+            File fallback = new File(Environment.getExternalStorageDirectory(),
+                    "Android/obb/" + pkg);
+            if (fallback.isDirectory() && fallback.canRead()) return fallback;
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    private File getSandboxObbDir(String pkg) {
+        return new File(MetaStorageManager.obtainAppExternalStorageDir(pkg) + "/Android/obb", pkg);
+    }
+
+    private Pattern mainPattern(String pkg) {
+        return Pattern.compile("^main\\.[0-9]+\\." + Pattern.quote(pkg) + "\\.obb$");
+    }
+
+    /** main and patch OBBs, smallest first so the bar moves early. */
+    private List<File> listObbFiles(File dir, String pkg) {
+        List<File> out = new ArrayList<>();
+        File[] files = dir.listFiles();
+        if (files == null) return out;
+        Pattern both = Pattern.compile(
+                "^(main|patch)\\.[0-9]+\\." + Pattern.quote(pkg) + "\\.obb$");
+        for (File file : files) {
+            if (file.isFile() && both.matcher(file.getName()).matches() && file.length() > 0) {
+                out.add(file);
+            }
+        }
+        Collections.sort(out, (a, b) -> Long.compare(a.length(), b.length()));
+        return out;
+    }
+
+    private long freeBytes(File dir) {
+        try {
+            android.os.StatFs stat = new android.os.StatFs(dir.getAbsolutePath());
+            return stat.getAvailableBlocksLong() * stat.getBlockSizeLong();
+        } catch (Throwable t) {
+            return -1L;
+        }
+    }
+
+    private String human(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return (bytes / 1024) + " KB";
+        if (bytes < 1024L * 1024L * 1024L) return (bytes / (1024 * 1024)) + " MB";
+        return String.format(java.util.Locale.US, "%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0));
+    }
+
+    private String detail(Throwable t) {
+        if (t == null) return "";
+        String m = t.getMessage();
+        if (m == null || m.trim().isEmpty()) return " (" + t.getClass().getSimpleName() + ")";
+        return " (" + (m.length() > 90 ? m.substring(0, 90) + "…" : m) + ")";
+    }
+
+    private void ok(CopyCallback callback) {
+        if (callback != null) main.post(() -> callback.onCopyCompleted(true));
+    }
+
+    private void fail(CopyCallback callback, String message) {
+        Log.w(TAG, message);
+        if (callback != null) main.post(() -> callback.onError(message));
+    }
+
+    /* ---------------------------------------------------------------- install */
+
+    @SuppressLint("StaticFieldLeak")
+    public void installIntoBox(String pkg, CopyCallback callback) {
+        new Thread(() -> {
+            try {
+                PackageInfo info = ctx.getPackageManager().getPackageInfo(pkg, 0);
+                String apkPath = info.applicationInfo.sourceDir;
+                net_62v.external.MetaApplicationInstaller.installAppByPath(apkPath);
+                boolean installed = MetaPackageManager.isInnerAppInstalled(pkg);
+                if (callback != null) {
+                    main.post(() -> callback.onCopyCompleted(installed));
+                }
+            } catch (PackageManager.NameNotFoundException e) {
+                fail(callback, "The game is not installed on this device.");
+            } catch (Throwable t) {
+                fail(callback, "Could not install the game into the sandbox" + detail(t));
+            }
+        }, "sandbox-install").start();
+    }
+
+    /** Kept for callers that want the package's checker directly. */
+    public boolean hasPermission(String permission) {
+        return ContextCompat.checkSelfPermission(ctx, permission)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    /** Convenience for tests / logs: which roots look usable right now. */
+    public static List<String> readableRoots() {
+        List<String> out = new ArrayList<>();
+        for (String root : Arrays.asList(SOURCE_ROOTS)) {
+            File f = new File(root);
+            if (f.isDirectory() && f.canRead()) out.add(root);
+        }
+        return out;
     }
 }

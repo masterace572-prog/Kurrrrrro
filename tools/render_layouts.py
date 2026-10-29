@@ -528,18 +528,36 @@ def draw(node, image, x, y, avail, avail_h=None):
         cy = y + pt
         stack = 0
         heights = []
+        weight_total = 0.0
+        fixed_h = 0
+        for k in kids:
+            real = inflate(k)
+            ka = attrs(real)
+            weight = float(ka.get('layout_weight', 0) or 0)
+            own_h = dim(real.get(A + 'layout_height'))
+            if weight and own_h == 0:
+                weight_total += weight
+                continue
+            fixed_h += measure(k, inner)[1] + sum(margins(k)[1::2])
+        spare = int(max(0, (h - pt - pb) - fixed_h))
+
         for k in kids:
             real = inflate(k)
             ka = attrs(real)
             own = dim(real.get(A + 'layout_width'))
             weight = float(ka.get('layout_weight', 0) or 0)
+            own_h = dim(real.get(A + 'layout_height'))
             if own == 'match' or (weight and own == 0):
                 cw = inner
             elif own == 'wrap':
                 cw = min(inner, measure(k, inner)[0])
             else:
                 cw = min(inner, own)
-            kh = measure(k, max(1, cw))[1]
+            if weight and own_h == 0 and weight_total:
+                kh = int(spare * weight / weight_total)
+                ml0, mt0, mr0, mb0 = margins(k)
+            else:
+                kh = measure(k, max(1, cw))[1]
             ml, mt, mr, mb = margins(k)
             heights.append((k, cw, kh, mt, mb, ka))
             stack += kh + mt + mb
@@ -583,7 +601,8 @@ def draw(node, image, x, y, avail, avail_h=None):
         return h
 
     if tag == 'View':
-        ImageDraw.Draw(image).rectangle((x, y, x + w, y + h), fill=color(a.get('background'), (37, 42, 49, 255)))
+        if a.get('background'):
+            ImageDraw.Draw(image).rectangle((x, y, x + w, y + h), fill=color(a.get('background')))
         return h
 
     if tag in ('ImageView', 'ImageButton'):
@@ -642,11 +661,13 @@ def draw(node, image, x, y, avail, avail_h=None):
 
 
 def status_bar(image):
+    """Draws the OS chrome in the theme's own colours (light or dark)."""
+    fg = color('@color/text_primary')
+    muted = color('@color/text_secondary')
     d = ImageDraw.Draw(image)
-    d.rectangle((0, 0, image.width, px(26)), fill=color('@color/bg'))
-    d.text((px(20), px(13)), '9:41', font=font(13, True), fill=(242, 244, 246, 255), anchor='lm')
-    d.text((image.width - px(20), px(13)), '▮▮  ▮', font=font(10, False),
-           fill=(152, 162, 174, 255), anchor='rm')
+    d.text((px(20), px(13)), '9:41', font=font(13, True), fill=fg, anchor='lm')
+    d.text((image.width - px(20), px(13)), '▮▮ ▮', font=font(13, True), fill=muted, anchor='rm')
+    return
 
 
 MASKED_KEY = 'KD9X \u2022\u2022\u2022\u2022 8F2A'
@@ -656,10 +677,13 @@ SCREENS = [
     {'name': '02-login', 'layout': 'activity_login.xml', 'height': 869},
     {
         'name': '02b-verify', 'layout': 'activity_login.xml', 'height': 869,
-        'attrs': {'verifyOverlay': {'visibility': 'visible'},
-                  'verifySpinner': {'visibility': 'visible'},
-                  'verifyDone': {'visibility': 'visible'}},
-        'text': {'verifyStep': 'Key verified', 'verifyKey': MASKED_KEY},
+        'attrs': {'loginError': {'visibility': 'visible'}},
+        'text': {'loginError': 'That key has expired — ask for a new one'},
+    },
+    {
+        'name': '02c-dialog', 'layout': 'dialog_verify.xml', 'height': 869,
+        'dialog': True,
+        'text': {'verifyStep': 'Binding this device…', 'verifyKey': MASKED_KEY},
     },
     {
         'name': '03-main', 'layout': 'activity_main.xml', 'height': 1240,
@@ -714,6 +738,25 @@ def main():
         draw(root, image, 0, 0, w, avail_h=h)
         canvas = Image.new('RGBA', (w, h), color('@color/bg'))
         canvas.alpha_composite(image)
+        if screen.get('dialog'):
+            # dim what is behind, then centre the dialog card
+            shade = Image.new('RGBA', (w, h), (10, 12, 15, 82))
+            canvas.alpha_composite(shade)
+            card = Image.new('RGBA', (int(w * 0.78), 1), (0, 0, 0, 0))
+            dw = int(w * 0.78)
+            dlg = ET.parse(os.path.join(RES, 'layout', layout)).getroot()
+            apply_overrides(dlg, screen.get('attrs', {}), screen.get('text', {}))
+            _, dh = measure(dlg, dw)
+            dlg_img = Image.new('RGBA', (dw, dh + 2), (0, 0, 0, 0))
+            draw(dlg, dlg_img, 0, 0, dw, avail_h=dh)
+            dh += 2
+            canvas.alpha_composite(dlg_img, ((w - dw) // 2, (h - dh) // 2))
+            status_bar(canvas)
+            out = canvas.convert('RGB')
+            out = out.resize((int(w * scale / 1.4), int(h * scale / 1.4)), Image.LANCZOS)
+            out.save(os.path.join(OUT, name + '.png'))
+            print('wrote', os.path.join(OUT, name + '.png'), out.size)
+            continue
         status_bar(canvas)
         out = canvas.convert('RGB')
         out = out.resize((int(w * scale / 1.4), int(h * scale / 1.4)), Image.LANCZOS)

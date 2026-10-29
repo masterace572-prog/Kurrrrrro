@@ -128,10 +128,10 @@ export function ReferralForm({ isOwner }: { isOwner: boolean }) {
       <FormMessage state={state} />
 
       {created ? (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-center">
-          <p className="text-[10px] uppercase tracking-widest text-emerald-300/80">Share this code</p>
-          <p className="my-1 font-mono text-2xl font-black tracking-[0.3em] text-emerald-200">{created}</p>
-          <p className="text-[11px] text-emerald-300/70">Single use · expires with the access window below</p>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center">
+          <p className="text-[10px] uppercase tracking-widest text-emerald-700/80">Share this code</p>
+          <p className="my-1 font-mono text-2xl font-black tracking-[0.3em] text-emerald-800">{created}</p>
+          <p className="text-[11px] text-emerald-700/70">Single use · expires with the access window below</p>
         </div>
       ) : null}
 
@@ -189,7 +189,7 @@ export function ProfileForm({
         </Field>
       </div>
 
-      <div className="border-t border-white/5 pt-4">
+      <div className="border-t border-line pt-4">
         <h2 className="font-semibold text-slate-200">Change password</h2>
         <p className="text-xs text-slate-500">Leave all three fields empty to keep your current password.</p>
       </div>

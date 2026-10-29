@@ -49,7 +49,7 @@ export function MaintenanceForm({ status, message }: { status: string; message: 
 
       <div
         className={`flex items-center justify-between rounded-xl border px-4 py-3 transition ${
-          on ? 'border-red-500/40 bg-red-500/10' : 'border-white/5 bg-ink-850'
+          on ? 'border-red-200 bg-red-50' : 'border-line bg-ink-850'
         }`}
       >
         <div>
@@ -161,7 +161,7 @@ export function FeatureForm({
           <label
             key={key}
             className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition ${
-              on[key] ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-white/5 bg-ink-850 text-slate-400'
+              on[key] ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-line bg-ink-850 text-slate-400'
             } ${canEdit ? '' : 'pointer-events-none opacity-60'}`}
           >
             {label}
@@ -213,7 +213,7 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
         <input id="version" name="version" className="input font-mono" placeholder="1.4" maxLength={32} required />
       </Field>
 
-      <div className="flex gap-2 rounded-lg border border-white/5 bg-ink-850 p-1 text-xs">
+      <div className="flex gap-2 rounded-lg border border-line bg-ink-850 p-1 text-xs">
         {(['file', 'url'] as const).map((m) => (
           <button
             key={m}
@@ -233,7 +233,7 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
           <label
             htmlFor="libfile"
             className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-4 py-8 text-center transition ${
-              tooBig ? 'border-red-500/40 bg-red-500/5' : 'border-ink-600 bg-ink-850 hover:border-brand-500/50'
+              tooBig ? 'border-red-200 bg-red-50/5' : 'border-ink-600 bg-ink-850 hover:border-brand-500/50'
             }`}
           >
             <Icon name="upload" className="h-6 w-6 text-slate-500" />
@@ -257,12 +257,12 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
             />
           </label>
           {tooBig ? (
-            <p className="mt-2 text-xs text-red-300">
+            <p className="mt-2 text-xs text-red-700">
               That file is {(size / 1024 / 1024).toFixed(1)} MB — over the {maxMb} MB serverless limit. Use the external
               URL tab and host it on GitHub Releases instead.
             </p>
           ) : null}
-          {err('libfile') ? <p className="mt-2 text-xs text-red-300">{err('libfile')}</p> : null}
+          {err('libfile') ? <p className="mt-2 text-xs text-red-700">{err('libfile')}</p> : null}
         </div>
       ) : (
         <Field label="Download URL" name="external_url" error={err('external_url')} hint="GitHub Releases, Supabase Storage, any direct file link.">
@@ -343,10 +343,10 @@ export function ReleaseActions({ id, isCurrent }: { id: number; isCurrent: boole
           </form>
         </>
       ) : (
-        <span className="text-[11px] uppercase tracking-wider text-emerald-400">live</span>
+        <span className="text-[11px] uppercase tracking-wider text-emerald-700">live</span>
       )}
       {message && !(stateSet?.ok ?? stateDel?.ok) ? (
-        <span className="text-xs text-red-300">{message}</span>
+        <span className="text-xs text-red-700">{message}</span>
       ) : null}
     </div>
   );
@@ -360,7 +360,7 @@ export function CopyField({ value, label }: { value: string; label: string }) {
     <div>
       <p className="label">{label}</p>
       <div className="flex items-center gap-2 rounded-lg border border-ink-600 bg-ink-850 px-3 py-2">
-        <code className="min-w-0 flex-1 truncate text-xs text-emerald-300">{value}</code>
+        <code className="min-w-0 flex-1 truncate text-xs text-emerald-700">{value}</code>
         <button
           type="button"
           className="rounded p-1 text-slate-400 transition hover:text-slate-100"
@@ -385,7 +385,7 @@ export function CopyField({ value, label }: { value: string; label: string }) {
 function SectionTitle({ icon, title, hint }: { icon: 'cog' | 'warning' | 'shield' | 'grid' | 'upload' | 'refresh'; title: string; hint: string }) {
   return (
     <div className="flex items-start gap-2.5">
-      <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-500/15 text-brand-400">
+      <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-ink-800 text-brand-400">
         <Icon name={icon} className="h-4 w-4" />
       </span>
       <div>

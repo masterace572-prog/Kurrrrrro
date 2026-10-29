@@ -1,16 +1,13 @@
 package com.xlox;
 
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
 
-import android.Manifest;
-import android.animation.ObjectAnimator;
-import android.animation.ValueAnimator;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.app.Dialog;
 import android.content.Intent;
-import android.graphics.Color;
+import androidx.core.content.ContextCompat;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -22,7 +19,6 @@ import android.text.InputType;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.view.animation.DecelerateInterpolator;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -30,7 +26,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.xlox.utils.Downtwo;
 import com.xlox.utils.Prefs;
 
 import org.lsposed.lsparanoid.Obfuscate;
@@ -60,10 +55,9 @@ public class LogAct extends AppCompatActivity {
     private ImageView eyeToggle;
     private boolean isPasswordVisible = false;
 
-    // verification state (replaces the blocking dialog)
-    private View verifyOverlay;
+    // the "checking your key" dialog
+    private Dialog verifyDialog;
     private TextView verifyStep;
-    private TextView verifyKey;
     private ProgressBar verifySpinner;
     private ImageView verifyDone;
     private TextView loginError;
@@ -92,11 +86,6 @@ public class LogAct extends AppCompatActivity {
         eyeToggle = findViewById(R.id.eyeToggle);
         pasteKey = findViewById(R.id.pasteKey);
         loginError = findViewById(R.id.loginError);
-        verifyOverlay = findViewById(R.id.verifyOverlay);
-        verifyStep = findViewById(R.id.verifyStep);
-        verifyKey = findViewById(R.id.verifyKey);
-        verifySpinner = findViewById(R.id.verifySpinner);
-        verifyDone = findViewById(R.id.verifyDone);
 
         textUsername.setText(prefs.getSt(USER, ""));
 
@@ -156,62 +145,94 @@ public class LogAct extends AppCompatActivity {
         }
     }
 
+    /** Gentle entrance: the mark settles, then the card rises into place. */
+    private void startIntroAnimation() {
+        if (logo != null) {
+            logo.setAlpha(0f);
+            logo.setTranslationY(-140f);
+            logo.animate().alpha(1f).translationY(0f).setDuration(900)
+                    .setInterpolator(new DecelerateInterpolator(1.4f)).start();
+        }
+        if (premium != null) {
+            premium.setAlpha(0f);
+            premium.setTranslationY(90f);
+            premium.animate().alpha(1f).translationY(0f).setDuration(900)
+                    .setStartDelay(120).setInterpolator(new DecelerateInterpolator(1.4f)).start();
+        }
+        if (loginCard != null) {
+            loginCard.setAlpha(0f);
+            loginCard.setTranslationY(120f);
+            loginCard.animate().alpha(1f).translationY(0f).setDuration(1000)
+                    .setStartDelay(200).setInterpolator(new DecelerateInterpolator(1.4f)).start();
+        }
+    }
+
     /* ------------------------------------------------------ key verification */
 
     /**
-     * The panel is asked for the license; while that runs the form is replaced
-     * by a calm three-step state so the screen never freezes behind a modal.
-     * The steps mirror what the check actually does: reach the panel, bind this
-     * device to the slot, read the subscription back.
+     * The check runs inside a small dialog: a spinner ring and one line that
+     * moves from "talking to the panel" to "binding this device" to "reading
+     * your subscription", then a tick before the next screen opens.
      */
     private void showVerifying(String userKey) {
         verifying = true;
         clearLoginError();
 
-        if (verifyOverlay != null) {
-            verifyOverlay.setVisibility(View.VISIBLE);
-            verifyOverlay.setAlpha(0f);
-            verifyOverlay.animate().alpha(1f).setDuration(260).start();
+        if (verifyDialog == null) {
+            Dialog dialog = new Dialog(this);
+            dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+            dialog.setContentView(R.layout.dialog_verify);
+            dialog.setCancelable(false);
+            dialog.setCanceledOnTouchOutside(false);
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+                dialog.getWindow().setDimAmount(0.32f);
+            }
+            verifyDialog = dialog;
+            verifyStep = dialog.findViewById(R.id.verifyStep);
+            verifySpinner = dialog.findViewById(R.id.verifySpinner);
+            verifyDone = dialog.findViewById(R.id.verifyDone);
         }
-        if (verifyKey != null) verifyKey.setText(maskKey(userKey));
+
+        TextView masked = verifyDialog.findViewById(R.id.verifyKey);
+        if (masked != null) masked.setText(maskKey(userKey));
         if (verifyStep != null) verifyStep.setText(R.string.verify_step_panel);
-        if (verifySpinner != null) {
-            verifySpinner.setVisibility(View.VISIBLE);
-            verifySpinner.setAlpha(0f);
-            verifySpinner.animate().alpha(1f).setDuration(240).start();
-        }
-        if (verifyDone != null) {
-            verifyDone.setVisibility(View.GONE);
-            verifyDone.setScaleX(0.6f);
-            verifyDone.setScaleY(0.6f);
+        if (verifySpinner != null) verifySpinner.setVisibility(View.VISIBLE);
+        if (verifyDone != null) verifyDone.setVisibility(View.GONE);
+
+        if (!isFinishing() && !verifyDialog.isShowing()) {
+            try {
+                verifyDialog.show();
+            } catch (Throwable t) {
+                verifying = false;
+                return;
+            }
         }
 
         stepAdvance[0] = () -> setVerifyStep(R.string.verify_step_device);
         stepAdvance[1] = () -> setVerifyStep(R.string.verify_step_license);
         stepHandler.postDelayed(stepAdvance[0], 900);
-        stepHandler.postDelayed(stepAdvance[1], 1900);
+        stepHandler.postDelayed(stepAdvance[1], 1800);
     }
 
     private void setVerifyStep(int resId) {
         if (verifyStep == null || !verifying) return;
-        verifyStep.animate().alpha(0f).setDuration(120).withEndAction(() -> {
+        verifyStep.animate().alpha(0f).setDuration(110).withEndAction(() -> {
+            if (verifyStep == null) return;
             verifyStep.setText(resId);
-            verifyStep.animate().alpha(1f).setDuration(180).start();
+            verifyStep.animate().alpha(1f).setDuration(160).start();
         }).start();
     }
 
-    /** Success beat: the tick lands before the next screen opens. */
+    /** Success beat: the tick lands, then the dialog closes itself. */
     private void showVerified() {
-        if (verifyStep != null) {
-            verifyStep.animate().alpha(0f).setDuration(120).withEndAction(() -> {
-                verifyStep.setText(R.string.verify_step_ready);
-                verifyStep.animate().alpha(1f).setDuration(160).start();
-            }).start();
-        }
-        if (verifySpinner != null) verifySpinner.animate().alpha(0f).setDuration(200).start();
+        if (verifyStep != null) verifyStep.setText(R.string.verify_step_ready);
+        if (verifySpinner != null) verifySpinner.setVisibility(View.GONE);
         if (verifyDone != null) {
             verifyDone.setVisibility(View.VISIBLE);
-            verifyDone.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(320).start();
+            verifyDone.setScaleX(0.6f);
+            verifyDone.setScaleY(0.6f);
+            verifyDone.animate().scaleX(1f).scaleY(1f).setDuration(280).start();
         }
     }
 
@@ -219,12 +240,12 @@ public class LogAct extends AppCompatActivity {
         verifying = false;
         stepHandler.removeCallbacks(stepAdvance[0]);
         stepHandler.removeCallbacks(stepAdvance[1]);
-        if (verifyOverlay == null) return;
-        verifyOverlay.animate().alpha(0f).setDuration(220).withEndAction(() -> {
-            if (verifyOverlay != null) verifyOverlay.setVisibility(View.GONE);
-            if (verifySpinner != null) verifySpinner.setAlpha(1f);
-            if (verifyDone != null) verifyDone.setVisibility(View.GONE);
-        }).start();
+        if (verifyDialog != null && verifyDialog.isShowing()) {
+            try {
+                verifyDialog.dismiss();
+            } catch (Throwable ignored) {
+            }
+        }
     }
 
     /** Keys are quoted back masked; the full key is never re-printed. */
@@ -232,9 +253,7 @@ public class LogAct extends AppCompatActivity {
         if (key == null || key.isEmpty()) return "";
         int show = Math.min(4, key.length() / 4);
         if (show == 0) return "••••";
-        String head = key.substring(0, show);
-        String tail = key.substring(key.length() - show);
-        return head + " •••• " + tail;
+        return key.substring(0, show) + " •••• " + key.substring(key.length() - show);
     }
 
     private void hideKeyboard() {
@@ -245,29 +264,6 @@ public class LogAct extends AppCompatActivity {
                 textUsername.clearFocus();
             }
         } catch (Throwable ignored) {
-        }
-    }
-
-    private void startIntroAnimation() {
-        if (logo != null) {
-            logo.setAlpha(0f);
-            logo.setTranslationY(-180f);
-            logo.animate().alpha(1f).translationY(0f).setDuration(1200).setInterpolator(new DecelerateInterpolator(1.4f)).start();
-            ObjectAnimator logoFloat = ObjectAnimator.ofFloat(logo, View.TRANSLATION_Y, 0f, -6f, 0f);
-            logoFloat.setStartDelay(1300);
-            logoFloat.setDuration(2600);
-            logoFloat.setRepeatCount(ValueAnimator.INFINITE);
-            logoFloat.start();
-        }
-        if (premium != null) {
-            premium.setAlpha(0f);
-            premium.setTranslationY(120f);
-            premium.animate().alpha(1f).translationY(0f).setDuration(1200).setStartDelay(450).setInterpolator(new DecelerateInterpolator(1.4f)).start();
-        }
-        if (loginCard != null) {
-            loginCard.setAlpha(0f);
-            loginCard.setTranslationY(260f);
-            loginCard.animate().alpha(1f).translationY(0f).setDuration(1500).setStartDelay(650).setInterpolator(new DecelerateInterpolator(1.4f)).start();
         }
     }
 
@@ -282,17 +278,19 @@ public class LogAct extends AppCompatActivity {
             if (btnLogin != null) {
                 btnLogin.setEnabled(true);
                 btnLogin.setText(R.string.continue_label);
+                btnLogin.setTextColor(ContextCompat.getColor(this, R.color.on_action));
             }
             if (msg.what == 0) {
                 showVerified();
                 // let the tick settle, then hand over to the startup gate once
                 // more (it is instant when the lib is already current)
                 new Handler().postDelayed(() -> {
+                    hideVerifying();
                     Intent i = new Intent(m_Context, SplashActivity.class);
                     i.putExtra(SplashActivity.EXTRA_NEXT, SplashActivity.NEXT_MAIN);
                     startActivity(i);
                     finish();
-                }, 620);
+                }, 700);
             } else {
                 hideVerifying();
                 showLoginError((String) msg.obj);
@@ -397,6 +395,12 @@ public class LogAct extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         stepHandler.removeCallbacksAndMessages(null);
+        if (verifyDialog != null && verifyDialog.isShowing()) {
+            try {
+                verifyDialog.dismiss();
+            } catch (Throwable ignored) {
+            }
+        }
     }
 
     /**

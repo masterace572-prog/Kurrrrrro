@@ -8,10 +8,10 @@ export default function Flash({ m, t }: Props) {
   if (!m) return null;
   const tone =
     t === 'danger'
-      ? 'border-red-500/40 bg-red-500/10 text-red-200'
+      ? 'border-red-200 bg-red-50 text-red-800'
       : t === 'warning'
-        ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
-        : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
+        ? 'border-amber-200 bg-amber-50 text-amber-800'
+        : 'border-emerald-200 bg-emerald-50 text-emerald-800';
   return (
     <div className={`mb-5 rounded-xl border px-4 py-3 text-sm ${tone}`} role="status">
       {m}
