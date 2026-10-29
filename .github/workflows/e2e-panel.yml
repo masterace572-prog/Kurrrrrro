@@ -31,3 +31,5 @@ jobs:
           PANEL_USER: ${{ github.event.inputs.user || 'admin' }}
           PANEL_PASS: ${{ secrets.PANEL_PASSWORD || 'admin123' }}
         run: node web/scripts/e2e-panel.mjs
+
+# re-armed 2026-10-29T13:23Z
