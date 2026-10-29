@@ -1,27 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- one column of the remaining-time row: value over a small label -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="0dp"
-    android:layout_height="70dp"
+    android:layout_height="wrap_content"
     android:layout_weight="1"
-    android:background="@drawable/bg_login_card"
-    android:gravity="center"
-    android:orientation="vertical"
-    android:padding="6dp">
+    android:orientation="vertical">
+
     <TextView
         android:id="@+id/timeValue"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="00"
-        android:textColor="#D9A441"
-        android:textSize="21sp"
-        android:textStyle="bold" />
+        android:fontFamily="sans-serif-medium"
+        android:includeFontPadding="false"
+        android:text="@string/double_zero"
+        android:textColor="@color/text_primary"
+        android:textSize="22sp" />
+
     <TextView
         android:id="@+id/timeLabel"
+        style="@style/Text.Label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:text="TIME"
-        android:textColor="#8490AD"
-        android:textSize="9sp"
-        android:textStyle="bold" />
+        android:layout_marginTop="6dp"
+        android:letterSpacing="0.12"
+        android:text="@string/label_days"
+        android:textSize="10sp" />
 </LinearLayout>

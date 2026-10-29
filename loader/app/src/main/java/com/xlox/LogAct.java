@@ -1,6 +1,7 @@
 package com.xlox;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
 import androidx.core.app.ActivityCompat;
@@ -9,7 +10,6 @@ import android.Manifest;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
-import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -104,10 +104,10 @@ public class LogAct extends AppCompatActivity {
             eyeToggle.setOnClickListener(v -> {
                 if (isPasswordVisible) {
                     textUsername.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-                    eyeToggle.setAlpha(0.5f);
+                    eyeToggle.setImageResource(R.drawable.ic_eye);
                 } else {
                     textUsername.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
-                    eyeToggle.setAlpha(1.0f);
+                    eyeToggle.setImageResource(R.drawable.ic_eye_off);
                 }
                 isPasswordVisible = !isPasswordVisible;
                 textUsername.setSelection(textUsername.getText().length());
@@ -139,7 +139,7 @@ public class LogAct extends AppCompatActivity {
             prefs.setSt(USER, userKey);
 
             btnLogin.setEnabled(false);
-            btnLogin.setText("Checking key...");
+            btnLogin.setText(R.string.checking_key);
             btnLogin.setTextColor(Color.WHITE);
 
             Login(this, userKey);
@@ -160,15 +160,6 @@ public class LogAct extends AppCompatActivity {
             logoFloat.setDuration(2600);
             logoFloat.setRepeatCount(ValueAnimator.INFINITE);
             logoFloat.start();
-        }
-        View logoGlow = findViewById(R.id.logoGlow);
-        if (logoGlow != null) {
-            ObjectAnimator glowRotation = ObjectAnimator.ofFloat(logoGlow, View.ROTATION, 0f, 360f);
-            glowRotation.setDuration(7000);
-            glowRotation.setInterpolator(new LinearInterpolator());
-            glowRotation.setRepeatCount(ValueAnimator.INFINITE);
-            glowRotation.start();
-            logoGlow.animate().alpha(1f).setDuration(1500).setInterpolator(new DecelerateInterpolator()).start();
         }
         if (premium != null) {
             premium.setAlpha(0f);
@@ -239,8 +230,8 @@ public class LogAct extends AppCompatActivity {
         runOnUiThread(() -> {
             if (btnLogin == null) return;
             btnLogin.setEnabled(true);
-            btnLogin.setText("LOGIN");
-            btnLogin.setTextColor(Color.parseColor("#FF8C00"));
+            btnLogin.setText(R.string.login_button);
+            btnLogin.setTextColor(Color.parseColor("#0D0F12"));
         });
     }
 

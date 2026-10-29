@@ -26,6 +26,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.StringRes;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -71,11 +72,7 @@ public class MAct extends AppCompatActivity {
     private ProgressBar loadingCursor;
     private TextView appVersionText;
     
-    private TextView startText;
-    private ImageView actionIcon;
     private View startBgmi;
-    private View startFB;
-    private View fbCard;
     private View statusToggle;
     private View statusLoader;
     private ImageView statusErrorIcon;
@@ -134,11 +131,7 @@ public class MAct extends AppCompatActivity {
         appVersionText = findViewById(R.id.appVersionText);
 
         // Action UI
-        startText = findViewById(R.id.startText);
-        actionIcon = findViewById(R.id.actionIcon);
         startBgmi = findViewById(R.id.startBgmi);
-        startFB = findViewById(R.id.startFB);
-        fbCard = findViewById(R.id.fbCard);
 
         gameName = findViewById(R.id.gameName);
         packageName = findViewById(R.id.packageName);
@@ -165,10 +158,10 @@ public class MAct extends AppCompatActivity {
         hoursValue = findViewById(R.id.hoursBox).findViewById(R.id.timeValue);
         minutesValue = findViewById(R.id.minutesBox).findViewById(R.id.timeValue);
         secondsValue = findViewById(R.id.secondsBox).findViewById(R.id.timeValue);
-        ((TextView) findViewById(R.id.daysBox).findViewById(R.id.timeLabel)).setText("DAYS");
-        ((TextView) findViewById(R.id.hoursBox).findViewById(R.id.timeLabel)).setText("HOURS");
-        ((TextView) findViewById(R.id.minutesBox).findViewById(R.id.timeLabel)).setText("MINUTES");
-        ((TextView) findViewById(R.id.secondsBox).findViewById(R.id.timeLabel)).setText("SECONDS");
+        label(daysBox, R.string.label_days);
+        label(hoursBox, R.string.label_hours);
+        label(minutesBox, R.string.label_minutes);
+        label(secondsBox, R.string.label_seconds);
         setKeyTimeUnavailable();
         startKeyCountdown();
         startPageAnimation();
@@ -216,16 +209,11 @@ public class MAct extends AppCompatActivity {
             });
         }
 
-        if (startFB != null) {
-            startFB.setOnClickListener(v -> openExternalUrl("https://twitter.com/"));
-        }
-
         // Start Workflow: Update Check -> Download Files (if needed)
         startWorkflow();
     }
 
     private void startPageAnimation() {
-        View logoGlow = findViewById(R.id.logoGlow);
         View mainLogo = findViewById(R.id.mainLogo);
         if (mainLogo != null) {
             ObjectAnimator logoFloat = ObjectAnimator.ofFloat(mainLogo, View.TRANSLATION_Y, 0f, -6f, 0f);
@@ -233,17 +221,8 @@ public class MAct extends AppCompatActivity {
             logoFloat.setRepeatCount(ObjectAnimator.INFINITE);
             logoFloat.start();
         }
-        if (logoGlow != null) {
-            ObjectAnimator glowRotation = ObjectAnimator.ofFloat(logoGlow, View.ROTATION, 0f, 360f);
-            glowRotation.setDuration(7000);
-            glowRotation.setInterpolator(new LinearInterpolator());
-            glowRotation.setRepeatCount(ObjectAnimator.INFINITE);
-            glowRotation.start();
-            logoGlow.animate().translationY(-5f).setDuration(1300)
-                    .withEndAction(() -> logoGlow.animate().translationY(0f).setDuration(1300).start()).start();
-        }
         View[] views = {findViewById(R.id.brandHeader), findViewById(R.id.mainCard),
-                findViewById(R.id.statusToggle), findViewById(R.id.keyTimeRow), findViewById(R.id.fbCard)};
+                findViewById(R.id.statusToggle), findViewById(R.id.keyTimeRow)};
         long delay = 0;
         for (View view : views) {
             if (view != null) {
@@ -256,17 +235,17 @@ public class MAct extends AppCompatActivity {
     }
 
     private void setKeyTimeUnavailable() {
-        if (daysValue != null) daysValue.setText("--");
-        if (hoursValue != null) hoursValue.setText("--");
-        if (minutesValue != null) minutesValue.setText("--");
-        if (secondsValue != null) secondsValue.setText("--");
+        if (daysValue != null) daysValue.setText(R.string.dash);
+        if (hoursValue != null) hoursValue.setText(R.string.dash);
+        if (minutesValue != null) minutesValue.setText(R.string.dash);
+        if (secondsValue != null) secondsValue.setText(R.string.dash);
     }
 
     private void startKeyCountdown() {
         final String expiry = exdate();
         if (expiry == null || expiry.trim().isEmpty() || "NULL".equalsIgnoreCase(expiry.trim())) {
-            if (expiryValue != null) expiryValue.setText("--");
-            if (timeRemaining != null) timeRemaining.setText("--");
+            if (expiryValue != null) expiryValue.setText(R.string.dash);
+            if (timeRemaining != null) timeRemaining.setText(R.string.dash);
             return;
         }
 
@@ -280,7 +259,7 @@ public class MAct extends AppCompatActivity {
             }
         }
         if (expiryMillis <= 0L) {
-            if (timeRemaining != null) timeRemaining.setText("--");
+            if (timeRemaining != null) timeRemaining.setText(R.string.dash);
             return;
         }
 
@@ -291,15 +270,15 @@ public class MAct extends AppCompatActivity {
                 if (remaining <= 0L) {
                     setTimeValues(0, 0, 0, 0);
                     if (subscriptionStatus != null) {
-                        subscriptionStatus.setText("Expired");
-                        subscriptionStatus.setTextColor(Color.parseColor("#FF5252"));
+                        subscriptionStatus.setText(R.string.status_expired);
+                        subscriptionStatus.setTextColor(Color.parseColor("#C98C8C"));
                     }
-                    if (timeRemaining != null) timeRemaining.setText("Expired");
+                    if (timeRemaining != null) timeRemaining.setText(R.string.status_expired);
                     return;
                 }
                 if (subscriptionStatus != null) {
-                    subscriptionStatus.setText("Active");
-                    subscriptionStatus.setTextColor(Color.parseColor("#25C779"));
+                    subscriptionStatus.setText(R.string.status_active);
+                    subscriptionStatus.setTextColor(Color.parseColor("#8FB3A0"));
                 }
                 long totalSeconds = TimeUnit.MILLISECONDS.toSeconds(remaining);
                 long days = totalSeconds / 86400L;
@@ -347,7 +326,7 @@ public class MAct extends AppCompatActivity {
         String localVersion = Downtwo.installedVersion(this);
         if (appVersionText != null) {
             boolean installed = !"0.0".equals(localVersion);
-            appVersionText.setText(installed ? "Version " + localVersion : "Version —");
+            appVersionText.setText(installed ? "v" + localVersion : getString(R.string.version_unknown));
         }
     }
 
@@ -374,7 +353,7 @@ public class MAct extends AppCompatActivity {
                     isUpdateAvailable = true;
                     runOnUiThread(() -> {
                         updateButtonState(isGameRunning);
-                        setLaunchButtonText("UPDATE AVAILABLE");
+                        setLaunchButtonText(R.string.update_available);
                         if (announceOnly && fresh && !isFinishing()) {
                             Toast.makeText(MAct.this,
                                     "New lib v" + result.version + " is available — tap UPDATE to install",
@@ -407,8 +386,8 @@ public class MAct extends AppCompatActivity {
     private void startDownload() {
         runOnUiThread(() -> {
             if (downloadBox != null) downloadBox.setVisibility(View.VISIBLE);
-            setLaunchButtonText("UPDATING...");
-            if (downloadStatusText != null) downloadStatusText.setText("Preparing process...");
+            setLaunchButtonText(R.string.preparing);
+            if (downloadStatusText != null) downloadStatusText.setText(R.string.preparing);
             if (percentText != null) percentText.setText("0%");
             if (downloadProgressBar != null) {
                 downloadProgressBar.setVisibility(View.VISIBLE);
@@ -429,18 +408,14 @@ public class MAct extends AppCompatActivity {
                 Log.e("MAct", "update failed: " + message);
                 runOnUiThread(() -> {
                     if (downloadStatusText != null) downloadStatusText.setText(message);
-                    if (percentText != null) percentText.setText("FAILED");
+                    if (percentText != null) percentText.setText(R.string.failed);
                     if (downloadProgressBar != null) {
                         downloadProgressBar.setIndeterminate(false);
                         downloadProgressBar.setProgress(0);
                     }
                     if (loadingCursor != null) loadingCursor.setVisibility(View.GONE);
                     if (restartButton != null) restartButton.setVisibility(View.VISIBLE);
-                    setLaunchButtonText("RETRY UPDATE");
-                    if (startText != null) {
-                        startText.setText("RETRY");
-                        startText.setTextColor(Color.parseColor("#FF4444"));
-                    }
+                    setLaunchButtonText(R.string.retry);
                     if (!isFinishing()) {
                         Toast.makeText(MAct.this, message, Toast.LENGTH_LONG).show();
                     }
@@ -450,7 +425,7 @@ public class MAct extends AppCompatActivity {
 
             runOnUiThread(() -> {
                 isUpdateAvailable = false;
-                if (downloadStatusText != null) downloadStatusText.setText("All process done");
+                if (downloadStatusText != null) downloadStatusText.setText(R.string.done);
                 if (percentText != null) percentText.setText("100%");
                 if (downloadProgressBar != null) {
                     downloadProgressBar.setIndeterminate(false);
@@ -458,7 +433,7 @@ public class MAct extends AppCompatActivity {
                 }
                 if (loadingCursor != null) loadingCursor.setVisibility(View.GONE);
                 updateVersionDisplay();
-                setLaunchButtonText(isGameInstalled ? "LAUNCH GAME" : "INSTALL GAME");
+                setLaunchButtonText(isGameInstalled ? R.string.launch_game : R.string.install_game);
                 if (restartButton != null) {
                     restartButton.setVisibility(View.VISIBLE);
                     restartButton.setAlpha(0f);
@@ -512,7 +487,7 @@ public class MAct extends AppCompatActivity {
         runOnUiThread(() -> {
             if (obbCard != null) obbCard.setVisibility(View.VISIBLE);
             if (obbRetryButton != null) obbRetryButton.setVisibility(View.GONE);
-            setObbStatus("Checking game data…");
+            setObbStatus(getString(R.string.preparing));
             if (obbProgressBar != null) {
                 obbProgressBar.setVisibility(View.VISIBLE);
                 obbProgressBar.setIndeterminate(true);
@@ -528,7 +503,7 @@ public class MAct extends AppCompatActivity {
                     problem = "All files access is needed to read the game files";
                     runOnUiThread(() -> {
                         if (obbRetryButton != null) {
-                            obbRetryButton.setText("GRANT FILE ACCESS");
+                            obbRetryButton.setText(R.string.grant_file_access);
                             obbRetryButton.setVisibility(View.VISIBLE);
                         }
                     });
@@ -564,7 +539,7 @@ public class MAct extends AppCompatActivity {
         if (isFinishing()) return;
         obbWorking = true;
         if (obbCard != null) obbCard.setVisibility(View.VISIBLE);
-        setObbStatus("Copying game data 0%");
+        setObbStatus(getString(R.string.copying_game_data));
         if (obbProgressBar != null) {
             obbProgressBar.setVisibility(View.VISIBLE);
             obbProgressBar.setIndeterminate(false);
@@ -588,7 +563,7 @@ public class MAct extends AppCompatActivity {
             @Override
             public void onProgressUpdate(int progress) {
                 runOnUiThread(() -> {
-                    setObbStatus("Copying game data " + progress + "%");
+                    setObbStatus(getString(R.string.copying_game_data) + " " + progress + "%");
                     if (obbProgressBar != null) obbProgressBar.setProgress(progress);
                 });
             }
@@ -624,10 +599,10 @@ public class MAct extends AppCompatActivity {
             obbProgressBar.setProgress(0);
         }
         if (obbRetryButton != null) {
-            obbRetryButton.setText(hasStorageAccess() ? "RETRY COPY" : "GRANT FILE ACCESS");
+            obbRetryButton.setText(hasStorageAccess() ? R.string.retry_copy : R.string.grant_file_access);
             obbRetryButton.setVisibility(View.VISIBLE);
         }
-        setLaunchButtonText("GAME DATA REQUIRED");
+        setLaunchButtonText(R.string.game_data_required);
         Log.w("MAct", "OBB not ready: " + reason);
     }
 
@@ -641,7 +616,7 @@ public class MAct extends AppCompatActivity {
             if (startBgmi == null) return;
             startBgmi.setEnabled(ready);
             startBgmi.setAlpha(ready ? 1f : 0.45f);
-            if (!ready) setLaunchButtonText(obbWorking ? "PREPARING OBB…" : "GAME DATA REQUIRED");
+            if (!ready) setLaunchButtonText(obbWorking ? R.string.preparing_obb : R.string.game_data_required);
         });
     }
 
@@ -681,8 +656,8 @@ public class MAct extends AppCompatActivity {
 
     /** Shown when the panel has no lib yet — launch would fail without one. */
     private void updateLibState() {
-        if (!Downtwo.hasInstalledLib(this) && startText != null && !isUpdateAvailable) {
-            setLaunchButtonText("NO LIB INSTALLED");
+        if (!Downtwo.hasInstalledLib(this) && !isUpdateAvailable) {
+            setLaunchButtonText(R.string.no_lib_installed);
         }
     }
 
@@ -692,59 +667,52 @@ public class MAct extends AppCompatActivity {
             PackageInfo packageInfo = getPackageManager().getPackageInfo(PKG_BGMI, 0);
             if (packageInfo != null) {
                 isGameInstalled = true;
-                if (gameName != null) gameName.setText("BGMI INDIA");
-                if (packageName != null) packageName.setText(PKG_BGMI);
-                if (gameStatus != null) gameStatus.setText("SAFE");
+                if (gameName != null) gameName.setText(R.string.game_name);
+                if (packageName != null) packageName.setText(R.string.game_package);
+                if (gameStatus != null) gameStatus.setText(R.string.installed);
                 if (deviceStatus != null) {
-                    deviceStatus.setText("Safe");
-                    deviceStatus.setTextColor(Color.parseColor("#315FE5"));
+                    deviceStatus.setText(getString(R.string.this_device));
+                    deviceStatus.setTextColor(Color.parseColor("#8FB3A0"));
                 }
                 updateButtonState(false);
             }
         } catch (Exception ignored) {
             isGameInstalled = false;
-            if (gameStatus != null) gameStatus.setText("Not Installed");
+            if (gameStatus != null) gameStatus.setText(R.string.not_installed);
             if (deviceStatus != null) {
-                deviceStatus.setText("Not installed");
-                deviceStatus.setTextColor(Color.parseColor("#FF9800"));
+                deviceStatus.setText(R.string.not_installed);
+                deviceStatus.setTextColor(Color.parseColor("#C7A87C"));
             }
-            setLaunchButtonText("INSTALL GAME");
-            if (startText != null) {
-                startText.setText("INSTALL GAME");
-                startText.setTextColor(Color.parseColor("#FF8C00"));
-            }
-            if (actionIcon != null) {
-                actionIcon.setImageResource(android.R.drawable.ic_menu_save);
-                actionIcon.setColorFilter(Color.parseColor("#FF8C00"));
-            }
+            setLaunchButtonText(R.string.install_game);
         }
     }
 
-    private void setLaunchButtonText(String label) {
-        if (startText != null) startText.setText(label);
-        if (startBgmi instanceof Button) ((Button) startBgmi).setText(label);
+    /** Button captions live in strings.xml so the text stays consistent. */
+    private void setLaunchButtonText(@StringRes int resId) {
+        if (startBgmi instanceof Button) ((Button) startBgmi).setText(resId);
+    }
+
+    private void label(View box, int resId) {
+        if (box == null) return;
+        TextView view = box.findViewById(R.id.timeLabel);
+        if (view != null) view.setText(resId);
     }
 
     private void updateButtonState(boolean running) {
         isGameRunning = running;
         runOnUiThread(() -> {
             if (running) {
-                setLaunchButtonText("STOP GAME");
-                if (startText != null) {
-                    startText.setText("STOP GAME");
-                    startText.setTextColor(Color.parseColor("#FF4444"));
-                }
-                if (actionIcon != null) {
-                    actionIcon.setImageResource(android.R.drawable.ic_delete);
-                    actionIcon.setColorFilter(Color.parseColor("#FF4444"));
+                setLaunchButtonText(R.string.stop_game);
+                if (startBgmi != null) {
+                    startBgmi.setTextColor(Color.parseColor("#C98C8C"));
                 }
                 if (startBgmi != null) {
-                    startBgmi.setBackgroundResource(R.drawable.bg_ref_stop_button);
+                    startBgmi.setBackgroundResource(R.drawable.bg_btn_stop);
                 }
                 if (downloadBox != null) {
                     downloadBox.setVisibility(View.VISIBLE);
-                    if (downloadStatusText != null) downloadStatusText.setText("Game Running...");
-                    if (percentText != null) percentText.setText("ACTIVE");
+                    if (downloadStatusText != null) downloadStatusText.setText(R.string.game_running);
+                    if (percentText != null) percentText.setText(R.string.active_short);
                     if (downloadProgressBar != null) {
                         downloadProgressBar.setIndeterminate(true);
                         downloadProgressBar.setProgress(100);
@@ -753,34 +721,21 @@ public class MAct extends AppCompatActivity {
                 }
             } else {
                 if (!launchReady) {
-                    setLaunchButtonText(obbWorking ? "PREPARING OBB…" : "GAME DATA REQUIRED");
-                    if (startText != null) {
-                        startText.setText(obbWorking ? "PREPARING OBB…" : "GAME DATA REQUIRED");
-                        startText.setTextColor(Color.parseColor("#85858D"));
-                    }
+                    setLaunchButtonText(obbWorking ? R.string.preparing_obb : R.string.game_data_required);
                     if (startBgmi != null) {
                         startBgmi.setEnabled(false);
                         startBgmi.setAlpha(0.45f);
+                        startBgmi.setTextColor(Color.parseColor("#98A2AE"));
                     }
                 } else if (isUpdateAvailable) {
-                    setLaunchButtonText("UPDATE AVAILABLE");
-                    if (startText != null) {
-                        startText.setText("UPDATE AVAILABLE");
-                        startText.setTextColor(Color.parseColor("#FF8C00"));
-                    }
+                    setLaunchButtonText(R.string.update_available);
+                    if (startBgmi != null) startBgmi.setTextColor(Color.parseColor("#0D0F12"));
                 } else {
-                    setLaunchButtonText("LAUNCH GAME");
-                    if (startText != null) {
-                        startText.setText("LAUNCH");
-                        startText.setTextColor(Color.parseColor("#FF8C00"));
-                    }
-                }
-                if (actionIcon != null) {
-                    actionIcon.setImageResource(android.R.drawable.ic_media_play);
-                    actionIcon.setColorFilter(Color.parseColor("#FF8C00"));
+                    setLaunchButtonText(R.string.launch_game);
+                    if (startBgmi != null) startBgmi.setTextColor(Color.parseColor("#0D0F12"));
                 }
                 if (startBgmi != null) {
-                    startBgmi.setBackgroundResource(R.drawable.bg_orange_action);
+                    startBgmi.setBackgroundResource(R.drawable.bg_btn_primary);
                 }
                 if (downloadBox != null) {
                     new Handler().postDelayed(() -> {
@@ -816,7 +771,7 @@ public class MAct extends AppCompatActivity {
                 updateButtonState(isGameRunning);
             } else {
                 showStatusToggle("NO LIB INSTALLED — publish one in the panel", true);
-                setLaunchButtonText("NO LIB INSTALLED");
+                setLaunchButtonText(R.string.no_lib_installed);
             }
             return;
         }
@@ -842,7 +797,7 @@ public class MAct extends AppCompatActivity {
             
             if (statusToggleText != null) {
                 statusToggleText.setText(message);
-                statusToggleText.setTextColor(isError ? Color.parseColor("#FF5252") : Color.WHITE);
+                statusToggleText.setTextColor(isError ? Color.parseColor("#C98C8C") : Color.WHITE);
             }
             
             if (statusLoader != null) {

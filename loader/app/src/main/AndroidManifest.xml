@@ -167,12 +167,6 @@
             android:exported="false"
             android:theme="@style/AppTheme" />
 
-        <activity
-            android:name=".FacebookActivity"
-            android:configChanges="screenSize|orientation"
-            android:exported="false"
-            android:theme="@style/AppTheme" />
-
     </application>
 
 </manifest>

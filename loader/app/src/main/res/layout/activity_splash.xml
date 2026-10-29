@@ -1,123 +1,116 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Startup gate. One centred column: mark, name, one progress line, one status
+  line, and — only when something went wrong — three quiet buttons.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000"
+    android:background="@color/bg"
     android:gravity="center"
     android:orientation="vertical"
-    android:paddingStart="34dp"
-    android:paddingEnd="34dp">
+    android:paddingStart="28dp"
+    android:paddingEnd="28dp">
 
-    <ImageView
-        android:layout_width="96dp"
-        android:layout_height="96dp"
-        android:contentDescription="@string/app_name"
-        android:scaleType="centerCrop"
-        android:src="@drawable/logo_transparent" />
+    <FrameLayout
+        android:layout_width="104dp"
+        android:layout_height="104dp"
+        android:background="@drawable/bg_logo_ring"
+        android:padding="14dp">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:letterSpacing="0.08"
-        android:text="@string/app_name"
-        android:textColor="#F4F4F5"
-        android:textSize="24sp"
-        android:textStyle="bold" />
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@string/app_name"
+            android:scaleType="centerCrop"
+            android:src="@drawable/logo_transparent" />
+    </FrameLayout>
 
     <TextView
+        style="@style/Text.Display"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:letterSpacing="0.25"
-        android:text="SECURE ACCESS"
-        android:textColor="#85858D"
-        android:textSize="11sp" />
+        android:layout_marginTop="24dp"
+        android:letterSpacing="0.16"
+        android:text="@string/app_name" />
+
+    <TextView
+        style="@style/Text.Caption"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:letterSpacing="0.22"
+        android:text="@string/tagline" />
 
     <ProgressBar
         android:id="@+id/splashProgress"
-        style="?android:attr/progressBarStyleHorizontal"
+        style="@style/Widget.Progress"
         android:layout_width="match_parent"
-        android:layout_height="6dp"
-        android:layout_marginTop="40dp"
-        android:indeterminate="true"
-        android:indeterminateTint="#315FE5"
-        android:max="100"
-        android:progress="0"
-        android:progressTint="#315FE5" />
+        android:layout_height="4dp"
+        android:layout_marginTop="44dp"
+        android:indeterminate="false"
+        android:progress="0" />
 
     <TextView
         android:id="@+id/splashStatus"
+        style="@style/Text.Body"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:gravity="center"
-        android:text="Checking for updates…"
-        android:textColor="#F4F4F5"
-        android:textSize="14sp" />
+        android:text="@string/checking_for_updates" />
 
     <TextView
         android:id="@+id/splashPercent"
-        android:layout_width="wrap_content"
+        style="@style/Text.Caption"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:textColor="#315FE5"
-        android:textSize="12sp"
-        android:textStyle="bold" />
+        android:gravity="center"
+        android:text="" />
 
     <TextView
         android:id="@+id/splashDetail"
+        style="@style/Text.Secondary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
         android:gravity="center"
-        android:lineSpacingExtra="3dp"
-        android:textColor="#85858D"
+        android:lineSpacingExtra="4dp"
+        android:text=""
         android:textSize="12sp" />
 
     <LinearLayout
         android:id="@+id/splashActions"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="28dp"
+        android:layout_marginTop="32dp"
         android:orientation="vertical"
         android:visibility="gone">
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/splashRetry"
+            style="@style/Widget.Button.Action"
             android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:background="@drawable/bg_orange_action"
-            android:stateListAnimator="@null"
-            android:text="RETRY"
-            android:textColor="#111111"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:layout_height="54dp"
+            android:text="@string/retry" />
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/splashRedownload"
+            style="@style/Widget.Button.Quiet"
             android:layout_width="match_parent"
             android:layout_height="50dp"
             android:layout_marginTop="10dp"
-            android:background="@drawable/bg_reference_card"
-            android:stateListAnimator="@null"
-            android:text="REDOWNLOAD UPDATE"
-            android:textColor="#F4F4F5"
-            android:textSize="14sp"
-            android:textStyle="bold"
+            android:text="@string/redownload"
             android:visibility="gone" />
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/splashRestart"
+            style="@style/Widget.Button.Link"
             android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/bg_red_action"
-            android:stateListAnimator="@null"
-            android:text="RESTART APP"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:layout_height="44dp"
+            android:layout_marginTop="6dp"
+            android:text="@string/restart_app" />
     </LinearLayout>
 
 </LinearLayout>

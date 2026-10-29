@@ -1,24 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@drawable/bg_dialog"
     android:orientation="vertical"
-    android:padding="20dp">
+    android:padding="22dp">
+
+    <TextView
+        style="@style/Text.Title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/copying_game_data" />
 
     <ProgressBar
         android:id="@+id/progressBar"
-        style="?android:attr/progressBarStyleHorizontal"
+        style="@style/Widget.Progress.Thin"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:max="100"/>
+        android:layout_height="3dp"
+        android:layout_marginTop="18dp"
+        android:indeterminate="false"
+        android:progress="0" />
 
     <TextView
         android:id="@+id/progressText"
+        style="@style/Text.Caption"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="0%"
-        android:textSize="16sp"
-        android:layout_marginTop="10dp"/>
-
+        android:layout_marginTop="10dp"
+        android:text="@string/zero_percent" />
 </LinearLayout>

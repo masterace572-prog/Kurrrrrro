@@ -111,7 +111,7 @@ public class SplashActivity extends AppCompatActivity {
 
         runOnUiThread(() -> {
             if (actions != null) actions.setVisibility(View.GONE);
-            setStatus("Checking for updates…", "");
+            setStatus(getString(R.string.checking_for_updates), "");
             if (progressBar != null) {
                 progressBar.setVisibility(View.VISIBLE);
                 progressBar.setIndeterminate(true);
@@ -150,9 +150,9 @@ public class SplashActivity extends AppCompatActivity {
             if (result.status == Downtwo.Status.NO_PAYLOAD) {
                 // nothing published yet — the app is usable, the main screen
                 // tells the user that no lib is available
-                setStatus("No update published yet", "");
+                setStatus(getString(R.string.no_update_yet), "");
             } else {
-                setStatus("Up to date", "");
+                setStatus(getString(R.string.up_to_date), "");
             }
             if (progressBar != null) {
                 progressBar.setIndeterminate(false);

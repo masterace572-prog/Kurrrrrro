@@ -1,153 +1,155 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<!--
+  Login. Mark, wordmark, one input, one action. Nothing else competes for
+  attention; the paste affordance is a quiet link under the field.
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="@color/bg"
+    android:fillViewport="true"
+    android:scrollbars="none">
 
-    <ScrollView
+    <LinearLayout
+        android:id="@+id/mainContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
-        android:scrollbars="none">
+        android:gravity="center_horizontal|center_vertical"
+        android:orientation="vertical"
+        android:paddingStart="28dp"
+        android:paddingTop="40dp"
+        android:paddingEnd="28dp"
+        android:paddingBottom="28dp">
+
+        <FrameLayout
+            android:layout_width="92dp"
+            android:layout_height="92dp"
+            android:background="@drawable/bg_logo_ring"
+            android:padding="12dp">
+
+            <ImageView
+                android:id="@+id/logo"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@string/app_name"
+                android:scaleType="centerCrop"
+                android:src="@drawable/logo_transparent" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/appName"
+            style="@style/Text.Display"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:letterSpacing="0.18"
+            android:text="@string/app_name" />
+
+        <TextView
+            android:id="@+id/premium"
+            style="@style/Text.Caption"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:letterSpacing="0.24"
+            android:text="@string/tagline" />
 
         <LinearLayout
-            android:id="@+id/mainContainer"
+            android:id="@+id/loginCard"
+            style="@style/Widget.Card"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center_horizontal|center_vertical"
-            android:orientation="vertical"
-            android:paddingStart="26dp"
-            android:paddingTop="30dp"
-            android:paddingEnd="26dp"
-            android:paddingBottom="86dp">
-
-            <FrameLayout
-                android:layout_width="78dp"
-                android:layout_height="78dp">
-                <ImageView
-                    android:id="@+id/logoGlow"
-                    android:layout_width="78dp"
-                    android:layout_height="78dp"
-                    android:alpha="0"
-                    android:contentDescription="@string/app_name" />
-                <ImageView
-                    android:id="@+id/logo"
-                    android:layout_width="74dp"
-                    android:layout_height="74dp"
-                    android:layout_gravity="center"
-                    android:contentDescription="@string/app_name"
-                    android:scaleType="centerCrop"
-                    android:src="@drawable/logo_transparent" />
-            </FrameLayout>
+            android:layout_height="wrap_content"
+            android:layout_marginTop="40dp">
 
             <TextView
-                android:id="@+id/appName"
+                style="@style/Text.Label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="22dp"
-                android:text="XLOX LOADER"
-                android:textColor="#F4F4F5"
-                android:textSize="27sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/premium"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:letterSpacing="0.2"
-                android:text="SECURE ACCESS"
-                android:textColor="#315FE5"
-                android:textSize="13sp" />
+                android:text="@string/license_key" />
 
             <LinearLayout
-                android:id="@+id/loginCard"
+                style="@style/Widget.Input"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="36dp"
-                android:orientation="vertical">
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:background="@drawable/bg_reference_input"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="14dp">
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginEnd="12dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_key"
+                    android:tint="@color/text_tertiary" />
 
-                    <EditText
-                        android:id="@+id/userkey"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:background="@null"
-                        android:hint="Enter access key"
-                        android:inputType="textPassword"
-                        android:singleLine="true"
-                        android:textColor="#F4F4F5"
-                        android:textColorHint="#77777F"
-                        android:textSize="14sp" />
-
-                    <ImageView
-                        android:id="@+id/eyeToggle"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:alpha="0.7"
-                        android:clickable="true"
-                        android:contentDescription="Show or hide key"
-                        android:focusable="true"
-                        android:src="@drawable/ic_eye"
-                        app:tint="#D8D8DE" />
-                </LinearLayout>
-
-                <androidx.appcompat.widget.AppCompatButton
-                    android:id="@+id/login"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="14dp"
-                    android:background="@drawable/bg_blue_action"
-                    android:stateListAnimator="@null"
-                    android:text="Login"
-                    android:textAllCaps="false"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/pasteKey"
-                    android:layout_width="wrap_content"
-                    android:layout_height="44dp"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="9dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center"
-                    android:text="Paste Key"
-                    android:textColor="#315FE5"
-                    android:textSize="15sp" />
-
-                <TextView
-                    android:id="@+id/buyNow"
-                    android:layout_width="wrap_content"
+                <EditText
+                    android:id="@+id/userkey"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="4dp"
-                    android:gravity="center"
-                    android:text="Don't Have a Key? Buy Now"
-                    android:textColor="#77777F"
-                    android:textSize="13sp" />
-            </LinearLayout>
-        </LinearLayout>
-    </ScrollView>
+                    android:layout_weight="1"
+                    android:autofillHints=""
+                    android:background="@null"
+                    android:hint="@string/key_hint"
+                    android:imeOptions="actionDone"
+                    android:inputType="textVisiblePassword|textNoSuggestions"
+                    android:maxLines="1"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_tertiary"
+                    android:textSize="15sp"
+                    android:importantForAutofill="no" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="34dp"
-        android:letterSpacing="0.2"
-        android:text="SYSTEM READY"
-        android:textColor="#3E3E45"
-        android:textSize="10sp" />
-</FrameLayout>
+                <ImageButton
+                    android:id="@+id/eyeToggle"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/toggle_key_visibility"
+                    android:padding="9dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_eye"
+                    android:tint="@color/text_tertiary" />
+            </LinearLayout>
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/pasteKey"
+                style="@style/Widget.Button.Link"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginTop="10dp"
+                android:drawableStart="@drawable/ic_clipboard"
+                android:drawablePadding="8dp"
+                android:gravity="center_vertical"
+                android:paddingStart="2dp"
+                android:paddingEnd="8dp"
+                android:text="@string/paste_key"
+                android:drawableTint="@color/text_tertiary" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/login"
+                style="@style/Widget.Button.Action"
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:layout_marginTop="22dp"
+                android:text="@string/continue_label" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="32dp"
+            android:background="@color/stroke_soft" />
+
+        <TextView
+            style="@style/Text.Caption"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:letterSpacing="0.04"
+            android:text="@string/login_footer"
+            android:textSize="11sp" />
+
+    </LinearLayout>
+
+</ScrollView>

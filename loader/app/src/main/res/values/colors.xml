@@ -1,29 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#000000</color>
-    <color name="colorPrimaryDark">#000000</color>
-    <color name="colorAccent">#315FE5</color>
+    <!--
+      Palette: calm, low-saturation, light-on-dark. No gradients, no neon.
+      Surfaces step up in three steps, one accent for state, one action colour.
+    -->
+    <color name="bg">#0D0F12</color>
+    <color name="surface">#15181C</color>
+    <color name="surface_2">#1B1F24</color>
+    <color name="stroke">#252A31</color>
+    <color name="stroke_soft">#1E2329</color>
+
+    <color name="text_primary">#F2F4F6</color>
+    <color name="text_secondary">#98A2AE</color>
+    <color name="text_tertiary">#6B7480</color>
+
+    <!-- the one action colour: an off-white, the label is dark -->
+    <color name="action">#E9ECEF</color>
+    <color name="action_pressed">#D7DCE2</color>
+    <color name="on_action">#0D0F12</color>
+
+    <!-- quiet state colours -->
+    <color name="success">#8FB3A0</color>
+    <color name="warning">#C7A87C</color>
+    <color name="danger">#C98C8C</color>
+    <color name="accent">#9FB6D4</color>
+
+    <!-- legacy names still referenced from Java -->
+    <color name="colorPrimary">#0D0F12</color>
+    <color name="colorPrimaryDark">#0D0F12</color>
+    <color name="colorAccent">#E9ECEF</color>
     <color name="black">#000000</color>
     <color name="white">#FFFFFF</color>
-    <color name="bg_main">#000000</color>
-    <color name="card_bg">#111115</color>
-    <color name="input_bg">#17171B</color>
-    <color name="accent_gold">#FF9800</color>
-    <color name="text_primary">#F4F4F5</color>
-    <color name="text_secondary">#85858D</color>
-    <color name="divider">#34343A</color>
-    <color name="status_safe">#315FE5</color>
-    <color name="status_ready">#25C779</color>
-    <color name="primaryText">#F4F4F5</color>
-    <color name="hintText">#85858D</color>
-    <color name="darker_gray">#85858D</color>
-    <color name="button">#2457E6</color>
-    <color name="buttonPrimary">#2457E6</color>
-    <color name="primary">#000000</color>
-    <color name="primaryVariant">#111115</color>
-    <color name="secondary">#111115</color>
-    <color name="background">#000000</color>
-    <color name="background2">#111115</color>
-    <color name="error">#FF6B81</color>
-    <color name="secondary2">#111115</color>
+    <color name="bg_main">#0D0F12</color>
+    <color name="card_bg">#15181C</color>
+    <color name="input_bg">#1B1F24</color>
+    <color name="accent_gold">#C7A87C</color>
+    <color name="divider">#252A31</color>
+    <color name="status_safe">#8FB3A0</color>
+    <color name="status_ready">#8FB3A0</color>
+    <color name="primaryText">#F2F4F6</color>
+    <color name="hintText">#6B7480</color>
+    <color name="darker_gray">#98A2AE</color>
+    <color name="button">#E9ECEF</color>
+    <color name="buttonPrimary">#E9ECEF</color>
+    <color name="primary">#0D0F12</color>
+    <color name="primaryVariant">#15181C</color>
+    <color name="secondary">#15181C</color>
+    <color name="background">#0D0F12</color>
+    <color name="background2">#15181C</color>
+    <color name="error">#C98C8C</color>
+    <color name="secondary2">#15181C</color>
 </resources>
