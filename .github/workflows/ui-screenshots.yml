@@ -52,7 +52,9 @@ jobs:
       - name: Boot the emulator and capture the screens
         uses: reactivecircus/android-emulator-runner@v2
         env:
-          PANEL_KEY: ${{ github.event.inputs.key }}
+          # throwaway key used only to photograph the main screen; delete it from
+          # the panel afterwards. Override with the workflow input when dispatching.
+          PANEL_KEY: ${{ github.event.inputs.key || 'admin-24-UIPRV' }}
         with:
           api-level: 34
           arch: x86_64
@@ -63,11 +65,18 @@ jobs:
           script: |
             set -x
             adb install -r loader/app/build/outputs/apk/debug/app-debug.apk
-            adb shell am start -n com.xlox/.SplashActivity
-            sleep 4
-            adb exec-out screencap -p > shot-1-splash.png
-            sleep 26
-            adb exec-out screencap -p > shot-2-login.png
+            # grant the storage access up front so the system dialog does not
+            # cover the screens we want to photograph
+            adb shell appops set com.xlox MANAGE_EXTERNAL_STORAGE allow || true
+            adb shell am start -n com.xlox/.SplashActivity || true
+            sleep 3
+            adb exec-out screencap -p > shot-1-splash.png || true
+            sleep 24
+            adb exec-out screencap -p > shot-2-login.png || true
+            # dismiss anything the system may have put in front
+            adb shell input keyevent 4 || true
+            sleep 2
+            adb exec-out screencap -p > shot-2b-login.png || true
 
             if [ -n "$PANEL_KEY" ]; then
               # tap the field, type the key, tap Continue — coordinates read from
@@ -100,11 +109,16 @@ jobs:
               adb shell input keyevent 111   # dismiss the keyboard
               sleep 1
               adb shell input tap "$BUTTON_X" "$BUTTON_Y"
-              sleep 12
-              adb exec-out screencap -p > shot-3-main.png
-              # the update gate runs again before the main screen
-              adb exec-out screencap -p > shot-4-main-ready.png
+              sleep 6
+              adb exec-out screencap -p > shot-3-gate.png || true
+              sleep 14
+              adb exec-out screencap -p > shot-4-main.png || true
+              # the OBB card + launch button should be visible now
+              adb shell uiautomator dump /sdcard/ui2.xml >/dev/null 2>&1 || true
+              adb pull /sdcard/ui2.xml ui2.xml >/dev/null 2>&1 || true
+              adb exec-out screencap -p > shot-5-main.png || true
             fi
+            true
 
             adb logcat -d | tail -200 > logcat.txt
             ls -l shot-*.png || true

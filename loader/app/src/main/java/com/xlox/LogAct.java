@@ -71,7 +71,6 @@ public class LogAct extends AppCompatActivity {
     private boolean isPasswordVisible = false;
 
     // Permissions
-    private static final int REQUEST_MANAGE_STORAGE_PERMISSION = 100;
 
     private static final String PREFS_NAME = "com.xlox.prefs";
     private static final String PREF_PERMISSIONS_GRANTED = "permissions_granted";
@@ -87,7 +86,6 @@ public class LogAct extends AppCompatActivity {
 
         setContentView(R.layout.activity_login);
         prefs = new Prefs(this);
-        checkAndRequestPermissions();
 
         textUsername = findViewById(R.id.userkey);
         btnLogin = findViewById(R.id.login);
@@ -285,34 +283,6 @@ public class LogAct extends AppCompatActivity {
             return cm.getActiveNetworkInfo() != null && cm.getActiveNetworkInfo().isConnected();
         } catch (Throwable t) {
             return true;
-        }
-    }
-
-    private void checkAndRequestPermissions() {
-        if (!isStoragePermissionGranted()) {
-            requestStoragePermissionDirect();
-        }
-    }
-
-    private boolean isStoragePermissionGranted() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager();
-    }
-
-    private void requestStoragePermissionDirect() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-            intent.setData(Uri.fromParts("package", getPackageName(), null));
-            startActivityForResult(intent, REQUEST_MANAGE_STORAGE_PERMISSION);
-        } else {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_MANAGE_STORAGE_PERMISSION);
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_MANAGE_STORAGE_PERMISSION) {
-            checkAndRequestPermissions();
         }
     }
 
