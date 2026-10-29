@@ -32,6 +32,10 @@ page.on('console', (msg) => {
 });
 page.on('pageerror', (err) => pageErrors.push(String(err).slice(0, 300)));
 page.on('requestfailed', (req) => failedRequests.push(`${req.method()} ${req.url().slice(0, 120)} — ${req.failure()?.errorText}`));
+const posts = [];
+page.on('response', (res) => {
+  if (res.request().method() === 'POST') posts.push(`${res.status()} ${res.url().replace(BASE, '')}`);
+});
 
 let exitCode = 1;
 try {
@@ -62,22 +66,32 @@ try {
   say(`generate button text: ${(await btn.innerText()).trim()}`);
 
   await btn.click();
+  say(`url right after click: ${page.url().replace(BASE, '')}`);
 
-  // success now redirects to /keys, where the toast and the NEW badge live
+  // success now redirects to /keys exactly — "**/keys**" would also match /keys/generate
   const redirected = await page
-    .waitForURL('**/keys**', { timeout: 30000 })
+    .waitForFunction(() => location.pathname === '/keys', null, { timeout: 30000 })
     .then(() => true)
     .catch(() => false);
-  say(`redirected to /keys after generate: ${redirected}`);
+  say(`landed on /keys: ${redirected}`);
+  say(`url after generate: ${page.url().replace(BASE, '')}`);
+  say(`query string: ${(await page.evaluate(() => location.search)) || '(empty)'}`);
   await page.waitForTimeout(1800);
-  const toast = await page.locator('text=/key\(s\) generated/i').first().innerText().catch(() => '');
-  say(`toast: ${toast || '(none)'}`);
-  const badge = await page.locator('span:has-text("new")').count();
+  const toast = await page
+    .locator('[role="status"]')
+    .first()
+    .innerText()
+    .catch(() => '');
+  say(`toast: ${toast.replace(/\s+/g, ' ').trim() || '(none)'}`);
+  say(`toast nodes in DOM: ${await page.locator('[role="status"]').count()}`);
+  const badge = await page.locator('span:text-is("NEW")').count();
   say(`NEW badges visible: ${badge}`);
+  say(`POSTs: ${posts.join(' | ') || '(none)'}`);
   const body = await page.evaluate(() => document.body.innerText);
   const msg = body.match(/(\d+ key\(s\) generated[^\n]*|[A-Z][^\n]{5,80}(?:error|failed|invalid|Not enough|expired)[^\n]*)/i);
   say(`page message: ${msg ? msg[0].trim() : '(none)'}`);
-  say(`button after click: ${(await btn.innerText()).trim()} (disabled: ${await btn.isDisabled()})`);
+  say(`body snippet: ${body.replace(/\s+/g, ' ').slice(0, 200)}`);
+  say(`body snippet: ${body.replace(/\s+/g, ' ').slice(0, 240)}`);
 
   await page.screenshot({ path: 'after-generate.png', fullPage: true }).catch(() => {});
 
