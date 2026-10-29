@@ -114,26 +114,35 @@ password `11111111` — **replace it**, the whole internet knows that one now).
 
 ## 4b. The game data (OBB) copy
 
-The loader copies the game's `.obb` files from shared storage into the sandbox
-before it offers LAUNCH. Two things decide whether that works:
+Two ways the game data gets into the sandbox, in this order:
 
-* **Permissions** — the manifest keeps the original loader's list. Trimming it
-  broke the sandbox boot and, with it, the copy. `MANAGE_EXTERNAL_STORAGE`
-  (the "All files access" special permission) is what makes
-  `/storage/emulated/0/Android/obb/<pkg>` readable on Android 11+.
-* **The gate** — before copying, the loader probes every place the data can
-  live: the primary volume under all its aliases plus real secondary volumes
-  (SD cards), and lists the `.obb` files it finds. A readable folder is enough
-  to start the copy, **even when the system still reports the grant as
-  missing** — some ROMs answer that question wrongly, and trusting it used to
-  stop the copy before it began.
+1. **Automatic copy** — if the phone lets the app read
+   `/storage/emulated/0/Android/obb/com.pubg.imobile`, the loader copies every
+   `.obb` it finds there and skips the rest of this section. That works on
+   Android 10 and below, and on some OEM builds.
+2. **Hand-over through the picker** — everything from Android 11 up. Google
+   closed the folder to third-party apps: `/Android/obb` and `/Android/data`
+   belong to the app whose name is on them, and **All files access
+   (`MANAGE_EXTERNAL_STORAGE`) does not open them** — it grants shared storage
+   *except* those two directories. Android 13 also closed the Storage Access
+   Framework loophole that file managers used to reach them. So no permission
+   can make the loader read that folder on a current phone; the file has to be
+   given to it. The card says so, and "Choose the .obb file" opens the system
+   picker. The read grant travels with the selected file, and the sandbox
+   folder is writable, so nothing blocks that route.
 
-If the card says the folder cannot be read, grant *All files access* in
-Settings → Apps → XLOX LOADER → Special access. If it says the folder is empty
-or missing, open the game once so it downloads its data.
+   The file must keep its name: `main.<version>.com.pubg.imobile.obb` (or
+   `patch.<version>…`). Anything else is rejected with a message saying what to
+   rename it to. Keeping the file in `Download` is the easiest place for the
+   picker to find it.
 
-The two decisions are plain Java (`ObbSelection`, `ObbAccess`) with JVM tests
-that the build workflow runs before compiling the APK:
+If copying fails, the card's **Show details** opens a report you can copy and
+send on: Android version, the grant state, every folder that was probed with
+what the filesystem answered (`exists`, `readable`, `.obb` count), the sandbox
+folder, free space and the last error.
+
+The two file decisions are plain Java (`ObbSelection`, `ObbAccess`) with JVM
+tests that the build workflow runs before compiling the APK:
 
 ```bash
 javac -d /tmp/obb loader/app/src/main/java/com/xlox/utils/ObbSelection.java \

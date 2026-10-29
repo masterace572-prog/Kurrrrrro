@@ -11,8 +11,8 @@ instead of drifting away from it:
 | `02b-verify.png` | sign in with a rejected key (inline error) |
 | `02c-dialog.png` | the "checking your key" dialog |
 | `03-main.png` | loader, key good, game data ready |
-| `04-file-access.png` | loader asking for all-files access before the OBB copy |
-| `04b-no-data.png` | OBB folder readable but empty — the card names the folder it checked |
+| `04-file-access.png` | the game data card: pick the .obb, or grant access |
+| `04b-no-data.png` | the folder was readable but empty — the card names what it checked |
 | `05-license-failed.png` | loader after the panel rejected the key |
 
 `overview.png` is all eight, four per row. The app is dark by default.
