@@ -101,7 +101,8 @@ updates; see **[LIB-UPDATES.md](LIB-UPDATES.md)**.
 2. Let Gradle sync (it downloads NDK 24.0.8215888 and the obfuscator plugins).
 3. Build → Build Bundle(s)/APK(s) → Build APK(s).
 
-`app/build.gradle` builds **arm64-v8a only**, `minSdk 21`, `targetSdk 28`.
+`app/build.gradle` builds **arm64-v8a only**, `minSdk 23`, `targetSdk 34`
+(`-PxloxTargetSdk=28` builds a legacy behaviour-level APK instead).
 The `app/libs/*.aar` (mundo, recommendpermission) and `classes.jar` are already
 in the zip.
 
@@ -110,6 +111,37 @@ in the zip.
 push that touches `loader/` and uploads it as a downloadable artifact.
 You still need a signing keystore for a release build (`app/xlox.jks` expects
 password `11111111` — **replace it**, the whole internet knows that one now).
+
+## 4b. The game data (OBB) copy
+
+The loader copies the game's `.obb` files from shared storage into the sandbox
+before it offers LAUNCH. Two things decide whether that works:
+
+* **Permissions** — the manifest keeps the original loader's list. Trimming it
+  broke the sandbox boot and, with it, the copy. `MANAGE_EXTERNAL_STORAGE`
+  (the "All files access" special permission) is what makes
+  `/storage/emulated/0/Android/obb/<pkg>` readable on Android 11+.
+* **The gate** — before copying, the loader probes every place the data can
+  live: the primary volume under all its aliases plus real secondary volumes
+  (SD cards), and lists the `.obb` files it finds. A readable folder is enough
+  to start the copy, **even when the system still reports the grant as
+  missing** — some ROMs answer that question wrongly, and trusting it used to
+  stop the copy before it began.
+
+If the card says the folder cannot be read, grant *All files access* in
+Settings → Apps → XLOX LOADER → Special access. If it says the folder is empty
+or missing, open the game once so it downloads its data.
+
+The two decisions are plain Java (`ObbSelection`, `ObbAccess`) with JVM tests
+that the build workflow runs before compiling the APK:
+
+```bash
+javac -d /tmp/obb loader/app/src/main/java/com/xlox/utils/ObbSelection.java \
+      loader/app/src/main/java/com/xlox/utils/ObbAccess.java \
+      loader/app/src/test/*.java
+java -cp /tmp/obb ObbSelectionTest
+java -cp /tmp/obb ObbAccessTest
+```
 
 ## 5. Local testing without an APK
 

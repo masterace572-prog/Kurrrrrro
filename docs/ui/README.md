@@ -12,9 +12,10 @@ instead of drifting away from it:
 | `02c-dialog.png` | the "checking your key" dialog |
 | `03-main.png` | loader, key good, game data ready |
 | `04-file-access.png` | loader asking for all-files access before the OBB copy |
+| `04b-no-data.png` | OBB folder readable but empty — the card names the folder it checked |
 | `05-license-failed.png` | loader after the panel rejected the key |
 
-`overview.png` is the six of them side by side.
+`overview.png` is all eight, four per row. The app is dark by default.
 
 Regenerate with:
 
