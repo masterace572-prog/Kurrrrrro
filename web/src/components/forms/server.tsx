@@ -68,7 +68,7 @@ export function MaintenanceForm({ status, message }: { status: string; message: 
             className="peer sr-only"
           />
           <span className="h-6 w-11 rounded-full bg-ink-600 transition peer-checked:bg-brand-500" />
-          <span className="absolute left-0.5 h-5 w-5 rounded-full bg-white transition peer-checked:translate-x-5" />
+          <span className="absolute left-0.5 h-5 w-5 rounded-full bg-slate-400 transition peer-checked:translate-x-5 peer-checked:bg-ink-950" />
         </label>
       </div>
 
