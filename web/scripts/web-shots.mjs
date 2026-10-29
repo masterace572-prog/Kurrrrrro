@@ -10,7 +10,7 @@
  * Writes docs/web-shots/*.png (or SHOT_DIR) and prints one line per screen.
  */
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const BASE = (process.env.BASE_URL || 'http://127.0.0.1:3000').replace(/\/+$/, '');
@@ -33,6 +33,39 @@ async function shot(name) {
   const file = path.join(OUT, `${name}.png`);
   await page.screenshot({ path: file, fullPage: false });
   console.log('shot', file);
+  await audit(name);
+}
+
+/**
+ * A phone screenshot that is quietly cut off on the right looks fine until
+ * somebody reads it. This lists every element that sticks out past the viewport
+ * so the culprit is named instead of guessed at.
+ */
+const overflow = [];
+async function audit(name) {
+  const report = await page.evaluate(() => {
+    const vw = document.documentElement.clientWidth;
+    const bad = [];
+    for (const el of document.querySelectorAll('body *')) {
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) continue;
+      if (r.right <= vw + 1) continue;
+      const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).slice(0, 5).join('.') : '';
+      bad.push({
+        sel: `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${cls ? `.${cls}` : ''}`,
+        right: Math.round(r.right),
+        width: Math.round(r.width),
+        text: (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40),
+      });
+    }
+    return { vw, scrollWidth: document.documentElement.scrollWidth, bad: bad.slice(0, 10) };
+  });
+  if (!report.bad.length && report.scrollWidth <= report.vw + 1) return;
+  const line =
+    `${name}: viewport=${report.vw} scrollWidth=${report.scrollWidth} ` +
+    report.bad.map((b) => `${b.sel} (right=${b.right}, w=${b.width}, "${b.text}")`).join(' | ');
+  overflow.push(line);
+  console.log(`::warning title=overflow ${name}::${line}`);
 }
 
 async function login() {
@@ -105,6 +138,10 @@ try {
   await page.goto(`${BASE}/settings/server`, { waitUntil: 'domcontentloaded' });
   await shot('11-mobile-server');
 } finally {
+  if (overflow.length) {
+    writeFileSync(path.join(OUT, 'overflow.txt'), overflow.join('\n') + '\n');
+    console.log(`${overflow.length} screen(s) overflow horizontally — see overflow.txt`);
+  }
   await ctx.close();
   await browser.close();
 }
