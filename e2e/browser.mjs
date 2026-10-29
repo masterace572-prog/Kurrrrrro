@@ -62,16 +62,18 @@ try {
   say(`generate button text: ${(await btn.innerText()).trim()}`);
 
   await btn.click();
-  // wait for either a toast, an inline message, or the button to stop spinning
-  await page.waitForFunction(
-    () => {
-      const body = document.body.innerText;
-      return /key\(s\) generated|Not enough|invalid|expired|error|Saved|Too many/i.test(body);
-    },
-    { timeout: 30000 }
-  ).catch(() => say('no visible message within 30s'));
 
-  await page.waitForTimeout(1500);
+  // success now redirects to /keys, where the toast and the NEW badge live
+  const redirected = await page
+    .waitForURL('**/keys**', { timeout: 30000 })
+    .then(() => true)
+    .catch(() => false);
+  say(`redirected to /keys after generate: ${redirected}`);
+  await page.waitForTimeout(1200);
+  const toast = await page.locator('text=/key\(s\) generated/i').first().innerText().catch(() => '');
+  say(`toast: ${toast || '(none)'}`);
+  const badge = await page.locator('text=new').count();
+  say(`NEW badges visible: ${badge}`);
   const body = await page.evaluate(() => document.body.innerText);
   const msg = body.match(/(\d+ key\(s\) generated[^\n]*|[A-Z][^\n]{5,80}(?:error|failed|invalid|Not enough|expired)[^\n]*)/i);
   say(`page message: ${msg ? msg[0].trim() : '(none)'}`);
@@ -86,7 +88,7 @@ try {
   say(`/keys rows: ${rows}`);
   say(`newest key visible: ${(keyText.match(/admin-\d+-[A-Za-z0-9]+/g) || ['none'])[0]}`);
 
-  exitCode = /key\(s\) generated/.test(body) && rows > 0 ? 0 : 1;
+  exitCode = redirected && /key\(s\) generated/i.test(toast) && rows > 0 ? 0 : 1;
 } catch (e) {
   say(`crash: ${e.message}`);
   await page.screenshot({ path: 'crash.png', fullPage: true }).catch(() => {});
