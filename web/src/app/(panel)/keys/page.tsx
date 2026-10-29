@@ -112,7 +112,7 @@ export default async function KeysPage({
         </div>
       </div>
 
-      <div className="card overflow-x-auto p-0">
+      <div className="card min-w-0 overflow-x-auto p-0">
         <table className="table">
           <thead>
             <tr>

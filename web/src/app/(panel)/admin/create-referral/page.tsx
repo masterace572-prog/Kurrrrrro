@@ -37,7 +37,7 @@ export default async function ReferralPage() {
       <div className="grid gap-4 xl:grid-cols-3">
         <ReferralForm isOwner={Number(me.level) === 1} />
 
-        <div className="card overflow-x-auto p-0 xl:col-span-2">
+        <div className="card min-w-0 overflow-x-auto p-0 xl:col-span-2">
           <table className="table">
             <thead>
               <tr>

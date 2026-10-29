@@ -52,17 +52,22 @@ export default async function DashboardPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* two-up on a phone, so four figures stay one glance instead of four cards */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {cards.map((c) => (
-          <Link key={c.label} href={c.href} className="card transition hover:border-slate-200/10 hover:bg-ink-850">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{c.label}</p>
-            <p className={`mt-2 text-3xl font-black ${c.tone}`}>{c.value}</p>
+          <Link
+            key={c.label}
+            href={c.href}
+            className="card p-4 transition hover:border-slate-200/10 hover:bg-ink-850 sm:p-5"
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 sm:text-xs">{c.label}</p>
+            <p className={`mt-1.5 text-2xl font-black sm:mt-2 sm:text-3xl ${c.tone}`}>{c.value}</p>
           </Link>
         ))}
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <div className="card p-0 lg:col-span-2">
+        <div className="card min-w-0 p-0 lg:col-span-2">
           <div className="flex items-center justify-between px-5 py-4">
             <h2 className="font-semibold text-slate-200">Latest keys</h2>
             <Link href="/keys" className="flex items-center gap-1 text-xs text-brand-400 hover:underline">

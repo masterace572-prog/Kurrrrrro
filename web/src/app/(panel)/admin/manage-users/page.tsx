@@ -50,7 +50,7 @@ export default async function ManageUsersPage() {
         }
       />
 
-      <div className="card overflow-x-auto p-0">
+      <div className="card min-w-0 overflow-x-auto p-0">
         <table className="table">
           <thead>
             <tr>

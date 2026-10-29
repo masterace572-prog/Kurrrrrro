@@ -17,7 +17,7 @@ const BASE = process.env.PUBLIC_BASE_URL || 'https://kuro-panel-psi.vercel.app';
 
 function Code({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto rounded-xl border border-line bg-ink-950 p-3 text-[12px] leading-relaxed text-slate-300">
+    <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-line bg-ink-950 p-3 text-[12px] leading-relaxed text-slate-300 sm:whitespace-pre sm:break-normal">
       <code>{children}</code>
     </pre>
   );

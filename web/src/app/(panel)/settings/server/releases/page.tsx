@@ -100,7 +100,7 @@ export default async function ReleasesPage() {
         </div>
       </div>
 
-      <div className="card mt-4 overflow-x-auto p-0">
+      <div className="card mt-4 min-w-0 overflow-x-auto p-0">
         <div className="px-5 py-4">
           <h2 className="font-semibold text-slate-200">Release history</h2>
           <p className="text-xs text-slate-500">
