@@ -155,3 +155,5 @@ if (GH) {
 }
 
 process.exit(failed === 0 ? 0 : 1);
+
+// checked again after the toast/UX deploy: 2026-10-29T11:23:48Z
