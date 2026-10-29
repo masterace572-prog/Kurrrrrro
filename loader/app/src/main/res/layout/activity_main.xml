@@ -15,119 +15,97 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:paddingStart="16dp"
-            android:paddingTop="18dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="76dp">
+            android:paddingStart="20dp"
+            android:paddingTop="22dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="28dp">
 
+            <!-- header: mark, name, state -->
             <LinearLayout
-                android:id="@+id/brandHeader"
+                android:id="@+id/header"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center"
-                android:orientation="vertical">
-                <FrameLayout
-                    android:id="@+id/logoFrame"
-                    android:layout_width="58dp"
-                    android:layout_height="58dp">
-                    <ImageView
-                        android:id="@+id/logoGlow"
-                        android:layout_width="58dp"
-                        android:layout_height="58dp"
-                        android:alpha="0"
-                        android:contentDescription="@string/app_name" />
-                    <ImageView
-                        android:id="@+id/mainLogo"
-                        android:layout_width="54dp"
-                        android:layout_height="54dp"
-                        android:layout_gravity="center"
-                        android:contentDescription="@string/app_name"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/logo_transparent" />
-                </FrameLayout>
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/mainLogo"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:contentDescription="@string/app_name"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/logo_transparent" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:letterSpacing="0.08"
+                        android:text="@string/app_name"
+                        android:textColor="@color/text_primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/gameName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="BGMI · India"
+                        android:textColor="@color/text_dim"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
                 <TextView
-                    android:id="@+id/dashboardTitle"
+                    android:id="@+id/deviceStatus"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="15dp"
-                    android:letterSpacing="0.06"
-                    android:text="XLOX LOADER"
-                    android:textColor="@color/text_primary"
-                    android:textSize="21sp"
+                    android:background="@drawable/bg_pill"
+                    android:letterSpacing="0.08"
+                    android:paddingStart="12dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="6dp"
+                    android:text="Ready"
+                    android:textColor="@color/accent_good"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="5dp"
-                    android:letterSpacing="0.22"
-                    android:text="SECURE ACCESS"
-                    android:textColor="@color/text_muted"
-                    android:textSize="10sp" />
             </LinearLayout>
 
+            <!-- access card -->
             <LinearLayout
                 android:id="@+id/mainCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="22dp"
+                android:layout_marginTop="20dp"
                 android:background="@drawable/bg_reference_card"
                 android:orientation="vertical"
-                android:paddingStart="15dp"
-                android:paddingTop="15dp"
-                android:paddingEnd="15dp"
-                android:paddingBottom="15dp">
+                android:paddingStart="16dp"
+                android:paddingTop="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="16dp">
 
-                <LinearLayout
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:letterSpacing="0.02"
-                        android:text="Subscription"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:text="Details"
-                        android:textColor="@color/text_muted"
-                        android:textSize="14sp" />
-                </LinearLayout>
+                    android:letterSpacing="0.12"
+                    android:text="ACCESS"
+                    android:textColor="@color/text_dim"
+                    android:textSize="10sp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="15dp"
+                    android:layout_marginTop="12dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:letterSpacing="0.08"
-                        android:text="STATUS"
-                        android:textColor="@color/text_dim"
-                        android:textSize="10sp" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:letterSpacing="0.08"
-                        android:text="EXPIRY DATE"
-                        android:textColor="@color/text_dim"
-                        android:textSize="10sp" />
-                </LinearLayout>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
                     <TextView
                         android:id="@+id/subscriptionStatus"
                         android:layout_width="0dp"
@@ -135,18 +113,17 @@
                         android:layout_weight="1"
                         android:text="Active"
                         android:textColor="@color/accent_good"
-                        android:textSize="14sp"
+                        android:textSize="15sp"
                         android:textStyle="bold" />
+
                     <TextView
                         android:id="@+id/expiryValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:gravity="end"
                         android:maxLines="1"
                         android:text="--"
-                        android:textColor="@color/text_primary"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp" />
                 </LinearLayout>
 
                 <View
@@ -159,306 +136,227 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="bottom"
+                    android:gravity="center_vertical"
                     android:orientation="horizontal">
+
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:orientation="vertical">
+
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:letterSpacing="0.08"
-                            android:text="TIME REMAINING"
+                            android:letterSpacing="0.12"
+                            android:text="TIME LEFT"
                             android:textColor="@color/text_dim"
                             android:textSize="10sp" />
+
                         <TextView
                             android:id="@+id/timeRemaining"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="5dp"
+                            android:layout_marginTop="4dp"
                             android:text="--"
-                            android:textColor="@color/accent_warn"
-                            android:textSize="17sp"
+                            android:textColor="@color/text_primary"
+                            android:textSize="20sp"
                             android:textStyle="bold" />
                     </LinearLayout>
-                </LinearLayout>
 
-                <LinearLayout
-                    android:id="@+id/keyTimeRow"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="13dp"
-                    android:orientation="horizontal">
-                    <include
-                        android:id="@+id/daysBox"
-                        layout="@layout/item_time_box"
-                        android:layout_width="0dp"
-                        android:layout_height="58dp"
-                        android:layout_weight="1" />
-                    <include
-                        android:id="@+id/hoursBox"
-                        layout="@layout/item_time_box"
-                        android:layout_width="0dp"
-                        android:layout_height="58dp"
-                        android:layout_marginStart="7dp"
-                        android:layout_weight="1" />
-                    <include
-                        android:id="@+id/minutesBox"
-                        layout="@layout/item_time_box"
-                        android:layout_width="0dp"
-                        android:layout_height="58dp"
-                        android:layout_marginStart="7dp"
-                        android:layout_weight="1" />
-                    <include
-                        android:id="@+id/secondsBox"
-                        layout="@layout/item_time_box"
-                        android:layout_width="0dp"
-                        android:layout_height="58dp"
-                        android:layout_marginStart="7dp"
-                        android:layout_weight="1" />
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="end"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:letterSpacing="0.12"
+                            android:text="DEVICE"
+                            android:textColor="@color/text_dim"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/deviceValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:maxWidth="150dp"
+                            android:text="This device"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 
+            <!-- game data card: the one thing that has to happen before a launch -->
             <LinearLayout
-                android:id="@+id/deviceStatusRow"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginTop="12dp"
-                android:orientation="horizontal">
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_reference_card"
-                    android:gravity="center_vertical"
-                    android:orientation="vertical"
-                    android:paddingStart="13dp"
-                    android:paddingEnd="9dp">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:letterSpacing="0.08"
-                        android:text="YOUR DEVICE"
-                        android:textColor="@color/text_dim"
-                        android:textSize="10sp" />
-                    <TextView
-                        android:id="@+id/deviceValue"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        android:text="Android device"
-                        android:textColor="@color/text_primary"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_marginStart="10dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_reference_card"
-                    android:gravity="center_vertical"
-                    android:orientation="vertical"
-                    android:paddingStart="13dp"
-                    android:paddingEnd="9dp">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:letterSpacing="0.08"
-                        android:text="STATUS"
-                        android:textColor="@color/text_dim"
-                        android:textSize="10sp" />
-                    <TextView
-                        android:id="@+id/deviceStatus"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:text="Safe"
-                        android:textColor="@color/accent"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- The library is the thing that has to be current; it used to be
-                 reported in a hidden debug row nobody could see. -->
-            <LinearLayout
-                android:id="@+id/libCard"
+                android:id="@+id/obbCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:background="@drawable/bg_reference_card"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="13dp"
-                android:paddingTop="11dp"
-                android:paddingEnd="9dp"
-                android:paddingBottom="11dp">
-                <LinearLayout
-                    android:layout_width="0dp"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingTop="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:letterSpacing="0.12"
+                    android:text="GAME DATA"
+                    android:textColor="@color/text_dim"
+                    android:textSize="10sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
                     <TextView
+                        android:id="@+id/obbState"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Not installed yet"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/percentText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:letterSpacing="0.08"
-                        android:text="LIBRARY"
-                        android:textColor="@color/text_dim"
-                        android:textSize="10sp" />
-                    <TextView
-                        android:id="@+id/appVersionText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        android:text="checking"
-                        android:textColor="@color/text_primary"
+                        android:minWidth="40dp"
+                        android:gravity="end"
+                        android:text=""
+                        android:textColor="@color/accent"
                         android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
+
+                <ProgressBar
+                    android:id="@+id/downloadProgressBar"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="3dp"
+                    android:layout_marginTop="10dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressBackgroundTint="@color/line"
+                    android:progressTint="@color/accent"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- primary action -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/startBgmi"
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:layout_marginTop="20dp"
+                android:background="@drawable/bg_primary_action"
+                android:backgroundTint="@null"
+                android:stateListAnimator="@null"
+                android:text="Copy game data"
+                android:textAllCaps="false"
+                android:letterSpacing="0.04"
+                android:textColor="@color/surface_void"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/actionHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:text="Copies the game files once, then you can launch."
+                android:textColor="@color/text_dim"
+                android:textSize="11sp" />
+
+            <LinearLayout
+                android:id="@+id/statusToggle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_reference_card"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingTop="11dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="11dp"
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:id="@+id/statusLoader"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:indeterminateTint="@color/accent"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/statusToggleText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="2"
+                    android:text=""
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <!-- footer: what is installed, and a way to ask again -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/appVersionText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text="Library"
+                    android:textColor="@color/text_faint"
+                    android:textSize="10sp" />
+
                 <TextView
                     android:id="@+id/checkUpdateButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_ghost_button"
-                    android:paddingStart="13dp"
-                    android:paddingTop="7dp"
-                    android:paddingEnd="13dp"
-                    android:paddingBottom="7dp"
-                    android:text="CHECK"
-                    android:textAllCaps="false"
-                    android:textColor="@color/text_primary"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/startBgmi"
-                android:layout_width="match_parent"
-                android:layout_height="53dp"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/bg_primary_action"
-                android:backgroundTint="@null"
-                android:stateListAnimator="@null"
-                android:text="LAUNCH GAME"
-                android:textAllCaps="false"
-                android:letterSpacing="0.06"
-                android:textColor="@color/surface_void"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <LinearLayout
-                android:id="@+id/statusToggle"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_reference_card"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="13dp"
-                android:paddingEnd="13dp"
-                android:visibility="gone">
-                <ProgressBar
-                    android:id="@+id/statusLoader"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:indeterminateTint="@color/accent"
-                    android:visibility="gone" />
-                <ImageView
-                    android:id="@+id/statusErrorIcon"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:visibility="gone" />
-                <TextView
-                    android:id="@+id/statusToggleText"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:maxLines="2"
-                    android:text="READY"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingStart="12dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="6dp"
+                    android:text="Check"
                     android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/downloadBox"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_reference_card"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="13dp"
-                android:visibility="gone">
-                <ProgressBar
-                    android:id="@+id/downloadProgressBar"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:indeterminateTint="@color/accent" />
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-                    <TextView
-                        android:id="@+id/downloadStatusText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Preparing"
-                        android:textColor="@color/text_primary"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                    <TextView
-                        android:id="@+id/downloadSubText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:text="Please wait while we finish"
-                        android:textColor="@color/text_dim"
-                        android:textSize="10sp" />
-                </LinearLayout>
-                <TextView
-                    android:id="@+id/percentText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minWidth="42dp"
-                    android:gravity="end"
-                    android:text="WAIT"
-                    android:textColor="@color/accent"
-                    android:textSize="12sp"
+                    android:textSize="10sp"
                     android:textStyle="bold" />
-                <ProgressBar
-                    android:id="@+id/loadingCursor"
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    android:visibility="gone" />
             </LinearLayout>
 
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/restartButton"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_ghost_button"
-                android:backgroundTint="@null"
-                android:stateListAnimator="@null"
-                android:text="RESTART APP"
-                android:textAllCaps="false"
-                android:letterSpacing="0.06"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-
+            <!-- kept for code that still resolves them; never shown -->
             <LinearLayout
                 android:id="@+id/legacyControls"
                 android:layout_width="0dp"
@@ -467,25 +365,16 @@
                 android:visibility="gone">
                 <TextView android:id="@+id/startText" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 <ImageView android:id="@+id/actionIcon" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                <TextView android:id="@+id/gameName" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 <TextView android:id="@+id/packageName" android:layout_width="wrap_content" android:layout_height="wrap_content" />
                 <TextView android:id="@+id/gameStatus" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                <LinearLayout android:id="@+id/fbCard" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-                    <androidx.appcompat.widget.AppCompatButton android:id="@+id/startFB" android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
-                    <androidx.appcompat.widget.AppCompatButton android:id="@+id/obbButton" android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
-                </LinearLayout>
+                <LinearLayout android:id="@+id/keyTimeRow" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" />
+                <LinearLayout android:id="@+id/fbCard" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" />
+                <androidx.appcompat.widget.AppCompatButton android:id="@+id/startFB" android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+                <androidx.appcompat.widget.AppCompatButton android:id="@+id/obbButton" android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+                <TextView android:id="@+id/downloadStatusText" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                <ProgressBar android:id="@+id/loadingCursor" android:layout_width="0dp" android:layout_height="0dp" />
+                <View android:id="@+id/downloadBox" android:layout_width="0dp" android:layout_height="0dp" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
-
-    <TextView
-        android:id="@+id/systemReady"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="32dp"
-        android:letterSpacing="0.16"
-        android:text="SYSTEM READY"
-        android:textColor="@color/text_faint"
-        android:textSize="10sp" />
 </FrameLayout>

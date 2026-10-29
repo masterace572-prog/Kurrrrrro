@@ -10,7 +10,7 @@
  * Writes docs/web-shots/*.png (or SHOT_DIR) and prints one line per screen.
  */
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const BASE = (process.env.BASE_URL || 'http://127.0.0.1:3000').replace(/\/+$/, '');
@@ -33,6 +33,87 @@ async function shot(name) {
   const file = path.join(OUT, `${name}.png`);
   await page.screenshot({ path: file, fullPage: false });
   console.log('shot', file);
+  await audit(name);
+}
+
+/**
+ * A phone screenshot that is quietly cut off on the right looks fine until
+ * somebody reads it. This lists every element that sticks out past the viewport
+ * so the culprit is named instead of guessed at.
+ */
+const overflow = [];
+const auditLog = [];
+async function audit(name) {
+  const report = await page.evaluate(() => {
+    const vw = document.documentElement.clientWidth;
+    const bad = [];
+    // an element inside a box that scrolls sideways is not a page bug
+    const inScroller = (el) => {
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        const ox = getComputedStyle(p).overflowX;
+        if ((ox === 'auto' || ox === 'scroll') && p.scrollWidth > p.clientWidth + 1) return true;
+      }
+      return false;
+    };
+    for (const el of document.querySelectorAll('body *')) {
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) continue;
+      if (r.right <= vw + 1) continue;
+      if (inScroller(el)) continue;
+      const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).slice(0, 5).join('.') : '';
+      bad.push({
+        sel: `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${cls ? `.${cls}` : ''}`,
+        right: Math.round(r.right),
+        width: Math.round(r.width),
+        text: (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40),
+      });
+    }
+    const widest = [...document.querySelectorAll('body *')]
+      .map((el) => {
+        const r = el.getBoundingClientRect();
+        const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).slice(0, 4).join('.') : '';
+        return { sel: `${el.tagName.toLowerCase()}${cls ? `.${cls}` : ''}`, width: Math.round(r.width), right: Math.round(r.right) };
+      })
+      .filter((x) => x.width > 0)
+      .sort((a, b) => b.right - a.right)
+      .slice(0, 3);
+    // when the page itself scrolls sideways, name the deepest boxes that are
+    // wider than their own parent: that is where the width came from
+    const roots = [];
+    if (document.documentElement.scrollWidth > vw + 1) {
+      for (const el of document.querySelectorAll('body *')) {
+        const own = el.getBoundingClientRect();
+        const parent = el.parentElement?.getBoundingClientRect();
+        if (!parent || own.width > vw + 1 || own.width < 2) continue;
+        if (own.width <= parent.width + 1) continue;
+        if (inScroller(el)) continue;
+        const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).slice(0, 4).join('.') : '';
+        roots.push({
+          sel: `${el.tagName.toLowerCase()}${cls ? `.${cls}` : ''}`,
+          width: Math.round(own.width),
+          parentWidth: Math.round(parent.width),
+          text: (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30),
+        });
+      }
+    }
+    return { vw, scrollWidth: document.documentElement.scrollWidth, bad: bad.slice(0, 10), widest, roots: roots.slice(-6) };
+  });
+  // always record the numbers: an empty overflow list has to be
+  // distinguishable from an audit that never ran
+  auditLog.push(
+    `${name}: viewport=${report.vw} scrollWidth=${report.scrollWidth} ` +
+      `widest=${report.widest.map((w) => `${w.sel}(w=${w.width},right=${w.right})`).join(', ')}`
+  );
+
+  if (!report.bad.length && report.scrollWidth <= report.vw + 1) return;
+  const line =
+    `${name}: viewport=${report.vw} scrollWidth=${report.scrollWidth} ` +
+    `roots=[${(report.roots || [])
+      .map((r) => `${r.sel} w=${r.width} > parent ${r.parentWidth} "${r.text}"`)
+      .join(' | ')}] ` +
+    report.bad.map((b) => `${b.sel} (right=${b.right}, w=${b.width}, "${b.text}")`).join(' | ');
+  overflow.push(line);
+  console.log(`::warning title=overflow ${name}::${line}`);
 }
 
 async function login() {
@@ -104,7 +185,25 @@ try {
 
   await page.goto(`${BASE}/settings/server`, { waitUntil: 'domcontentloaded' });
   await shot('11-mobile-server');
+
+  // the lists that used to be wide tables: these are the pages most likely to
+  // break at phone width, so they get their own captures
+  await page.goto(`${BASE}/keys`, { waitUntil: 'domcontentloaded' });
+  await shot('12-mobile-keys');
+
+  await page.goto(`${BASE}/admin/manage-users`, { waitUntil: 'domcontentloaded' });
+  await shot('13-mobile-users');
+
+  await page.goto(`${BASE}/settings/server/releases`, { waitUntil: 'domcontentloaded' });
+  await shot('14-mobile-releases');
 } finally {
+  writeFileSync(path.join(OUT, 'audit.txt'), auditLog.join('\n') + '\n');
+  if (overflow.length) {
+    writeFileSync(path.join(OUT, 'overflow.txt'), overflow.join('\n') + '\n');
+    console.log(`${overflow.length} screen(s) overflow horizontally — see overflow.txt / audit.txt`);
+  } else {
+    console.log('no horizontal overflow detected — see audit.txt for the measurements');
+  }
   await ctx.close();
   await browser.close();
 }

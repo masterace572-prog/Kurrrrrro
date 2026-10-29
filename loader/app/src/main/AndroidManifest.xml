@@ -49,7 +49,7 @@
         android:usesCleartextTraffic="true">
 
         <activity
-            android:name=".LogAct"
+            android:name=".SplashAct"
             android:configChanges="screenSize|orientation"
             android:exported="true"
             android:theme="@style/AppTheme">
@@ -58,6 +58,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".LogAct"
+            android:configChanges="screenSize|orientation"
+            android:exported="false"
+            android:theme="@style/AppTheme" />
 
         <activity 
             android:name=".MAct"

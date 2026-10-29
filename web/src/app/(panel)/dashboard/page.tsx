@@ -37,7 +37,7 @@ export default async function DashboardPage() {
     { label: 'Total keys', value: stats?.total ?? '0', href: '/keys', tone: 'text-slate-100' },
     { label: 'Active', value: stats?.active ?? '0', href: '/keys', tone: 'text-emerald-300' },
     { label: 'Expired', value: stats?.expired ?? '0', href: '/keys', tone: 'text-red-300' },
-    { label: staff ? 'Accounts' : 'Devices', value: staff ? (stats?.resellers ?? '0') : (stats?.devices ?? '0'), href: staff ? '/admin/manage-users' : '/keys', tone: 'text-sky-700' },
+    { label: staff ? 'Accounts' : 'Devices', value: staff ? (stats?.resellers ?? '0') : (stats?.devices ?? '0'), href: staff ? '/admin/manage-users' : '/keys', tone: 'text-sky-300' },
   ];
 
   return (
@@ -58,15 +58,15 @@ export default async function DashboardPage() {
           <Link
             key={c.label}
             href={c.href}
-            className="card p-4 transition hover:border-slate-200/10 hover:bg-ink-850 sm:p-5"
+            className="card px-3 py-3 transition hover:border-line hover:bg-ink-850 sm:p-5"
           >
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 sm:text-xs">{c.label}</p>
-            <p className={`mt-1.5 text-2xl font-black sm:mt-2 sm:text-3xl ${c.tone}`}>{c.value}</p>
+            <p className={`mt-1 text-xl font-black leading-none sm:mt-2 sm:text-3xl ${c.tone}`}>{c.value}</p>
           </Link>
         ))}
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="card min-w-0 p-0 lg:col-span-2">
           <div className="flex items-center justify-between px-5 py-4">
             <h2 className="font-semibold text-slate-200">Latest keys</h2>
@@ -74,7 +74,43 @@ export default async function DashboardPage() {
               View all <Icon name="chevron" className="h-3 w-3" />
             </Link>
           </div>
-          <div className="overflow-x-auto">
+          <div className="space-y-2 px-4 pb-4 md:hidden">
+            {keys.length === 0 ? (
+              <p className="py-6 text-center text-sm text-slate-500">
+                No keys yet —{' '}
+                <Link href="/keys/generate" className="text-brand-400">generate one</Link>.
+              </p>
+            ) : (
+              keys.map((k) => {
+                const expired = k.expired_date ? new Date(k.expired_date) < new Date() : false;
+                return (
+                  <Link
+                    key={k.id_keys}
+                    href={`/keys/${k.id_keys}`}
+                    className="block rounded-xl border border-line bg-ink-850 px-3 py-2.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate font-mono text-[11px] text-slate-200">{k.user_key}</span>
+                      {!k.status ? (
+                        <span className="badge shrink-0 bg-ink-800 text-slate-300">blocked</span>
+                      ) : expired ? (
+                        <span className="badge shrink-0 bg-red-500/10 text-red-300">expired</span>
+                      ) : k.expired_date ? (
+                        <span className="badge shrink-0 bg-emerald-500/10 text-emerald-300">active</span>
+                      ) : (
+                        <span className="badge shrink-0 bg-sky-500/10 text-sky-300">unused</span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      {durationLabel(k.duration)} · {k.expired_date ? fmtLocal(k.expired_date) : 'not started'}
+                    </p>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
             <table className="table">
               <thead>
                 <tr>
@@ -121,7 +157,7 @@ export default async function DashboardPage() {
                           ) : k.expired_date ? (
                             <span className="badge bg-emerald-500/10 text-emerald-300">active</span>
                           ) : (
-                            <span className="badge bg-sky-50 text-sky-700">unused</span>
+                            <span className="badge bg-sky-500/10 text-sky-300">unused</span>
                           )}
                         </td>
                       </tr>
@@ -152,13 +188,13 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="card">
           <div className="flex items-center gap-2">
             <Icon name="server" className="h-4 w-4 text-brand-400" />
             <h2 className="font-semibold text-slate-200">Loader endpoint</h2>
           </div>
-          <p className="mt-1 text-sm text-slate-400">POST, form-urlencoded: game, user_key, serial</p>
+          <p className="mt-1 text-xs text-slate-500">POST · game, user_key, serial</p>
           <pre className="mt-3 overflow-x-auto rounded-lg bg-ink-850 p-3 text-xs text-emerald-300">
             {`${process.env.PUBLIC_BASE_URL || 'https://<your-vercel-app>'}/server`}
           </pre>
@@ -180,7 +216,7 @@ export default async function DashboardPage() {
           {lib ? (
             <>
               <p className="mt-2 text-2xl font-black text-slate-100">v{lib.version}</p>
-              <p className="text-xs text-slate-500">published {fmtLocal(lib.created_at)} · pushed {fmtLocal(lib.created_at)}</p>
+              <p className="text-xs text-slate-500">published {fmtLocal(lib.created_at)}</p>
             </>
           ) : (
             <p className="mt-2 text-sm text-slate-400">No lib published yet.</p>

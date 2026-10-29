@@ -10,7 +10,7 @@ export default function PageHeader({
   breadcrumb?: { label: string; href?: string }[];
 }) {
   return (
-    <div className="mb-6">
+    <div className="mb-5 sm:mb-6">
       {breadcrumb?.length ? (
         <nav className="mb-2 flex items-center gap-1.5 text-xs text-slate-500" aria-label="Breadcrumb">
           {breadcrumb.map((b, i) => (
@@ -29,8 +29,8 @@ export default function PageHeader({
       ) : null}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold tracking-tight text-slate-100 sm:text-2xl">{title}</h1>
-          {subtitle ? <p className="mt-1 text-sm text-slate-400">{subtitle}</p> : null}
+          <h1 className="break-words text-lg font-bold leading-tight tracking-tight text-slate-100 sm:text-2xl">{title}</h1>
+          {subtitle ? <p className="mt-1 text-xs text-slate-500 sm:text-sm">{subtitle}</p> : null}
         </div>
         {action}
       </div>

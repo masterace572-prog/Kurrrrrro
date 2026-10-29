@@ -61,7 +61,7 @@ export default async function KeysPage({
     <>
       <PageHeader
         title="Keys"
-        subtitle={staff ? 'Every reseller in one table' : 'Your keys only'}
+        subtitle={staff ? 'Every reseller in one place' : 'Your keys only'}
         breadcrumb={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Keys' }]}
         action={
           <Link href="/keys/generate" className="btn-primary">
@@ -70,15 +70,19 @@ export default async function KeysPage({
         }
       />
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      {/* three numbers do not deserve three full-width rows on a phone */}
+      <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
         {[
           { label: 'Total', value: stats?.total ?? '0', tone: 'text-slate-100' },
           { label: 'Active', value: stats?.active ?? '0', tone: 'text-emerald-300' },
           { label: 'Expired', value: stats?.expired ?? '0', tone: 'text-red-300' },
         ].map((s) => (
-          <div key={s.label} className="card flex items-center justify-between py-3">
-            <span className="text-xs uppercase tracking-wider text-slate-500">{s.label}</span>
-            <span className={`text-xl font-black ${s.tone}`}>{s.value}</span>
+          <div
+            key={s.label}
+            className="card flex flex-col gap-0.5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3"
+          >
+            <span className="text-[10px] uppercase tracking-wider text-slate-500 sm:text-xs">{s.label}</span>
+            <span className={`text-lg font-black leading-none sm:text-xl ${s.tone}`}>{s.value}</span>
           </div>
         ))}
       </div>
@@ -91,7 +95,7 @@ export default async function KeysPage({
               <input
                 name="q"
                 defaultValue={term}
-                placeholder="Search by key, reseller or device ID…"
+                placeholder="Search keys…"
                 className="input pl-9"
                 maxLength={64}
               />
@@ -112,7 +116,55 @@ export default async function KeysPage({
         </div>
       </div>
 
-      <div className="card min-w-0 overflow-x-auto p-0">
+      {/* phones get rows, not a horizontally scrolled table */}
+      <div className="space-y-2.5 sm:hidden">
+        {rows.length === 0 ? (
+          <div className="card text-center">
+            <p className="text-sm font-semibold text-slate-300">{term ? 'No keys match' : 'No keys yet'}</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {term ? (
+                <Link href="/keys" className="text-brand-400">Clear search</Link>
+              ) : (
+                <Link href="/keys/generate" className="text-brand-400">Generate one</Link>
+              )}
+            </p>
+          </div>
+        ) : (
+          rows.map((k) => {
+            const expired = k.expired_date ? new Date(k.expired_date) < new Date() : false;
+            const dev = devicesOf(k.devices);
+            const state = !k.status ? 'blocked' : expired ? 'expired' : k.expired_date ? 'active' : 'unused';
+            const tone =
+              state === 'blocked' ? 'bg-ink-800 text-slate-300'
+                : state === 'expired' ? 'bg-red-500/10 text-red-300'
+                  : state === 'active' ? 'bg-emerald-500/10 text-emerald-300'
+                    : 'bg-sky-500/10 text-sky-300';
+            return (
+              <div key={k.id_keys} className="rounded-xl border border-line bg-ink-900 p-3.5">
+                <div className="flex items-start justify-between gap-2">
+                  <Link href={`/keys/${k.id_keys}`} className="min-w-0 truncate font-mono text-xs text-slate-200">
+                    {k.user_key}
+                  </Link>
+                  <span className={`badge shrink-0 ${tone}`}>{state}</span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+                  <span>{k.game}</span>
+                  <span>{durationLabel(k.duration)}</span>
+                  <span>{dev.length}/{k.max_devices} devices</span>
+                  <span>{k.expired_date ? fmtLocal(k.expired_date) : 'not started'}</span>
+                </div>
+                <div className="mt-2.5 flex items-center gap-1.5">
+                  <Link href={`/keys/${k.id_keys}`} className="btn-ghost flex-1 px-2 py-1.5 text-xs">Open</Link>
+                  <ToggleStatusButton userKey={k.user_key} status={Number(k.status)} />
+                  <DeleteKeyButton userKey={k.user_key} />
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="card hidden min-w-0 overflow-x-auto p-0 sm:block">
         <table className="table">
           <thead>
             <tr>
@@ -183,7 +235,7 @@ export default async function KeysPage({
                       ) : k.expired_date ? (
                         <span className="badge bg-emerald-500/10 text-emerald-300">active</span>
                       ) : (
-                        <span className="badge bg-sky-50 text-sky-700">unused</span>
+                        <span className="badge bg-sky-500/10 text-sky-300">unused</span>
                       )}
                     </td>
                     <td className="pr-5">

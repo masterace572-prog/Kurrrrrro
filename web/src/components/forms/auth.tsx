@@ -92,7 +92,7 @@ export function RegisterForm() {
         />
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Username" name="username" error={err('username')}>
           <input id="username" name="username" className="input" required minLength={4} maxLength={25} autoComplete="username" />
         </Field>
@@ -105,7 +105,7 @@ export function RegisterForm() {
         <input id="email" name="email" type="email" className="input" autoComplete="email" placeholder="you@example.com" />
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Password" name="password" error={err('password')}>
           <input id="password" name="password" type="password" className="input" required minLength={6} autoComplete="new-password" />
         </Field>

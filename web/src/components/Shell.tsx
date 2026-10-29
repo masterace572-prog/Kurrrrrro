@@ -139,7 +139,7 @@ export default function Shell({
 
       <a
         href="/logout"
-        className="mt-4 flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm text-slate-400 transition hover:bg-red-500/100/10 hover:text-red-300"
+        className="mt-4 flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm text-slate-400 transition hover:bg-red-500/10 hover:text-red-300"
       >
         <Icon name="logout" className="h-4 w-4" />
         Sign out
@@ -165,7 +165,7 @@ export default function Shell({
       {/* mobile drawer */}
       {open ? (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-slate-100/30" onClick={() => setOpen(false)} />
+          <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
           <aside className="absolute inset-y-0 left-0 w-72 max-w-[85%] border-r border-line bg-ink-900 p-4 shadow-card">
             {nav}
           </aside>
@@ -176,7 +176,9 @@ export default function Shell({
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-line bg-ink-900 p-4 lg:block">
           {nav}
         </aside>
-        <main className="min-w-0 flex-1 px-4 py-5 pb-10 sm:px-6 sm:py-7 lg:px-8">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-5 pb-10 sm:px-6 sm:py-7 lg:px-8">
+          <div className="mx-auto w-full max-w-5xl">{children}</div>
+        </main>
       </div>
     </div>
   );

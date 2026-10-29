@@ -58,7 +58,7 @@ export default async function UserEditPage({ params }: { params: Promise<{ id: s
         breadcrumb={[{ label: 'Users', href: '/admin/manage-users' }, { label: user.username }]}
       />
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <UserForm
             user={{

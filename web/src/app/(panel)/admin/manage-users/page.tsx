@@ -35,7 +35,7 @@ export default async function ManageUsersPage() {
   );
 
   const roleTone = (level: number) =>
-    level === 1 ? 'bg-ink-800 text-brand-400' : level === 2 ? 'bg-sky-50 text-sky-700' : 'bg-ink-800 text-slate-300';
+    level === 1 ? 'bg-ink-800 text-brand-400' : level === 2 ? 'bg-sky-500/10 text-sky-300' : 'bg-ink-800 text-slate-300';
 
   return (
     <>
@@ -50,7 +50,39 @@ export default async function ManageUsersPage() {
         }
       />
 
-      <div className="card min-w-0 overflow-x-auto p-0">
+      <div className="space-y-2.5 sm:hidden">
+        {users.length === 0 ? (
+          <div className="card text-center text-sm text-slate-500">No users found.</div>
+        ) : (
+          users.map((u) => {
+            const expired = u.expiration_date ? new Date(u.expiration_date) < new Date() : false;
+            return (
+              <div key={u.id_users} className="rounded-xl border border-line bg-ink-900 p-3.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-100">{u.username}</p>
+                    <p className="truncate text-[11px] text-slate-500">{u.email || u.fullname || '—'}</p>
+                  </div>
+                  <span className={`badge shrink-0 ${roleTone(Number(u.level))}`}>{levelName(Number(u.level))}</span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+                  <span>{Number(u.saldo).toLocaleString()} credits</span>
+                  <span>{u.keys} keys</span>
+                  <span className={expired ? 'text-red-300' : ''}>
+                    {expired ? 'expired' : `until ${fmtLocal(u.expiration_date)}`}
+                  </span>
+                  {!u.status ? <span className="text-red-300">disabled</span> : null}
+                </div>
+                <Link href={`/admin/user/${u.id_users}`} className="btn-ghost mt-2.5 w-full px-2 py-1.5 text-xs">
+                  Open account
+                </Link>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="card hidden min-w-0 overflow-x-auto p-0 sm:block">
         <table className="table">
           <thead>
             <tr>

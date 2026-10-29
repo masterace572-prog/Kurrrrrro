@@ -16,8 +16,11 @@ export const metadata = {
 const BASE = process.env.PUBLIC_BASE_URL || 'https://kuro-panel-psi.vercel.app';
 
 function Code({ children }: { children: string }) {
+  // Code never wraps. Wrapping JSON and C++ mid-token produced lines like "//"
+  // on their own, which reads as garbage on a phone. Instead the box scrolls
+  // sideways on its own, with a slightly smaller face on small screens.
   return (
-    <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-line bg-ink-950 p-3 text-[12px] leading-relaxed text-slate-300 sm:whitespace-pre sm:break-normal">
+    <pre className="overflow-x-auto whitespace-pre rounded-xl border border-line bg-ink-950 p-3 text-[11px] leading-relaxed text-slate-300 sm:text-[12px]">
       <code>{children}</code>
     </pre>
   );
@@ -57,8 +60,8 @@ function Endpoint({
 function Row({ k, v }: { k: string; v: string }) {
   return (
     <>
-      <dt className="text-slate-200">{k}</dt>
-      <dd className="text-slate-400">{v}</dd>
+      <dt className="font-medium text-slate-200">{k}</dt>
+      <dd className="text-slate-400 sm:pb-1">{v}</dd>
     </>
   );
 }
@@ -90,7 +93,7 @@ export default function ApiDocsPage() {
             <code className="text-slate-200">application/x-www-form-urlencoded</code> — JSON body works too.
           </p>
           <Code>{`game=PUBG&user_key=XXXX-XXXX&serial=8f3a-…device-id`}</Code>
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-[140px_1fr]">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 rounded-xl border border-line bg-ink-950/40 p-3 text-sm sm:grid-cols-[140px_1fr] sm:gap-y-1 sm:border-0 sm:bg-transparent sm:p-0">
             <Row k="game" v="Game name, A-Z a-z 0-9 _ - (the loader sends PUBG)" />
             <Row k="serial" v="Stable per-install device id — it is what the device limit counts" />
             <Row k="user_key" v="The licence key, max 64 chars" />
@@ -123,7 +126,7 @@ export default function ApiDocsPage() {
 
           <p className="pt-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Failure</p>
           <Code>{`{ "status": false, "reason": "EXPIRED KEY" }`}</Code>
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-[220px_1fr]">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 rounded-xl border border-line bg-ink-950/40 p-3 text-sm sm:grid-cols-[220px_1fr] sm:gap-y-1 sm:border-0 sm:bg-transparent sm:p-0">
             <Row k="Bad Parameter" v="Missing or malformed game / user_key / serial" />
             <Row k="USER OR GAME NOT REGISTERED" v="No key with that game + key" />
             <Row k="USER BLOCKED" v="Key disabled in the panel" />

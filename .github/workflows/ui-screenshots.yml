@@ -71,7 +71,7 @@ jobs:
             adb install -r loader/app/build/outputs/apk/debug/app-debug.apk >> $LOG 2>&1 || note install-failed "adb install failed"
             adb shell appops set com.xlox MANAGE_EXTERNAL_STORAGE allow >> $LOG 2>&1 || true
             note phase "launch"
-            adb shell am start -n com.xlox/.SplashActivity >> $LOG 2>&1 || true
+            adb shell am start -n com.xlox/.SplashAct >> $LOG 2>&1 || adb shell monkey -p com.xlox -c android.intent.category.LAUNCHER 1 >> $LOG 2>&1 || true
             sleep 3
             adb exec-out screencap -p > shot-1-splash.png 2>>$LOG || true
             sleep 26

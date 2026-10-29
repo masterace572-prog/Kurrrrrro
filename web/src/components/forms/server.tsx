@@ -16,7 +16,7 @@ import { Alert, Field, FormMessage, Icon, SubmitButton } from '@/components/ui';
 export function ModNameForm({ modname }: { modname: string }) {
   const [state, action] = useActionState<FormState, FormData>(saveServerAction, null);
   return (
-    <form action={action} className="card space-y-4">
+    <form action={action} className="card min-w-0 space-y-4">
       <input type="hidden" name="section" value="modname" />
       <SectionTitle icon="cog" title="Mod name" hint="Shown in the loader as the active mod title." />
       <FormMessage state={state} />
@@ -38,7 +38,7 @@ export function MaintenanceForm({ status, message }: { status: string; message: 
   const err = (f: string) => (state?.field === f ? state.message : undefined);
 
   return (
-    <form action={action} className="card space-y-4">
+    <form action={action} className="card min-w-0 space-y-4">
       <input type="hidden" name="section" value="maintenance" />
       <SectionTitle
         icon="warning"
@@ -52,13 +52,13 @@ export function MaintenanceForm({ status, message }: { status: string; message: 
           on ? 'border-red-500/30 bg-red-500/10' : 'border-line bg-ink-850'
         }`}
       >
-        <div>
+        <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-100">{on ? 'Maintenance is ON' : 'Panel is live'}</p>
           <p className="text-xs text-slate-400">
             {on ? 'All logins are blocked right now.' : 'Clients can log in normally.'}
           </p>
         </div>
-        <label className="relative inline-flex cursor-pointer items-center">
+        <label className="relative inline-flex shrink-0 cursor-pointer items-center">
           <input
             type="checkbox"
             name="status"
@@ -102,7 +102,7 @@ export function CreditForm({ status, credit }: { status: string; credit: string 
   const err = (f: string) => (state?.field === f ? state.message : undefined);
 
   return (
-    <form action={action} className="card space-y-4">
+    <form action={action} className="card min-w-0 space-y-4">
       <input type="hidden" name="section" value="credit" />
       <SectionTitle icon="shield" title="Loader text" hint="The `mod_status` and `credit` fields returned to the client." />
       <FormMessage state={state} />
@@ -130,7 +130,7 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
   const tooBig = size > maxMb * 1024 * 1024;
 
   return (
-    <form action={action} className="card space-y-4">
+    <form action={action} className="card min-w-0 space-y-4">
       <SectionTitle
         icon="upload"
         title="Publish a lib update"
@@ -157,7 +157,8 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
               mode === m ? 'bg-brand-500 text-ink-950' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            {m === 'file' ? `Upload zip (≤ ${maxMb} MB)` : 'External URL'}
+            {/* short labels: the size limit is stated under the picker */}
+            {m === 'file' ? 'Upload zip' : 'External URL'}
           </button>
         ))}
       </div>
@@ -167,7 +168,7 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
           <label
             htmlFor="libfile"
             className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-4 py-8 text-center transition ${
-              tooBig ? 'border-red-500/30 bg-red-500/10/5' : 'border-ink-600 bg-ink-850 hover:border-brand-500/50'
+              tooBig ? 'border-red-500/30 bg-red-500/10' : 'border-ink-600 bg-ink-850 hover:border-brand-500/50'
             }`}
           >
             <Icon name="upload" className="h-6 w-6 text-slate-500" />
@@ -175,7 +176,9 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
               {fileName || 'Click to choose the lib zip'}
             </span>
             <span className="text-xs text-slate-500">
-              {fileName ? `${(size / 1024).toFixed(0)} KB` : 'must be a .zip containing the lib files'}
+              {fileName
+                ? `${(size / 1024).toFixed(0)} KB`
+                : `.zip with the lib files · up to ${maxMb} MB`}
             </span>
             <input
               id="libfile"
@@ -226,7 +229,7 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
 export function BumpVersionForm({ current }: { current: string | null }) {
   const [state, action] = useActionState<FormState, FormData>(bumpVersionAction, null);
   return (
-    <form action={action} className="card space-y-4">
+    <form action={action} className="card min-w-0 space-y-4">
       <input type="hidden" name="section" value="bump" />
       <SectionTitle
         icon="refresh"
@@ -322,7 +325,7 @@ function SectionTitle({ icon, title, hint }: { icon: 'cog' | 'warning' | 'shield
       <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-ink-800 text-brand-400">
         <Icon name={icon} className="h-4 w-4" />
       </span>
-      <div>
+      <div className="min-w-0">
         <h2 className="font-semibold text-slate-100">{title}</h2>
         <p className="text-xs leading-relaxed text-slate-500">{hint}</p>
       </div>

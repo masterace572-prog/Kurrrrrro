@@ -167,26 +167,29 @@ jobs:
       # A GitHub Release gives a permanent download URL that never expires,
       # unlike the artifact (90 days, and requires being signed in).
       - name: Publish release with the APK
-        if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/arena/38338797-kurrrrrro')
+        if: success() && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/arena/'))
         uses: softprops/action-gh-release@v2
         with:
           tag_name: loader-${{ github.run_number }}
-          name: XLOX loader build ${{ github.run_number }}
+          name: Anoy ${{ github.run_number }}
           body: |
             Debug APK built from `${{ github.sha }}`.
 
             Compiled endpoint: **https://kuro-panel-psi.vercel.app**
             (license check → `/server`, lib version → `/api/version`, lib zip → `/api/download`)
 
-            This build is the **original XLOX loader source**, re-extracted from
-            `XLOX-Loader-Source.zip`, with only the panel bound to it:
+            What this build does, in order:
 
-            - license check → `POST /server` on the panel (same request and
-              response shape the loader always used: `game`, `user_key`,
-              `serial`; the panel answers `status`, `data.token`, `rng`, `EXP`)
-            - lib version → `GET /api/version`, lib zip → `GET /api/download`
-            - Everything else — layouts, dialogs, the sandbox SDK, the OBB copy,
-              targetSdk ${{ env.TARGET_SDK }} — is untouched upstream code.
+            1. **Splash** — the mark, then straight on.
+            2. **Update gate** — the library is checked before the key field is
+               usable. Nothing newer: sign in. Newer (or none at all): a blocking
+               screen with one button, `Update now`; a first install downloads by
+               itself. There is no "later" and back is ignored.
+            3. **Login** — `POST /server` with `game`, `user_key`, `serial`.
+            4. **Main** — one action: copy the game data, then launch.
+
+            UI: near-black surfaces, one card style, one solid button.
+            targetSdk ${{ env.TARGET_SDK }}.
 
             Install with `adb install xlox-loader.apk` or copy it to the phone.
             The APK is **debug-signed** — fine for testing, replace the keystore before selling it.
