@@ -4,7 +4,7 @@ import android.app.Application;
 import android.content.Context;
 import android.util.Log;
 
-import java.io.File;
+import com.xlox.utils.LibLoader;
 
 import net_62v.external.IMundoProcessCallback;
 import net_62v.external.MetaActivationManager;
@@ -50,28 +50,31 @@ public class BoxApplication extends Application
         }
     }
 
+    /**
+     * Called by the sandbox SDK once per guest process — this is the game's own
+     * process, which is exactly where a mod library has to be loaded.
+     *
+     * The path is resolved by LibLoader rather than from getFilesDir(): inside
+     * this process the sandbox rewrites the app's paths to the guest's virtual
+     * storage, so the old lookup pointed at an empty directory and the library
+     * silently never loaded.
+     */
     @Override
-    public void onCreate(String s, String s1) {
-        if (!s.equals("com.pubg.imobile")) {
+    public void onCreate(String packageName, String processName) {
+        // Depending on the sandbox build these two arrive as
+        // (package, process) or the other way round, and sub-processes carry a
+        // suffix (com.pubg.imobile:xxx), so match either one as a prefix.
+        if (!isGame(packageName) && !isGame(processName)) {
             return;
         }
 
-        try {
+        ENABLE_IMGUI = false;
 
-            ENABLE_IMGUI = false;
+        String result = LibLoader.load(this);
+        Log.d("Load", "libbgmi.so " + result);
+    }
 
-            String loaderPath = new File(getFilesDir(), "loader").getAbsolutePath();
-            File bgmiLib = new File(loaderPath, "libbgmi.so");
-
-            if (bgmiLib.exists()) {
-                System.load(bgmiLib.getAbsolutePath());
-                Log.d("Load", "libbgmi.so LOADED");
-            } else {
-                Log.e("Load", "libbgmi.so NOT FOUND");
-            }
-
-        } catch (Exception e) {
-            Log.e("Load", "Library load error", e);
-        }
+    private static boolean isGame(String name) {
+        return name != null && name.startsWith("com.pubg.imobile");
     }
 }

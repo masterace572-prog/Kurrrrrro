@@ -32,6 +32,7 @@ import androidx.core.content.ContextCompat;
 
 import com.xlox.utils.AppManager;
 import com.xlox.utils.Downtwo;
+import com.xlox.utils.LibLoader;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
@@ -196,6 +197,32 @@ public class MAct extends AppCompatActivity {
         startWorkflow();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        surfaceLastLoadResult();
+    }
+
+    /**
+     * The game runs in its own process, so a failure to load the library there
+     * cannot reach this screen directly. LibLoader drops a line into
+     * loader/load.log and this is where the user gets to read it.
+     */
+    private void surfaceLastLoadResult() {
+        String last = LibLoader.lastResult(this);
+        if (!last.startsWith("fail:")) return;
+
+        String detail = last.substring(5).trim();
+        // keep the banner to something the layout can hold
+        int cut = detail.indexOf(" — looked in");
+        if (cut > 0) detail = detail.substring(0, cut);
+        if (detail.length() > 90) detail = detail.substring(0, 90) + "…";
+
+        String text = "LIB LOAD FAILED · " + detail;
+        showStatusToggle(text, true);
+        Log.e("Load", "game process reported: " + last);
+    }
+
     private void startPageAnimation() {
         View logoGlow = findViewById(R.id.logoGlow);
         View mainLogo = findViewById(R.id.mainLogo);
@@ -319,7 +346,10 @@ public class MAct extends AppCompatActivity {
         SharedPreferences prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         String localVersion = prefs.getString(PREF_VERSION_KEY, "1.0");
         if (appVersionText != null) {
-            appVersionText.setText("Version " + localVersion);
+            // the library's architecture next to the version: a downloaded
+            // 32-bit or broken .so can never load into the arm64 game process
+            String lib = LibLoader.describe(new File(getFilesDir(), "loader/libbgmi.so"));
+            appVersionText.setText("Version " + localVersion + " · " + lib);
         }
     }
 

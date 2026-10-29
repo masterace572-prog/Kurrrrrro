@@ -195,6 +195,16 @@ public class Downtwo extends AsyncTask<String, String, String> {
                 loaderDirectory.mkdirs();
             }
 
+            // A previous load may have made the old library read-only, and the
+            // unzipper cannot overwrite that: clear the file out first.
+            File staleLib = new File(loaderDirectory, "libbgmi.so");
+            if (staleLib.exists() && !staleLib.delete()) {
+                staleLib.setWritable(true, false);
+                staleLib.setWritable(true, true);
+                //noinspection ResultOfMethodCallIgnored
+                staleLib.delete();
+            }
+
             // Extract ZIP
             new ZipFile(pathOutput, "".toCharArray()).extractAll(loaderDirectory.getAbsolutePath());
 
@@ -226,6 +236,9 @@ public class Downtwo extends AsyncTask<String, String, String> {
 
             SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
             prefs.edit()
+                // the game process cannot trust getFilesDir() — the sandbox
+                // redirects it — so the real path is remembered here
+                .putString("lib_path", lib.getAbsolutePath())
                 .putString(PREF_VERSION_KEY, serverVersion)
                 .putString(PREF_LAST_NOTIFIED, serverVersion) // Reset notification on successful update
                 .apply();

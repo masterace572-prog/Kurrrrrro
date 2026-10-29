@@ -82,11 +82,53 @@ original panel. The version string is public information anyway.
 * `MAct.startWorkflow()` runs a **check-only** pass at launch
   (`Downtwo.MODE_CHECK`). If an update exists the main button becomes
   `UPDATE AVAILABLE` (one toast per version); tapping it downloads.
-* `Downtwo` downloads to `Xlox.zip.part`, verifies the byte count and the `PK`
-  header, extracts into `loader.new/`, then swaps it into `files/loader/` with
-  the old copy kept as a rollback. Up to 3 attempts, then it reports the reason.
+* `Downtwo` downloads to `Xlox.zip.part`, checks the HTTP status, the byte count
+  and the `PK` header, then extracts into `files/loader/`. A zip that packs the
+  library inside a folder is hoisted, so `files/loader/libbgmi.so` always ends up
+  where the loader looks for it. Up to 3 attempts, then it reports the reason.
 * Never blocks the loader: an unreachable update server just means "keep using
   the lib you already have".
+
+## How the library gets loaded (and why it may not)
+
+The library is not loaded by the loader app: it is loaded **inside the game's
+own process**, which is the only place a mod library can run.
+
+1. `BoxApplication.attachBaseContext` registers
+   `MetaCore.setProcessLifecycleCallback(this)` with the sandbox SDK.
+2. When the sandbox starts the guest process for `com.pubg.imobile` (including
+   sub-processes such as `com.pubg.imobile:xxx`), it calls
+   `BoxApplication.onCreate(packageName, processName)` in that process.
+3. `LibLoader.load()` finds the file, loads any sibling `.so` it `DT_NEEDED`s,
+   and calls `System.load(...)` on it.
+
+Three things used to make that silently do nothing:
+
+* **The path.** Inside a guest process the sandbox rewrites `getFilesDir()` to
+  the guest's virtual storage, so `new File(getFilesDir(), "loader/libbgmi.so")`
+  pointed at an empty directory. `LibLoader` now tries, in order: the absolute
+  path the download recorded (`com.xlox.download → lib_path`), the literal
+  `/data/user/0/<pkg>/files/loader/libbgmi.so` and its `/data/data/` twin, then
+  the context-relative locations (`files`, `noBackupFiles`, `codeCache`).
+* **The ABI.** A 32-bit or non-ELF file can never load into an arm64-v8a
+  process. `Elf` reads the header before loading, and the panel shows
+  `Lib · arm64-v8a, 812 KB` after an update. Wrong architecture reads
+  `armeabi-v7a, … — cannot load into arm64-v8a`.
+* **Dependencies.** A zip that ships extra `.so` files gets them preloaded from
+  the same directory; otherwise the load fails with `library "libX.so" not
+  found`. Newer Android also refuses to `dlopen` a world-writable file, so a
+  failure mentioning `writable` retries after `chmod 0444` on the library and
+  its siblings (the downloader deletes the old copy before updating, so that
+  read-only flag never blocks the next update).
+
+Every attempt appends one line to `files/loader/load.log` — `ok: /data/.../libbgmi.so`
+or `fail: … <the platform message>`. After the game has been launched once, the
+loader shows a red `LIB LOAD FAILED · …` banner with that line. On a development
+device the same information is in logcat:
+
+```
+adb logcat -s Load LibLoader Downtwo
+```
 
 ## Failure modes you may see
 
@@ -97,3 +139,6 @@ original panel. The version string is public information anyway.
 | `The server did not return a zip file` | `/api/download` returned JSON/HTML — no release published, or the external URL is a landing page instead of the asset. |
 | `Download incomplete (a of b)` | Connection dropped; it retries twice automatically. |
 | `Not enough free storage …` | Device is full (needs size + 12 MB). |
+| `The zip has no libbgmi.so in it` | The archive contains something else entirely — check what was uploaded. |
+| `LIB LOAD FAILED · … not arm64` | The file is not a 64-bit ARM library (or is not an ELF at all). |
+| `LIB LOAD FAILED · System.load(…): dlopen failed …` | The platform refused it; the message says why (missing dependency, wrong arch, empty file). |
