@@ -1,0 +1,33 @@
+name: E2E panel (login + create key)
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Base URL'
+        required: true
+        default: 'https://kuro-panel-psi.vercel.app'
+      user:
+        description: 'Panel username'
+        required: true
+        default: 'admin'
+  push:
+    paths:
+      - 'web/scripts/e2e-panel.mjs'
+      - '.github/workflows/e2e-panel.yml'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Log in and generate a key
+        env:
+          BASE_URL: ${{ github.event.inputs.url || 'https://kuro-panel-psi.vercel.app' }}
+          PANEL_USER: ${{ github.event.inputs.user || 'admin' }}
+          PANEL_PASS: ${{ secrets.PANEL_PASSWORD || 'admin123' }}
+        run: node web/scripts/e2e-panel.mjs
