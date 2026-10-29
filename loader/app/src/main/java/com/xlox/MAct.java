@@ -66,7 +66,7 @@ public class MAct extends AppCompatActivity {
 
     private AppCompatButton actionButton;
     private TextView pickObbButton;
-    private TextView launchAnywayButton;
+    private TextView copyObbButton;
     private TextView actionHint;
     private TextView obbState;
     private TextView percentText;
@@ -130,9 +130,9 @@ public class MAct extends AppCompatActivity {
         actionButton = findViewById(R.id.startBgmi);
         actionHint = findViewById(R.id.actionHint);
         pickObbButton = findViewById(R.id.pickObbButton);
-        launchAnywayButton = findViewById(R.id.launchAnywayButton);
+        copyObbButton = findViewById(R.id.copyObbButton);
         if (pickObbButton != null) pickObbButton.setOnClickListener(v -> pickObbFile());
-        if (launchAnywayButton != null) launchAnywayButton.setOnClickListener(v -> launchGame());
+        if (copyObbButton != null) copyObbButton.setOnClickListener(v -> copyGameData());
         obbState = findViewById(R.id.obbState);
         percentText = findViewById(R.id.percentText);
         obbProgress = findViewById(R.id.downloadProgressBar);
@@ -178,9 +178,10 @@ public class MAct extends AppCompatActivity {
             openStore();
         } else if (gameRunning) {
             stopGame();
-        } else if (!obbCopied) {
-            copyGameData();
         } else {
+            // The game is installed: start it. Whether this app could read the
+            // game's own data folder is not the gate it used to be — the game
+            // reads its data itself, and the copy is offered underneath.
             launchGame();
         }
     }
@@ -235,11 +236,14 @@ public class MAct extends AppCompatActivity {
             deviceStatus.setTextColor(Color.parseColor(gameInstalled ? "#30D158" : "#FF9F0A"));
         }
 
-        if (pickObbButton != null) {
-            pickObbButton.setVisibility(gameInstalled && !obbCopied ? View.VISIBLE : View.GONE);
+        // The copy is an offer, not a gate: it is only shown while the data is
+        // not in place, and the game can always be started without it.
+        boolean offerCopy = gameInstalled && !obbCopied;
+        if (copyObbButton != null) {
+            copyObbButton.setVisibility(offerCopy ? View.VISIBLE : View.GONE);
         }
-        if (launchAnywayButton != null) {
-            launchAnywayButton.setVisibility(gameInstalled && !obbCopied ? View.VISIBLE : View.GONE);
+        if (pickObbButton != null) {
+            pickObbButton.setVisibility(offerCopy ? View.VISIBLE : View.GONE);
         }
 
         if (obbState != null) {
@@ -280,12 +284,11 @@ public class MAct extends AppCompatActivity {
             actionButton.setTextColor(Color.parseColor("#FF453A"));
             return;
         } else if (!obbCopied) {
-            // say what the last attempt found instead of a cheerful generic line
-            setAction("Copy game data", obbProblem.isEmpty()
-                    ? "One-time copy. After this the button just launches."
-                    : shorten(obbProblem, 120));
+            // the data could not be verified, which is not a reason to refuse
+            setAction("Launch game", obbProblem.isEmpty()
+                    ? "Starts the game. Copy the data below if the game asks for it."
+                    : shorten(obbProblem, 130));
         } else {
-            // data is already in place: no copying, straight to the game
             setAction("Launch game", "Game data ready. Nothing else to do.");
         }
         actionButton.setBackgroundResource(R.drawable.bg_primary_action);
