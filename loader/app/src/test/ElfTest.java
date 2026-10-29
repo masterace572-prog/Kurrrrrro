@@ -120,9 +120,10 @@ public class ElfTest {
         List<LibUpdate.Source> panelStale = new ArrayList<>();
         panelStale.add(panelOld);
         panelStale.add(mirrorNew);
-        LibUpdate.Source picked = LibUpdate.choose(panelStale, "1.0", true);
+        LibUpdate.Source chosenSource = LibUpdate.choose(panelStale, "1.0", true);
         check("newer mirror version beats a stale panel release",
-                picked != null && "mirror".equals(picked.name) && "1.1.0".equals(picked.version));
+                chosenSource != null && "mirror".equals(chosenSource.name)
+                        && "1.1.0".equals(chosenSource.version));
         check("and it counts as an update", LibUpdate.isUpdateResult("Update Available"));
         check("the installed version is not downloaded again",
                 !LibUpdate.worthDownloading(panelOld, "1.0", true));
@@ -141,9 +142,9 @@ public class ElfTest {
         List<LibUpdate.Source> panelNewer = new ArrayList<>();
         panelNewer.add(panelNew);
         panelNewer.add(mirrorOld);
-        picked = LibUpdate.choose(panelNewer, "1.0", true);
+        chosenSource = LibUpdate.choose(panelNewer, "1.0", true);
         check("a newer panel release wins",
-                picked != null && "1.2".equals(picked.version));
+                chosenSource != null && "1.2".equals(chosenSource.version));
 
         // Nothing reachable at all must not look like an update.
         check("no sources, lib on disk: no update",
