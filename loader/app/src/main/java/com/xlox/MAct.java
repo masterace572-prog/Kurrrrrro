@@ -72,7 +72,7 @@ public class MAct extends AppCompatActivity {
     private ProgressBar loadingCursor;
     private TextView appVersionText;
     
-    private View startBgmi;
+    private androidx.appcompat.widget.AppCompatButton startBgmi;
     private View statusToggle;
     private View statusLoader;
     private ImageView statusErrorIcon;
@@ -689,7 +689,7 @@ public class MAct extends AppCompatActivity {
 
     /** Button captions live in strings.xml so the text stays consistent. */
     private void setLaunchButtonText(@StringRes int resId) {
-        if (startBgmi instanceof Button) ((Button) startBgmi).setText(resId);
+        if (startBgmi != null) startBgmi.setText(resId);
     }
 
     private void label(View box, int resId) {
