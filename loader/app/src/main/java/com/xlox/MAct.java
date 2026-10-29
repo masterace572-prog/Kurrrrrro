@@ -1,19 +1,15 @@
 package com.xlox;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
-import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.widget.ProgressBar;
@@ -22,13 +18,12 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.xlox.utils.AppManager;
 import com.xlox.utils.LibGate;
 import com.xlox.utils.LibLoader;
+import com.xlox.utils.StorageAccess;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
@@ -101,7 +96,7 @@ public class MAct extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         bindViews();
-        requestStorageAccess();
+        askForStorage();
         startKeyCountdown();
         showDevice();
         refreshLibraryLine();
@@ -160,6 +155,13 @@ public class MAct extends AppCompatActivity {
 
     private void onPrimaryAction() {
         if (busy) return;
+        if (!StorageAccess.ready(this)) {
+            // The copy cannot see Android/obb without these, and "copy failed"
+            // for a permission problem is the least useful message there is.
+            wantsCopyAfterGrant = true;
+            openPermissionPrompts();
+            return;
+        }
         if (!gameInstalled) {
             openStore();
         } else if (gameRunning) {
@@ -222,11 +224,13 @@ public class MAct extends AppCompatActivity {
         }
 
         if (obbState != null) {
+            boolean permitted = StorageAccess.ready(this);
             String text = obbCopied
                     ? (obbWhere.isEmpty() ? "Ready" : "Ready · " + obbWhere)
-                    : "Not copied yet";
+                    : permitted ? "Not copied yet" : "Needs file access";
             obbState.setText(text);
-            obbState.setTextColor(Color.parseColor(obbCopied ? "#4CB98A" : "#F2F3F5"));
+            obbState.setTextColor(Color.parseColor(
+                    obbCopied ? "#4CB98A" : permitted ? "#F2F3F5" : "#D7A363"));
         }
 
         if (busy) {
@@ -238,6 +242,16 @@ public class MAct extends AppCompatActivity {
 
         actionButton.setEnabled(true);
         actionButton.setAlpha(1f);
+
+        // Both permissions are needed before the game data can even be looked
+        // at: Files (runtime) for Android/obb, All files for the rest.
+        if (!StorageAccess.ready(this)) {
+            setAction("Allow file access", StorageAccess.describe(this)
+                    + " · needed to copy the game data");
+            actionButton.setBackgroundResource(R.drawable.bg_primary_action);
+            actionButton.setTextColor(Color.parseColor("#0B0C0E"));
+            return;
+        }
 
         if (!gameInstalled) {
             setAction("Install game", "BGMI is not installed on this device.");
@@ -651,17 +665,61 @@ public class MAct extends AppCompatActivity {
 
     // ------------------------------------------------------------ permissions
 
-    private void requestStorageAccess() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                && ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                    != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 100);
+    /** Asks for Files, then All files access — one system screen at a time. */
+    private void askForStorage() {
+        if (StorageAccess.ready(this)) return;
+        if (!StorageAccess.askedBefore(this)) {
+            StorageAccess.markAsked(this);
+            openPermissionPrompts();
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
-            try {
-                startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
-            } catch (Exception ignored) {}
+        renderState();
+    }
+
+    private void openPermissionPrompts() {
+        if (StorageAccess.requestNext(this)) {
+            showStatus("Allow file access to read the game data.", false);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (!StorageAccess.isOurs(requestCode)) return;
+
+        // Files granted: the All files screen is the next step.
+        if (StorageAccess.requestNext(this)) {
+            showStatus("Now allow All files access.", false);
+            return;
+        }
+        afterStorageChange();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (StorageAccess.isOurs(requestCode)) afterStorageChange();
+    }
+
+    /** Re-reads everything once a permission screen closes, and finishes a copy. */
+    private void afterStorageChange() {
+        boolean ready = StorageAccess.ready(this);
+        renderState();
+        refreshGameState();
+
+        if (!ready) {
+            showStatus(StorageAccess.describe(this) + " — the game data cannot be read.", true);
+            return;
+        }
+
+        showStatus("File access granted.", false);
+        hideStatusSoon(2000);
+
+        if (wantsCopyAfterGrant) {
+            wantsCopyAfterGrant = false;
+            // the state above is read in the background; give it a moment
+            new Handler(getMainLooper()).postDelayed(() -> {
+                if (!obbCopied) copyGameData();
+            }, 700);
         }
     }
 }

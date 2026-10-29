@@ -3,9 +3,7 @@ package com.xlox;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
-import androidx.core.app.ActivityCompat;
 
-import android.Manifest;
 import android.app.AlertDialog;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -16,7 +14,6 @@ import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.Settings;
@@ -31,6 +28,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.xlox.utils.LibGate;
+import com.xlox.utils.StorageAccess;
 import com.xlox.utils.Prefs;
 
 import org.lsposed.lsparanoid.Obfuscate;
@@ -354,27 +352,24 @@ public class LogAct extends AppCompatActivity {
     // -------------------------------------------------------------- permissions
 
     private void checkAndRequestPermissions() {
-        if (!isStoragePermissionGranted()) {
-            requestStoragePermissionDirect();
+        // Files (runtime) first, then All files access: the copy can only look
+        // inside Android/obb when both are granted, and asking for just one of
+        // them is what made it report "no game data" on a phone that had it.
+        if (!StorageAccess.ready(this)) {
+            StorageAccess.requestNext(this);
         } else if (!canRequestPackageInstalls()) {
             requestUnknownAppPermissionsDirect();
         }
     }
 
     private boolean isStoragePermissionGranted() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager();
+        return StorageAccess.runtimeGranted(this);
     }
 
-    private void requestStoragePermissionDirect() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-            intent.setData(Uri.fromParts("package", getPackageName(), null));
-            startActivityForResult(intent, REQUEST_MANAGE_STORAGE_PERMISSION);
-        } else {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                    REQUEST_MANAGE_STORAGE_PERMISSION);
-        }
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (StorageAccess.isOurs(requestCode)) checkAndRequestPermissions();
     }
 
     private boolean canRequestPackageInstalls() {
@@ -393,7 +388,7 @@ public class LogAct extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_MANAGE_STORAGE_PERMISSION) {
+        if (requestCode == REQUEST_MANAGE_STORAGE_PERMISSION || StorageAccess.isOurs(requestCode)) {
             checkAndRequestPermissions();
         }
     }

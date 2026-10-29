@@ -7,6 +7,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
 import android.widget.ProgressBar;
@@ -372,24 +373,41 @@ public class AppManager extends AppCompatActivity {
      */
     public ObbStatus obbStatus(String packageName) {
         List<File> dirs = obbDirs(packageName);
-        List<String> seen = new ArrayList<>();
+        List<String> report = new ArrayList<>();
         boolean unreadable = false;
+        boolean obbBlocked = false;
 
         for (File dir : dirs) {
             if (dir == null) continue;
+            String where = label(dir, packageName);
+
+            // 1. Ask for the one name the game will look for. A known path can
+            //    be probed even when the folder cannot be listed — this is how
+            //    the original loader checked its own copy, and it is the reason
+            //    that check kept working where listFiles() returned null.
+            File probed = probeKnownName(dir, packageName);
+            if (probed != null) {
+                rememberObb(packageName, probed.getName(), probed.length(), probed.getAbsolutePath());
+                Log.i(TAG, "game data: " + probed + " (" + where + ", by name)");
+                return new ObbStatus(true, probed, where, "");
+            }
+
+            // 2. Otherwise list the folder and take the newest obb in it.
             File[] files = dir.listFiles();
             if (files == null) {
                 unreadable = true;                // missing or not listable
+                boolean restricted = where.startsWith("Android/obb");
+                if (restricted) obbBlocked = true;
+                report.add(where + (restricted ? " — not readable (needs Files access)" : " — not readable"));
                 continue;
             }
             File found = pickObb(files, packageName, isPackageDir(dir, packageName));
             if (found != null) {
                 rememberObb(packageName, found.getName(), found.length(), found.getAbsolutePath());
-                String where = label(dir, packageName);
                 Log.i(TAG, "game data: " + found + " (" + where + ")");
                 return new ObbStatus(true, found, where, "");
             }
-            seen.add(label(dir, packageName));
+            report.add(where + " — no .obb");
         }
 
         // Nothing listable. The recorded file may still be readable directly.
@@ -408,9 +426,10 @@ public class AppManager extends AppCompatActivity {
             return new ObbStatus(true, null, "recorded", "");
         }
 
-        String detail = seen.isEmpty()
-                ? "No folder for the game's data could be read on this device."
-                : "No main.*." + packageName + ".obb in " + join(seen) + ".";
+        String detail = "No game data found. " + join(report) + ".";
+        if (obbBlocked) {
+            detail += " Android/obb can only be read with the Files permission — allow it, then try again.";
+        }
         return new ObbStatus(false, null, "", detail);
     }
 
@@ -429,6 +448,34 @@ public class AppManager extends AppCompatActivity {
             dirs.add(external);                              // a file dropped at the root
         }
         return dirs;
+    }
+
+    /** The version code of the installed game, or -1 when it cannot be read. */
+    private long versionCode(String packageName) {
+        try {
+            PackageInfo info = ctx.getPackageManager().getPackageInfo(packageName, 0);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                return info.getLongVersionCode();
+            }
+            //noinspection deprecation
+            return info.versionCode;
+        } catch (Exception e) {
+            return -1L;
+        }
+    }
+
+    /**
+     * The exact file name the game expects, probed by name.
+     *
+     * `listFiles()` on a protected folder answers null even when the file inside
+     * is perfectly readable, so probing the known name is how "is my copy there?"
+     * gets a truthful answer.
+     */
+    private File probeKnownName(File dir, String packageName) {
+        long code = versionCode(packageName);
+        if (code <= 0) return null;
+        File file = new File(dir, "main." + code + "." + packageName + ".obb");
+        return file.isFile() && file.length() > 0 ? file : null;
     }
 
     /** The sandbox's obb folder for the game, or null when it cannot be mapped. */
