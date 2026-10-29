@@ -13,9 +13,10 @@ class Scrambler {
 
 Scrambler scrambler = new Scrambler()
 
-// Android 14 behaviour level by default. A build can still ask for an older one:
-//   ./gradlew assembleDebug -PxloxTargetSdk=28
-def xloxTargetSdk = (findProperty('xloxTargetSdk') ?: '34').toString().toInteger()
+// The upstream build targets Android 9 (28). A build can ask for another
+// behaviour level without touching the file:
+//   ./gradlew assembleDebug -PxloxTargetSdk=34
+def xloxTargetSdk = (findProperty('xloxTargetSdk') ?: '28').toString().toInteger()
 
 android {
     namespace 'com.xlox'
@@ -37,11 +38,11 @@ android {
 
     defaultConfig {
         applicationId "com.xlox"
-        minSdk 23
+        minSdk 21
         //noinspection OldTargetApi,EditedTargetSdkVersion,ExpiredTargetSdkVersion
         targetSdk xloxTargetSdk
-        versionCode 2
-        versionName "2026.10.29"
+        versionCode 1
+        versionName "2024.09.21"
 
         vectorDrawables {
             useSupportLibrary true

@@ -14,23 +14,16 @@
 #include <openssl/sha.h>
 #include "StrEnc.h"
 #include <zlib.h>  // For CRC32
-#include <cstdlib>  // free()
 using json = nlohmann::ordered_json;
 
-/* =========================================================================
- *  PANEL ENDPOINT  --  EDIT THIS ONE LINE
- * -------------------------------------------------------------------------
- *  Base URL of your own panel (the Next.js app in web/).
- *  The loader will POST to  <PANEL_BASE_URL>/server
+/*
+ * The panel this loader talks to. Everything below is derived from it, so a new
+ * host means editing this one line.
  *
- *  Examples:
- *    https://kuro-panel.vercel.app
- *    https://panel.yourdomain.com
- *
- *  No trailing slash. Prefer HTTPS: curl in this loader has
- *  CURLOPT_SSL_VERIFYPEER/HOST disabled, so plain HTTP also works, but the
- *  Play/Android build flags may still block cleartext later.
- * ========================================================================= */
+ *   POST <base>/server        key check  (game, user_key, serial)
+ *   GET  <base>/api/version   lib version, plain text
+ *   GET  <base>/api/download  lib zip
+ */
 #define PANEL_BASE_URL "https://kuro-panel-psi.vercel.app"
 
 time_t rng = 0;
@@ -61,9 +54,7 @@ Java_com_xlox_LogAct_GetKey(JNIEnv *env, jobject thiz) {
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_xlox_utils_Downtwo_Version(JNIEnv *env, jclass clazz) {
-    // Plain-text version of the lib hosted by our own panel (GET /api/version).
-    // Only the first line matters; e.g. "1.4". Changing this number in the
-    // panel is what makes every client download the new lib once.
+    // plain-text version of the lib, served by the panel (GET /api/version)
     static char versionUrl[256];
     snprintf(versionUrl, sizeof(versionUrl), "%s/api/version", PANEL_BASE_URL);
     return env->NewStringUTF(versionUrl);
@@ -72,8 +63,7 @@ Java_com_xlox_utils_Downtwo_Version(JNIEnv *env, jclass clazz) {
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_xlox_utils_Downtwo_Link(JNIEnv *env, jclass clazz) {
-    // The lib zip (GET /api/download) served by the same panel. The server may
-    // redirect to GitHub Releases for large archives; HttpURLConnection follows it.
+    // the lib zip itself (GET /api/download)
     static char downloadUrl[256];
     snprintf(downloadUrl, sizeof(downloadUrl), "%s/api/download", PANEL_BASE_URL);
     return env->NewStringUTF(downloadUrl);
@@ -212,11 +202,10 @@ Java_com_xlox_LogAct_Check(JNIEnv *env, jclass clazz, jobject mContext, jstring 
     curl = curl_easy_init();
     if (curl) {
         char lol[1000];
-        /* endpoint is built from PANEL_BASE_URL (see top of file) */
         snprintf(lol, sizeof(lol), "%s/server", PANEL_BASE_URL);
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, oxorany("POST"));
-        curl_easy_setopt(curl, CURLOPT_URL, lol);
-        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+        curl_easy_setopt(curl, CURLOPT_URL, lol);+
+                curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
         curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, oxorany("https"));
         struct curl_slist *headers = NULL;
         headers = curl_slist_append(headers, oxorany("Accept: application/json"));
@@ -234,31 +223,7 @@ Java_com_xlox_LogAct_Check(JNIEnv *env, jclass clazz, jobject mContext, jstring 
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYSTATUS, 0);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, oxorany(""));
         res = curl_easy_perform(curl);
-        long httpCode = 0;
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
         if (res == CURLE_OK) {
-            if (chunk.memory == nullptr || chunk.size == 0) {
-                errMsg = "The server sent an empty answer";
-                curl_easy_cleanup(curl);
-                if (chunk.memory) free(chunk.memory);
-                return env->NewStringUTF(errMsg.c_str());
-            }
-            /* an HTML/error page instead of JSON: report it as a server error
-               instead of dumping a parser exception at the user */
-            size_t bodyStart = 0;
-            while (bodyStart < chunk.size && (chunk.memory[bodyStart] == ' '
-                   || chunk.memory[bodyStart] == '\n' || chunk.memory[bodyStart] == '\r'
-                   || chunk.memory[bodyStart] == '\t')) bodyStart++;
-            if (bodyStart >= chunk.size || chunk.memory[bodyStart] != '{') {
-                if (httpCode >= 400) {
-                    errMsg = "The panel returned HTTP " + std::to_string(httpCode);
-                } else {
-                    errMsg = "Unexpected answer from the panel (not JSON)";
-                }
-                curl_easy_cleanup(curl);
-                free(chunk.memory);
-                return env->NewStringUTF(errMsg.c_str());
-            }
             try {
                 json result = json::parse(chunk.memory);
                 auto STATUS = std::string{"status"};
@@ -290,44 +255,14 @@ Java_com_xlox_LogAct_Check(JNIEnv *env, jclass clazz, jobject mContext, jstring 
                     }
                 } else {
                     auto REASON = std::string{"reason"};
-                    if (result.contains(REASON) && result[REASON].is_string()) {
-                        errMsg = result[REASON].get<std::string>();
-                    }
-                    if (errMsg.empty()) {
-                        errMsg = httpCode >= 400
-                                 ? "The panel returned HTTP " + std::to_string(httpCode)
-                                 : "The panel rejected this key";
-                    }
+                    errMsg = result[REASON].get<std::string>();
                 }
             } catch (json::exception &e) {
-                errMsg = httpCode >= 400
-                         ? "The panel returned HTTP " + std::to_string(httpCode)
-                         : std::string("Could not read the panel answer");
-            }
-            /* a valid answer that did not authenticate means the key itself is
-               wrong / expired / bound to another device */
-            if (!xConnected && errMsg.empty()) {
-                errMsg = "This key is invalid, expired or already in use on another device";
+                errMsg = e.what();
             }
         } else {
-            switch (res) {
-                case CURLE_COULDNT_RESOLVE_HOST:
-                case CURLE_COULDNT_CONNECT:
-                    errMsg = "No internet connection — cannot reach the panel";
-                    break;
-                case CURLE_OPERATION_TIMEDOUT:
-                    errMsg = "The panel took too long to answer";
-                    break;
-                case CURLE_SSL_CONNECT_ERROR:
-                case CURLE_PEER_FAILED_VERIFICATION:
-                    errMsg = "Secure connection to the panel failed";
-                    break;
-                default:
-                    errMsg = curl_easy_strerror(res);
-                    break;
-            }
+            errMsg = curl_easy_strerror(res);
         }
-        if (chunk.memory) free(chunk.memory);
     }
     curl_easy_cleanup(curl);
     return xConnected ? env->NewStringUTF(StrEnc("8q", "\x77\x3A", 2).c_str()) : env->NewStringUTF(errMsg.c_str());
