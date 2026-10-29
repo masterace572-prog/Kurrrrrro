@@ -364,18 +364,20 @@ def measure(node, avail):
     return avail, 0
 
 
-def draw(node, image, x, y, avail, clip_h=None):
+def draw(node, image, x, y, avail, avail_h=None):
     node = inflate(node)
     tag = node.tag.split('.')[-1]
     a = attrs(node)
     w, h = measure(node, avail)
     if dim(node.get(A + 'layout_width')) == 'match':
         w = avail
+    if avail_h is not None and dim(node.get(A + 'layout_height')) == 'match':
+        h = avail_h - y        # the root fills the window, not its content
     pl, pt, pr, pb = padding(node)
 
     if tag == 'ScrollView':
         for k in kids_of(node):
-            draw(k, image, x, y, w)
+            draw(k, image, x, y, w, avail_h=h)
         return h
 
     draw_shape(image, (x, y, x + w, y + h), a.get('background'))
@@ -390,7 +392,14 @@ def draw(node, image, x, y, avail, clip_h=None):
 
     if tag == 'LinearLayout':
         horizontal = a.get('orientation') == 'horizontal'
-        gravity = str(a.get('gravity', ''))
+        gravity = str(a.get('gravity', '')).replace('|', ' ')
+        tokens = gravity.split()
+        if 'center' in tokens:
+            gravity += ' center_horizontal center_vertical'
+        if 'center_horizontal' in tokens and not horizontal:
+            pass
+        if 'fill' in tokens:
+            gravity += ' fill_horizontal'
         kids = kids_of(node)
         inner = w - pl - pr
         weights = 0.0
@@ -429,7 +438,8 @@ def draw(node, image, x, y, avail, clip_h=None):
             for k, kx, cw, mt, mb in laid:
                 kh = measure(k, cw)[1]
                 ky = y + pt + mt
-                if 'center_vertical' in gravity:
+                if 'center_vertical' in gravity.split() or 'center' in gravity.split() \
+                        or 'center_vertical' in str(ka.get('layout_gravity', '')).split():
                     ky = y + pt + (h - pt - pb - kh) // 2
                 draw(k, image, kx, ky, cw)
             return h
@@ -450,13 +460,18 @@ def draw(node, image, x, y, avail, clip_h=None):
             ml, mt, mr, mb = margins(k)
             heights.append((k, cw, kh, mt, mb, ka))
             stack += kh + mt + mb
-        if 'center_vertical' in gravity:
+        if 'center_vertical' in gravity.split() or 'center' in gravity.split():
             cy = y + pt + max(0, (h - pt - pb - stack) // 2)
         for k, cw, kh, mt, mb, ka in heights:
             own = dim(inflate(k).get(A + 'layout_width'))
-            if 'center_horizontal' in gravity and own != 'match':
+            g = gravity + ' ' + str(ka.get('layout_gravity', '')).replace('|', ' ')
+            if 'center' in g.split() or 'center_horizontal' in g.split():
+                pass
+            else:
+                g = gravity
+            if ('center_horizontal' in g.split() or 'center' in g.split()) and own != 'match':
                 kx = x + (w - cw) // 2
-            elif 'end' in gravity or 'right' in gravity:
+            elif 'end' in g.split() or 'right' in g.split():
                 kx = x + w - pr - cw
             else:
                 kx = cx
@@ -510,10 +525,11 @@ def draw(node, image, x, y, avail, clip_h=None):
             if im:
                 image.alpha_composite(im, (tx, y + (h - im.height) // 2))
                 tx += im.width + px(size_of(a.get('drawablePadding'), 7))
-        if 'center' in gravity:
+        tokens = gravity.replace('|', ' ').split()
+        if 'center' in tokens or 'center_horizontal' in tokens:
             tx = x + w // 2
             anchor = 'mm'
-        elif 'end' in gravity or 'right' in gravity:
+        elif 'end' in tokens or 'right' in tokens:
             tx = x + w - pr
             anchor = 'rm'
         if text:
@@ -546,7 +562,7 @@ def main():
         h = px(height_dp)
         image = Image.new('RGBA', (w, h), color('@color/bg'))
         root = ET.parse(os.path.join(RES, 'layout', layout)).getroot()
-        draw(root, image, 0, 0, w)
+        draw(root, image, 0, 0, w, avail_h=h)
         canvas = Image.new('RGBA', (w, h), color('@color/bg'))
         canvas.alpha_composite(image)
         status_bar(canvas)
