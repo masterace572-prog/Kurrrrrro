@@ -35,6 +35,38 @@ caps request bodies at 4.5 MB. Larger libs are published as a URL instead:
 4. `/api/download` answers with a `302` to that URL; `HttpURLConnection` follows
    redirects, so the loader needs no changes.
 
+## Where the lib comes from
+
+There are two channels, tried in this order:
+
+1. **The panel** — `GET /api/version` (and its `?format=json` form) plus
+   `GET /api/download`. This is the one to use once a release is published:
+   it is the only place the version and the bytes are guaranteed to agree.
+2. **The GitHub mirror** — used only when the panel reports *no published
+   release* (`file_name` is null in `/api/version?format=json`), or when the
+   panel's download fails:
+
+   | what | URL |
+   |---|---|
+   | version | `https://raw.githubusercontent.com/masterace572-prog/Kurrrrrro/main/Version.txt` |
+   | zip | `https://github.com/masterace572-prog/Kurrrrrro/releases/download/Lib/libbbb.zip` |
+
+   Both URLs live next to `PANEL_BASE_URL` in
+   `loader/app/src/main/jni/main.cpp` (`MIRROR_VERSION_URL`,
+   `MIRROR_PACKAGE_URL`), so they change in one place — and changing them
+   needs a new APK, unlike the panel channel.
+
+   **Bumping the mirror is two edits:** put the new version on the first line
+   of `Version.txt` in the `main` branch, and replace the asset on the `Lib`
+   release (the file may be called anything; the URL above must keep working,
+   so keep the asset name `libbbb.zip` or update `MIRROR_PACKAGE_URL`).
+   The loader compares that line with the version it installed and downloads
+   only when it differs — so *bump `Version.txt` first*, then re-upload.
+
+The loader remembers which channel it installed from (`lib_source` next to
+`version` in SharedPreferences), so switching channels does not cause a
+download loop.
+
 ## What the zip must contain
 
 The library is loaded from exactly one path:
@@ -42,8 +74,16 @@ The library is loaded from exactly one path:
     /data/data/com.xlox/files/loader/libbgmi.so
 
 So the zip has to contain `libbgmi.so` — at the root or inside a folder, both
-work now (the loader moves a nested one to the root after extracting). Two more
-things have to be true or the load fails even though the file is there:
+work now (the loader moves a nested one to the root after extracting, together
+with any `.so` sitting next to it, since those are usually its dependencies).
+
+A zip built by Android tooling carries one copy per ABI
+(`lib/arm64-v8a/libbgmi.so`, `lib/armeabi-v7a/libbgmi.so`, …). The loader keeps
+the **arm64-v8a** one, deletes the rest, and refuses the download with
+`The zip's libbgmi.so is armeabi-v7a, the game is arm64-v8a` if that is all the
+archive has — which is better than discovering it at launch.
+
+Two more things have to be true or the load fails even though the file is there:
 
 * **arm64-v8a.** The APK ships `arm64-v8a` only, so a 32-bit lib cannot be
   loaded into the process (`is 32-bit instead of 64-bit` in logcat).

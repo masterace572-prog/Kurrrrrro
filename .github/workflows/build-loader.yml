@@ -37,13 +37,14 @@ jobs:
 
       # The ELF reader decides whether a downloaded lib can load at all; check it
       # against a real arm64 library from the bundled SDK before building.
-      - name: Check the ELF reader
+      - name: Check the ELF reader and the multi-ABI choice
         working-directory: .
         run: |
           unzip -p loader/app/libs/mundo-release.aar jni/arm64-v8a/libmmkv.so > /tmp/libmmkv.so
           ls -l /tmp/libmmkv.so
           mkdir -p /tmp/elf
           javac -d /tmp/elf loader/app/src/main/java/com/xlox/utils/Elf.java \
+            loader/app/src/main/java/com/xlox/utils/LibZip.java \
             loader/app/src/test/ElfTest.java
           java -cp /tmp/elf ElfTest /tmp/libmmkv.so
 

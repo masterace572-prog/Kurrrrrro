@@ -25,6 +25,10 @@ using json = nlohmann::ordered_json;
  *   GET  <base>/api/download  lib zip
  */
 #define PANEL_BASE_URL "https://kuro-panel-psi.vercel.app"
+// Mirror for the lib channel: the panel stays the authority, but when it has no
+// release published the loader falls back to these two GitHub URLs.
+#define MIRROR_VERSION_URL "https://raw.githubusercontent.com/masterace572-prog/Kurrrrrro/main/Version.txt"
+#define MIRROR_PACKAGE_URL "https://github.com/masterace572-prog/Kurrrrrro/releases/download/Lib/libbbb.zip"
 
 time_t rng = 0;
 std::string Enc;
@@ -67,6 +71,20 @@ Java_com_xlox_utils_Downtwo_Link(JNIEnv *env, jclass clazz) {
     static char downloadUrl[256];
     snprintf(downloadUrl, sizeof(downloadUrl), "%s/api/download", PANEL_BASE_URL);
     return env->NewStringUTF(downloadUrl);
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_xlox_utils_Downtwo_MirrorVersion(JNIEnv *env, jclass clazz) {
+    // plain-text version at the mirror (a file in the repo, e.g. "1.1.0")
+    return env->NewStringUTF(MIRROR_VERSION_URL);
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_xlox_utils_Downtwo_MirrorLink(JNIEnv *env, jclass clazz) {
+    // the lib zip hosted as a GitHub release asset
+    return env->NewStringUTF(MIRROR_PACKAGE_URL);
 }
 
 extern "C"

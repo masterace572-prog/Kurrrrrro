@@ -1,18 +1,21 @@
 import com.xlox.utils.Elf;
+import com.xlox.utils.LibZip;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
+import java.nio.file.Files;
+import java.util.List;
 
 /**
- * Checks the ELF reader against a real arm64 library and against things that are
- * not libraries at all. In CI the fixture is extracted from the bundled sandbox
- * AAR:
+ * Checks the ELF reader and the "which libbgmi.so do I keep" choice against a
+ * real arm64 library and against an archive that carries several ABIs. In CI
+ * the fixture is extracted from the bundled sandbox AAR:
  *
  *   unzip -p loader/app/libs/mundo-release.aar jni/arm64-v8a/libmmkv.so > /tmp/libmmkv.so
  *   javac -d /tmp/elf loader/app/src/main/java/com/xlox/utils/Elf.java \
+ *         loader/app/src/main/java/com/xlox/utils/LibZip.java \
  *         loader/app/src/test/ElfTest.java
  *   java -cp /tmp/elf ElfTest /tmp/libmmkv.so
  */
@@ -36,11 +39,18 @@ public class ElfTest {
         Elf missing = Elf.read(new File("/nonexistent/libbgmi.so"));
         check("a missing file is not an ELF", !missing.elf);
 
+        // ---- a 32-bit ARM header --------------------------------------------
+        File arm32 = File.createTempFile("armeabi", ".so");
+        writeElf32Arm(arm32);
+        Elf a32 = Elf.read(arm32);
+        check("a 32-bit ARM library is recognised", a32.elf && !a32.is64Bit);
+        check("and named armeabi-v7a", "armeabi-v7a".equals(a32.arch()));
+
         // ---- a real arm64 library -------------------------------------------
-        if (args.length > 0) {
-            File lib = new File(args[0]);
-            Elf elf = Elf.read(lib);
-            System.out.println("  fixture: " + lib.getName() + " -> " + elf.arch()
+        File real = args.length > 0 ? new File(args[0]) : null;
+        if (real != null) {
+            Elf elf = Elf.read(real);
+            System.out.println("  fixture: " + real.getName() + " -> " + elf.arch()
                     + ", needs " + elf.needed);
             check("the fixture is an ELF", elf.elf);
             check("the fixture is 64-bit", elf.is64Bit);
@@ -54,9 +64,61 @@ public class ElfTest {
             System.out.println("  (no fixture given — run with a real .so to check the parser)");
         }
 
+        // ---- an archive with several ABIs -----------------------------------
+        File extract = Files.createTempDirectory("loader-extract").toFile();
+        File arm64Dir = new File(extract, "lib/arm64-v8a");
+        File arm32Dir = new File(extract, "lib/armeabi-v7a");
+        check("multi-abi layout created",
+                arm64Dir.mkdirs() && arm32Dir.mkdirs());
+        File arm64Lib = new File(arm64Dir, "libbgmi.so");
+        File arm32Lib = new File(arm32Dir, "libbgmi.so");
+        writeElf32Arm(arm32Lib);
+        if (real != null) {
+            Files.copy(real.toPath(), arm64Lib.toPath());
+        } else {
+            writeElf32Arm(arm64Lib);   // still a file, just not the right arch
+        }
+
+        List<File> hits = LibZip.findAll(extract, "libbgmi.so");
+        check("both copies are found", hits.size() == 2);
+        File chosen = LibZip.pickArm64(hits, extract);
+        check("the arm64 copy is the one kept",
+                chosen != null && chosen.getAbsolutePath().equals(arm64Lib.getAbsolutePath()));
+        check("the 32-bit copy scores lower",
+                LibZip.score(arm32Lib, extract) < LibZip.score(arm64Lib, extract));
+
+        // a zip with only the 32-bit build must still be reported, not crash
+        File only32 = Files.createTempDirectory("loader-32only").toFile();
+        File nested32 = new File(only32, "lib/armeabi-v7a");
+        nested32.mkdirs();
+        File lone32 = new File(nested32, "libbgmi.so");
+        writeElf32Arm(lone32);
+        File picked = LibZip.pickArm64(LibZip.findAll(only32, "libbgmi.so"), only32);
+        check("a 32-bit-only zip picks that file",
+                picked != null && picked.getAbsolutePath().equals(lone32.getAbsolutePath()));
+        check("and the caller can see it is the wrong arch",
+                !Elf.read(picked).is64Bit && Elf.read(picked).machine == 0x28);
+
         System.out.println();
         System.out.println(passed + " passed, " + failed + " failed");
         if (failed > 0) System.exit(1);
+    }
+
+    /** 64-byte ELF header, class 32, little endian, machine = ARM (0x28). */
+    static void writeElf32Arm(File file) throws IOException {
+        byte[] b = new byte[64];
+        b[0] = 0x7F;
+        b[1] = 'E';
+        b[2] = 'L';
+        b[3] = 'F';
+        b[4] = 1;                       // ELFCLASS32
+        b[5] = 1;                       // little endian
+        b[6] = 1;                       // version
+        b[18] = 0x28;                   // e_machine = EM_ARM
+        // e_phoff = 0 and e_phnum = 0: no program headers, which Elf tolerates
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            out.write(b);
+        }
     }
 
     static void check(String what, boolean ok) {
