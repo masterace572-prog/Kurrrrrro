@@ -155,9 +155,14 @@ jobs:
               offers LAUNCH, with progress, real error messages and a retry button.
             - Download is checksum-verified (sha256 from the panel) and rolled back on
               failure.
-            - Permissions trimmed to INTERNET, ACCESS_NETWORK_STATE,
-              MANAGE_EXTERNAL_STORAGE, READ/WRITE_EXTERNAL_STORAGE (legacy only),
-              WAKE_LOCK.
+            - Permissions: ~113 were being merged in from the sandbox `.aar`
+              (camera, mic, location, SMS, contacts, calendar, bluetooth, sensors…).
+              72 of them are now stripped at merge time, so the install screen no
+              longer asks for anything scary. What remains is the loader's own
+              access (internet, network state, all-files access for the OBB) plus
+              the sandbox SDK's internal plumbing (query packages, install into the
+              sandbox, overlay, foreground service). The full list is printed by the
+              audit step of every build.
             - targetSdk ${{ env.TARGET_SDK }} (Android 14 behaviour level).
 
             Install with `adb install xlox-loader.apk` or copy it to the phone.
