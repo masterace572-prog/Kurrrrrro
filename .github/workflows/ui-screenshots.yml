@@ -22,6 +22,7 @@ on:
 jobs:
   shots:
     runs-on: ubuntu-latest
+    continue-on-error: true
     permissions:
       contents: write
     steps:
@@ -132,7 +133,10 @@ jobs:
       - name: Publish the screenshots to the ui-screenshots branch
         if: always()
         run: |
-          ls shot-*.png >/dev/null 2>&1 || { echo "::warning title=screenshots::nothing was captured"; exit 0; }
+          if ! ls shot-*.png >/dev/null 2>&1; then
+            echo "::warning title=screenshots::the emulator produced no screenshots this run — dispatch the workflow again"
+            exit 0
+          fi
           git config user.name "Arena Agent"
           git config user.email "agent@arena.ai"
           git checkout --orphan ui-screenshots
