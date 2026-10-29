@@ -90,6 +90,43 @@ try {
     dl.status === 200 || dl.status === 404,
     `HTTP ${dl.status}`
   );
+
+  /* what the loader's startup gate actually reads */
+  const json = await get('/api/version?format=json');
+  const meta = await json.json().catch(() => ({}));
+  check('GET /api/version?format=json responds', json.status === 200, `HTTP ${json.status}`);
+  check(
+    'json has a usable version',
+    typeof meta.version === 'string' && /^[A-Za-z0-9._-]{1,32}$/.test(meta.version),
+    `got ${JSON.stringify(meta.version)}`
+  );
+  check(
+    'json reports file_name (null when nothing is published)',
+    Object.prototype.hasOwnProperty.call(meta, 'file_name'),
+    JSON.stringify(meta.file_name)
+  );
+  check(
+    'json reports a download path',
+    meta.download === '/api/download',
+    String(meta.download)
+  );
+
+  if (dl.status === 404) {
+    const body = await dl.json().catch(() => ({}));
+    check(
+      '404 for the lib explains itself',
+      typeof body.reason === 'string' && body.reason.length > 5,
+      JSON.stringify(body)
+    );
+    check(
+      'no release published → the loader is not blocked',
+      meta.file_name === null,
+      `file_name=${JSON.stringify(meta.file_name)}`
+    );
+  } else {
+    check('lib download is a zip', (dl.headers.get('content-type') || '').includes('zip'),
+      dl.headers.get('content-type'));
+  }
 } catch (e) {
   check('lib channel', false, e.message);
 }
