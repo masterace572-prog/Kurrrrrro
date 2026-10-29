@@ -15,15 +15,14 @@
     <FrameLayout
         android:layout_width="104dp"
         android:layout_height="104dp"
-        android:background="@drawable/bg_logo_ring"
-        android:padding="14dp">
+        >
 
         <ImageView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:contentDescription="@string/app_name"
             android:scaleType="centerCrop"
-            android:src="@drawable/logo_transparent" />
+            android:src="@drawable/logo_mark" />
     </FrameLayout>
 
     <TextView

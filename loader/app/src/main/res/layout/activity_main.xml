@@ -31,8 +31,7 @@
             <FrameLayout
                 android:layout_width="44dp"
                 android:layout_height="44dp"
-                android:background="@drawable/bg_logo_ring"
-                android:padding="6dp">
+                >
 
                 <ImageView
                     android:id="@+id/mainLogo"
@@ -40,7 +39,7 @@
                     android:layout_height="match_parent"
                     android:contentDescription="@string/app_name"
                     android:scaleType="centerCrop"
-                    android:src="@drawable/logo_transparent" />
+                    android:src="@drawable/logo_mark" />
             </FrameLayout>
 
             <LinearLayout

@@ -24,8 +24,7 @@
         <FrameLayout
             android:layout_width="92dp"
             android:layout_height="92dp"
-            android:background="@drawable/bg_logo_ring"
-            android:padding="12dp">
+            >
 
             <ImageView
                 android:id="@+id/logo"
@@ -33,7 +32,7 @@
                 android:layout_height="match_parent"
                 android:contentDescription="@string/app_name"
                 android:scaleType="centerCrop"
-                android:src="@drawable/logo_transparent" />
+                android:src="@drawable/logo_mark" />
         </FrameLayout>
 
         <TextView
