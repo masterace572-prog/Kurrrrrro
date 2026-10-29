@@ -2,6 +2,11 @@ name: Build loader APK
 
 on:
   workflow_dispatch:
+    inputs:
+      target_sdk:
+        description: 'targetSdk (34 = Android 14 behaviour level, 28 = legacy)'
+        required: false
+        default: '34'
   push:
     paths:
       - 'loader/**'
@@ -15,6 +20,11 @@ jobs:
     defaults:
       run:
         working-directory: loader
+    env:
+      TARGET_SDK: ${{ github.event.inputs.target_sdk || '34' }}
+      # keep in sync with the manifest — anything else is reported as a problem
+      ALLOWED_PERMISSIONS: 'android.permission.INTERNET android.permission.ACCESS_NETWORK_STATE android.permission.MANAGE_EXTERNAL_STORAGE android.permission.READ_EXTERNAL_STORAGE android.permission.WRITE_EXTERNAL_STORAGE android.permission.WAKE_LOCK'
+
     steps:
       - uses: actions/checkout@v4
 
@@ -38,20 +48,72 @@ jobs:
           key: gradle-${{ hashFiles('loader/**/*.gradle', 'loader/gradle/wrapper/gradle-wrapper.properties') }}
 
       - name: Show the endpoint compiled into the APK
-        run: grep -n 'define PANEL_BASE_URL' app/src/main/jni/main.cpp
+        run: |
+          grep -n 'define PANEL_BASE_URL' app/src/main/jni/main.cpp
+          echo "::notice title=endpoint::$(grep -m1 'define PANEL_BASE_URL' app/src/main/jni/main.cpp | cut -d'"' -f2)"
+          echo "::notice title=targetSdk::building with targetSdk=$TARGET_SDK"
 
       - name: Build debug APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace -PxloxTargetSdk=$TARGET_SDK 2>&1 | tee /tmp/gradle.log
+
+      # The job log is not always readable (it is a zip behind a signed URL), so
+      # every interesting line is re-published as a check-run annotation.
+      - name: Explain a failed build
+        if: failure()
+        run: |
+          grep -nE 'error:|e: |FAILURE: Build failed|Could not resolve|Caused by:|> Task .* FAILED|Execution failed' /tmp/gradle.log \
+            | tail -8 \
+            | while IFS= read -r line; do echo "::error title=gradle::$(echo "$line" | tr -d '\r' | cut -c1-900)"; done
+          exit 0
 
       - name: Rename APK
+        if: success()
         run: |
           mkdir -p out
           find app/build/outputs/apk -name '*.apk' -exec cp {} out/xlox-loader.apk \;
           ls -lh out/xlox-loader.apk
 
+      # Proof of what actually ended up inside the APK, readable from the API
+      # without downloading anything.
+      - name: Audit the built APK
+        if: success()
+        id: audit
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          AAPT=$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          echo "::notice title=apk size::$(du -h out/xlox-loader.apk | cut -f1)"
+
+          BADGING=$("$AAPT" dump badging "$APK")
+          echo "::notice title=package::$(echo "$BADGING" | grep -m1 '^package:')"
+          echo "::notice title=minSdk::$(echo "$BADGING" | grep -m1 'sdkVersion')"
+          echo "::notice title=targetSdk::$(echo "$BADGING" | grep -m1 'targetSdkVersion')"
+
+          PERMS=$("$AAPT" dump permissions "$APK" | grep -oE 'android\.permission\.[A-Z_]+|com\.[a-zA-Z0-9_.]+\.permission\.[A-Z_]+' | sort -u)
+          echo "::notice title=permissions in the APK::$(echo "$PERMS" | tr '\n' ' ')"
+
+          EXTRA=""
+          for p in $PERMS; do
+            case " $ALLOWED_PERMISSIONS " in
+              *" $p "*) ;;
+              *) EXTRA="$EXTRA $p" ;;
+            esac
+          done
+          if [ -n "$EXTRA" ]; then
+            echo "::warning title=unexpected permissions::$EXTRA (probably merged in from an .aar)"
+          else
+            echo "::notice title=permissions::clean — only the $(( $(echo "$ALLOWED_PERMISSIONS" | wc -w) )) needed permissions are declared"
+          fi
+
+          if echo "$BADGING" | grep -q "targetSdkVersion:'$TARGET_SDK'"; then
+            echo "::notice title=targetSdk check::targetSdk is $TARGET_SDK as requested"
+          else
+            echo "::warning title=targetSdk check::expected $TARGET_SDK, got $(echo "$BADGING" | grep -m1 targetSdkVersion)"
+          fi
+
       - name: Upload APK artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: xlox-loader-debug
@@ -61,7 +123,7 @@ jobs:
       # A GitHub Release gives a permanent download URL that never expires,
       # unlike the artifact (90 days, and requires being signed in).
       - name: Publish release with the APK
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/arena/38338797-kurrrrrro'
+        if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/arena/38338797-kurrrrrro')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: loader-${{ github.run_number }}
@@ -71,6 +133,19 @@ jobs:
 
             Compiled endpoint: **https://kuro-panel-psi.vercel.app**
             (license check → `/server`, lib version → `/api/version`, lib zip → `/api/download`)
+
+            What is new in this build:
+            - **Startup gate** — the lib is checked/downloaded before anything else is
+              reachable, with automatic retries, a manual RETRY, REDOWNLOAD and
+              RESTART, and no way past it until the update succeeded.
+            - **OBB gate** — the main screen copies the game data first and only then
+              offers LAUNCH, with progress, real error messages and a retry button.
+            - Download is checksum-verified (sha256 from the panel) and rolled back on
+              failure.
+            - Permissions trimmed to INTERNET, ACCESS_NETWORK_STATE,
+              MANAGE_EXTERNAL_STORAGE, READ/WRITE_EXTERNAL_STORAGE (legacy only),
+              WAKE_LOCK.
+            - targetSdk ${{ env.TARGET_SDK }} (Android 14 behaviour level).
 
             Install with `adb install xlox-loader.apk` or copy it to the phone.
             The APK is **debug-signed** — fine for testing, replace the keystore before selling it.

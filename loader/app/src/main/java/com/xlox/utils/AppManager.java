@@ -35,6 +35,8 @@ public class AppManager extends AppCompatActivity {
     public interface CopyCallback {
         void onCopyCompleted(boolean success);
         default void onProgressUpdate(int progress) {}
+        /** Why the copy failed — shown to the user instead of a silent "failed". */
+        default void onError(String message) {}
     }
 
     public AppManager(Context ctx) {
@@ -117,7 +119,13 @@ public class AppManager extends AppCompatActivity {
                 }
 
                 if (callback != null) {
-                    callback.onCopyCompleted(success);
+                    if (success) {
+                        callback.onCopyCompleted(true);
+                    } else {
+                        callback.onError(errorMessage == null || errorMessage.trim().isEmpty()
+                                ? "Unknown error while copying the game data"
+                                : errorMessage);
+                    }
                 } else {
                     showResultDialog(success, errorMessage);
                 }
@@ -169,20 +177,40 @@ public class AppManager extends AppCompatActivity {
                         return true;
                     }
 
-                    if (!destDir.exists()) {
-                        destDir.mkdirs();
+                    if (!destDir.exists() && !destDir.mkdirs() && !destDir.isDirectory()) {
+                        errorMessage = "Cannot create the sandbox OBB folder";
+                        return false;
                     }
 
                     File mainObb = findMainObb(sourceDir, pkg);
                     if (mainObb == null) {
-                        errorMessage = "Main BGMI OBB file not found!";
+                        errorMessage = "BGMI's main OBB is missing — open the game once so it downloads its data";
+                        return false;
+                    }
+                    if (mainObb.length() <= 0) {
+                        errorMessage = "The game OBB file is empty or unreadable";
                         return false;
                     }
 
                     totalBytes = mainObb.length();
                     copiedBytes = 0;
 
-                    return copyFile(mainObb, new File(destDir, mainObb.getName()));
+                    long free = freeBytes(destDir);
+                    if (free > 0 && free < totalBytes + (8L * 1024L * 1024L)) {
+                        errorMessage = "Not enough free storage for the game data";
+                        return false;
+                    }
+
+                    File target = new File(destDir, mainObb.getName());
+                    boolean ok = copyFile(mainObb, target);
+                    if (ok && target.length() != totalBytes) {
+                        errorMessage = "The copy stopped early ("
+                                + human(target.length()) + " of " + human(totalBytes) + ")";
+                        //noinspection ResultOfMethodCallIgnored
+                        target.delete();
+                        return false;
+                    }
+                    return ok;
 
                 } catch (Exception e) {
                     errorMessage = e.getMessage();
@@ -215,12 +243,12 @@ public class AppManager extends AppCompatActivity {
             }
 
             private boolean copyFile(File source, File target) {
-                try {
+                FileOutputStream output = null;
+                try (FileInputStream input = new FileInputStream(source)) {
                     File parent = target.getParentFile();
                     if (parent != null && !parent.exists()) parent.mkdirs();
 
-                    FileInputStream input = new FileInputStream(source);
-                    FileOutputStream output = new FileOutputStream(target);
+                    output = new FileOutputStream(target);
                     byte[] buffer = new byte[1024 * 1024];
                     int length;
 
@@ -231,14 +259,40 @@ public class AppManager extends AppCompatActivity {
                         publishProgress(progress);
                     }
 
-                    input.close();
                     output.flush();
-                    output.close();
+                    output.getFD().sync();
                     return true;
                 } catch (Exception e) {
-                    errorMessage = e.getMessage();
+                    errorMessage = e.getMessage() == null || e.getMessage().trim().isEmpty()
+                            ? "Cannot write the game data (storage full or permission denied)"
+                            : e.getMessage();
+                    // never leave a half-copied OBB behind
+                    //noinspection ResultOfMethodCallIgnored
+                    target.delete();
                     return false;
+                } finally {
+                    if (output != null) {
+                        try {
+                            output.close();
+                        } catch (Exception ignored) {
+                        }
+                    }
                 }
+            }
+
+            private long freeBytes(File dir) {
+                try {
+                    android.os.StatFs stat = new android.os.StatFs(dir.getAbsolutePath());
+                    return stat.getAvailableBlocksLong() * stat.getBlockSizeLong();
+                } catch (Throwable t) {
+                    return -1L;
+                }
+            }
+
+            private String human(long bytes) {
+                if (bytes < 1024) return bytes + " B";
+                if (bytes < 1024 * 1024) return (bytes / 1024) + " KB";
+                return (bytes / (1024 * 1024)) + " MB";
             }
 
             private long getFolderSize(File dir) {

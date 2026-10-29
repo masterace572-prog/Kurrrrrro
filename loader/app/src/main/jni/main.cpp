@@ -14,6 +14,7 @@
 #include <openssl/sha.h>
 #include "StrEnc.h"
 #include <zlib.h>  // For CRC32
+#include <cstdlib>  // free()
 using json = nlohmann::ordered_json;
 
 /* =========================================================================
@@ -233,7 +234,31 @@ Java_com_xlox_LogAct_Check(JNIEnv *env, jclass clazz, jobject mContext, jstring 
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYSTATUS, 0);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, oxorany(""));
         res = curl_easy_perform(curl);
+        long httpCode = 0;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
         if (res == CURLE_OK) {
+            if (chunk.memory == nullptr || chunk.size == 0) {
+                errMsg = "The server sent an empty answer";
+                curl_easy_cleanup(curl);
+                if (chunk.memory) free(chunk.memory);
+                return env->NewStringUTF(errMsg.c_str());
+            }
+            /* an HTML/error page instead of JSON: report it as a server error
+               instead of dumping a parser exception at the user */
+            size_t bodyStart = 0;
+            while (bodyStart < chunk.size && (chunk.memory[bodyStart] == ' '
+                   || chunk.memory[bodyStart] == '\n' || chunk.memory[bodyStart] == '\r'
+                   || chunk.memory[bodyStart] == '\t')) bodyStart++;
+            if (bodyStart >= chunk.size || chunk.memory[bodyStart] != '{') {
+                if (httpCode >= 400) {
+                    errMsg = "The panel returned HTTP " + std::to_string(httpCode);
+                } else {
+                    errMsg = "Unexpected answer from the panel (not JSON)";
+                }
+                curl_easy_cleanup(curl);
+                free(chunk.memory);
+                return env->NewStringUTF(errMsg.c_str());
+            }
             try {
                 json result = json::parse(chunk.memory);
                 auto STATUS = std::string{"status"};
@@ -265,14 +290,44 @@ Java_com_xlox_LogAct_Check(JNIEnv *env, jclass clazz, jobject mContext, jstring 
                     }
                 } else {
                     auto REASON = std::string{"reason"};
-                    errMsg = result[REASON].get<std::string>();
+                    if (result.contains(REASON) && result[REASON].is_string()) {
+                        errMsg = result[REASON].get<std::string>();
+                    }
+                    if (errMsg.empty()) {
+                        errMsg = httpCode >= 400
+                                 ? "The panel returned HTTP " + std::to_string(httpCode)
+                                 : "The panel rejected this key";
+                    }
                 }
             } catch (json::exception &e) {
-                errMsg = e.what();
+                errMsg = httpCode >= 400
+                         ? "The panel returned HTTP " + std::to_string(httpCode)
+                         : std::string("Could not read the panel answer");
+            }
+            /* a valid answer that did not authenticate means the key itself is
+               wrong / expired / bound to another device */
+            if (!xConnected && errMsg.empty()) {
+                errMsg = "This key is invalid, expired or already in use on another device";
             }
         } else {
-            errMsg = curl_easy_strerror(res);
+            switch (res) {
+                case CURLE_COULDNT_RESOLVE_HOST:
+                case CURLE_COULDNT_CONNECT:
+                    errMsg = "No internet connection — cannot reach the panel";
+                    break;
+                case CURLE_OPERATION_TIMEDOUT:
+                    errMsg = "The panel took too long to answer";
+                    break;
+                case CURLE_SSL_CONNECT_ERROR:
+                case CURLE_PEER_FAILED_VERIFICATION:
+                    errMsg = "Secure connection to the panel failed";
+                    break;
+                default:
+                    errMsg = curl_easy_strerror(res);
+                    break;
+            }
         }
+        if (chunk.memory) free(chunk.memory);
     }
     curl_easy_cleanup(curl);
     return xConnected ? env->NewStringUTF(StrEnc("8q", "\x77\x3A", 2).c_str()) : env->NewStringUTF(errMsg.c_str());

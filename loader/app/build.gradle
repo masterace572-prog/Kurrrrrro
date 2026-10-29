@@ -33,11 +33,14 @@ android {
 
     defaultConfig {
         applicationId "com.xlox"
-        minSdk 21
+        minSdk 23
+        // Android 14 behaviour level. Read from a property so a build can be
+        // produced for an older level without touching the file:
+        //   ./gradlew assembleDebug -PxloxTargetSdk=28
         //noinspection OldTargetApi,EditedTargetSdkVersion,ExpiredTargetSdkVersion
-        targetSdk 28
-        versionCode 1
-        versionName "2024.09.21"
+        targetSdk (findProperty('xloxTargetSdk') ?: '34').toInteger()
+        versionCode 2
+        versionName "2026.10.29"
 
         vectorDrawables {
             useSupportLibrary true

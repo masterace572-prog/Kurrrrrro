@@ -25,6 +25,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -94,7 +95,14 @@ public class MAct extends AppCompatActivity {
     private TextView minutesValue;
     private TextView secondsValue;
 
-    private View obbButton;
+    // OBB gate
+    private View obbCard;
+    private TextView obbStatusText;
+    private ProgressBar obbProgressBar;
+    private Button obbRetryButton;
+    private boolean launchReady = false;
+    private boolean obbWorking = false;
+
     private boolean isObbCopied = false;
     private boolean isGameRunning = false;
     private boolean isGameInstalled = false;
@@ -148,7 +156,10 @@ public class MAct extends AppCompatActivity {
             deviceValue.setText(Build.MODEL == null ? "Android device" : Build.MODEL);
         }
 
-        obbButton = findViewById(R.id.obbButton);
+        obbCard = findViewById(R.id.obbCard);
+        obbStatusText = findViewById(R.id.obbStatusText);
+        obbProgressBar = findViewById(R.id.obbProgressBar);
+        obbRetryButton = findViewById(R.id.obbRetryButton);
 
         daysValue = findViewById(R.id.daysBox).findViewById(R.id.timeValue);
         hoursValue = findViewById(R.id.hoursBox).findViewById(R.id.timeValue);
@@ -162,13 +173,22 @@ public class MAct extends AppCompatActivity {
         startKeyCountdown();
         startPageAnimation();
 
-        checkObbApplied();
+        if (obbRetryButton != null) {
+            obbRetryButton.setOnClickListener(v -> {
+                obbWorking = false;
+                if (!hasStorageAccess()) {
+                    requestStorageAccess();
+                    return;
+                }
+                ensureObbReady();
+            });
+        }
+
         updateGameStatus();
         updateVersionDisplay();
 
-        if (obbButton != null) {
-            obbButton.setOnClickListener(v -> openExternalUrl("https://www.facebook.com/"));
-        }
+        // The game data has to be in place before the launch button is offered.
+        ensureObbReady();
 
         if (restartButton != null) {
             restartButton.setOnClickListener(v -> restartApp());
@@ -176,6 +196,14 @@ public class MAct extends AppCompatActivity {
 
         if (startBgmi != null) {
             startBgmi.setOnClickListener(v -> {
+                if (!launchReady) {
+                    if (obbWorking) {
+                        Toast.makeText(this, "Preparing game data…", Toast.LENGTH_SHORT).show();
+                    } else {
+                        ensureObbReady();
+                    }
+                    return;
+                }
                 if (isUpdateAvailable) {
                     startDownload();
                 } else if (!isGameInstalled) {
@@ -469,19 +497,193 @@ public class MAct extends AppCompatActivity {
         }
     }
 
-    private void checkObbApplied() {
+    /* ------------------------------------------------------------ OBB gate */
+
+    /**
+     * Makes sure the game's OBB sits inside the sandbox before launch is
+     * offered. Runs by itself when the screen opens; every failure is shown on
+     * the OBB card with a RETRY button instead of failing silently.
+     */
+    private void ensureObbReady() {
+        if (obbWorking || isFinishing()) return;
+        obbWorking = true;
+        setLaunchReady(false);
+
+        runOnUiThread(() -> {
+            if (obbCard != null) obbCard.setVisibility(View.VISIBLE);
+            if (obbRetryButton != null) obbRetryButton.setVisibility(View.GONE);
+            setObbStatus("Checking game data…");
+            if (obbProgressBar != null) {
+                obbProgressBar.setVisibility(View.VISIBLE);
+                obbProgressBar.setIndeterminate(true);
+            }
+        });
+
         new Thread(() -> {
+            String problem = null;
             try {
-                PackageInfo info = getPackageManager().getPackageInfo(PKG_BGMI, 0);
-                String gameObb = "main." + info.versionCode + "." + PKG_BGMI + ".obb";
-                String destPath = MetaStorageManager.obtainAppExternalStorageDir(PKG_BGMI) + "/Android/obb/" + PKG_BGMI;
-                File destFile = new File(destPath, gameObb);
-                if (destFile.exists()) {
+                if (!isGameInstalled) {
+                    problem = "BGMI is not installed on this device";
+                } else if (!hasStorageAccess()) {
+                    problem = "All files access is needed to read the game files";
+                    runOnUiThread(() -> {
+                        if (obbRetryButton != null) {
+                            obbRetryButton.setText("GRANT FILE ACCESS");
+                            obbRetryButton.setVisibility(View.VISIBLE);
+                        }
+                    });
+                } else if (isObbInSandbox()) {
                     isObbCopied = true;
-                    runOnUiThread(() -> { if (obbButton != null) obbButton.setVisibility(View.GONE); });
+                    runOnUiThread(this::onObbReady);
+                    return;
                 }
-            } catch (Exception ignored) {}
+            } catch (Throwable t) {
+                Log.e("MAct", "OBB check failed", t);
+                problem = "Cannot read the game storage: " + brief(t);
+            }
+
+            if (problem != null) {
+                final String message = problem;
+                runOnUiThread(() -> onObbFailed(message));
+                return;
+            }
+            runOnUiThread(this::startObbCopy);
         }).start();
+    }
+
+    private boolean isObbInSandbox() {
+        try {
+            return new AppManager(this).checkObbContainer(PKG_BGMI);
+        } catch (Throwable t) {
+            Log.w("MAct", "OBB container check failed: " + t.getMessage());
+            return false;
+        }
+    }
+
+    private void startObbCopy() {
+        if (isFinishing()) return;
+        obbWorking = true;
+        if (obbCard != null) obbCard.setVisibility(View.VISIBLE);
+        setObbStatus("Copying game data 0%");
+        if (obbProgressBar != null) {
+            obbProgressBar.setVisibility(View.VISIBLE);
+            obbProgressBar.setIndeterminate(false);
+            obbProgressBar.setMax(100);
+            obbProgressBar.setProgress(0);
+        }
+
+        AppManager appManager = new AppManager(this);
+        appManager.copyObbFolderAsync(PKG_BGMI, new AppManager.CopyCallback() {
+            @Override
+            public void onCopyCompleted(boolean success) {
+                runOnUiThread(() -> {
+                    if (success) {
+                        onObbReady();
+                    } else {
+                        onObbFailed("Copying the game data failed");
+                    }
+                });
+            }
+
+            @Override
+            public void onProgressUpdate(int progress) {
+                runOnUiThread(() -> {
+                    setObbStatus("Copying game data " + progress + "%");
+                    if (obbProgressBar != null) obbProgressBar.setProgress(progress);
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> onObbFailed(message));
+            }
+        }, false);
+    }
+
+    private void onObbReady() {
+        obbWorking = false;
+        isObbCopied = true;
+        if (obbProgressBar != null) {
+            obbProgressBar.setIndeterminate(false);
+            obbProgressBar.setProgress(100);
+        }
+        setLaunchReady(true);
+        if (obbCard != null) obbCard.setVisibility(View.GONE);
+        updateButtonState(isGameRunning);
+        updateLibState();
+    }
+
+    private void onObbFailed(String message) {
+        obbWorking = false;
+        setLaunchReady(false);
+        String reason = message == null || message.trim().isEmpty() ? "Game data is not ready" : message;
+        if (obbCard != null) obbCard.setVisibility(View.VISIBLE);
+        setObbStatus(reason);
+        if (obbProgressBar != null) {
+            obbProgressBar.setIndeterminate(false);
+            obbProgressBar.setProgress(0);
+        }
+        if (obbRetryButton != null) {
+            obbRetryButton.setText(hasStorageAccess() ? "RETRY COPY" : "GRANT FILE ACCESS");
+            obbRetryButton.setVisibility(View.VISIBLE);
+        }
+        setLaunchButtonText("GAME DATA REQUIRED");
+        Log.w("MAct", "OBB not ready: " + reason);
+    }
+
+    private void setObbStatus(String text) {
+        if (obbStatusText != null) obbStatusText.setText(text);
+    }
+
+    private void setLaunchReady(boolean ready) {
+        launchReady = ready;
+        runOnUiThread(() -> {
+            if (startBgmi == null) return;
+            startBgmi.setEnabled(ready);
+            startBgmi.setAlpha(ready ? 1f : 0.45f);
+            if (!ready) setLaunchButtonText(obbWorking ? "PREPARING OBB…" : "GAME DATA REQUIRED");
+        });
+    }
+
+    private boolean hasStorageAccess() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                return Environment.isExternalStorageManager();
+            } catch (Throwable t) {
+                return false;
+            }
+        }
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestStorageAccess() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+            } else {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 100);
+            }
+        } catch (Throwable t) {
+            Log.e("MAct", "cannot open the storage settings", t);
+            Toast.makeText(this, "Open Settings → Apps → XLOX LOADER → Permissions", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private static String brief(Throwable t) {
+        String m = t == null ? null : t.getMessage();
+        if (m == null || m.trim().isEmpty()) return t == null ? "unknown error" : t.getClass().getSimpleName();
+        return m.length() > 90 ? m.substring(0, 90) + "…" : m;
+    }
+
+    /** Shown when the panel has no lib yet — launch would fail without one. */
+    private void updateLibState() {
+        if (!Downtwo.hasInstalledLib(this) && startText != null && !isUpdateAvailable) {
+            setLaunchButtonText("NO LIB INSTALLED");
+        }
     }
 
     private void updateGameStatus() {
@@ -550,7 +752,17 @@ public class MAct extends AppCompatActivity {
                     if (restartButton != null) restartButton.setVisibility(View.GONE);
                 }
             } else {
-                if (isUpdateAvailable) {
+                if (!launchReady) {
+                    setLaunchButtonText(obbWorking ? "PREPARING OBB…" : "GAME DATA REQUIRED");
+                    if (startText != null) {
+                        startText.setText(obbWorking ? "PREPARING OBB…" : "GAME DATA REQUIRED");
+                        startText.setTextColor(Color.parseColor("#85858D"));
+                    }
+                    if (startBgmi != null) {
+                        startBgmi.setEnabled(false);
+                        startBgmi.setAlpha(0.45f);
+                    }
+                } else if (isUpdateAvailable) {
                     setLaunchButtonText("UPDATE AVAILABLE");
                     if (startText != null) {
                         startText.setText("UPDATE AVAILABLE");
@@ -580,24 +792,37 @@ public class MAct extends AppCompatActivity {
     }
 
     private void handleLaunchFlow() {
+        if (!launchReady) {
+            ensureObbReady();
+            showStatusToggle("PREPARING GAME DATA…", false);
+            return;
+        }
+
         try {
             if (!MetaActivationManager.getActivationStatus()) {
-                showStatusToggle("LAUNCHING FAILED", true);
+                showStatusToggle("LAUNCHING FAILED — sandbox is not active", true);
                 return;
             }
-        } catch (Exception ignored) {
-            showStatusToggle("LAUNCHING FAILED", true);
+        } catch (Exception e) {
+            showStatusToggle("LAUNCHING FAILED — " + brief(e), true);
             return;
         }
 
         File libFile = new File(getFilesDir(), "loader/libbgmi.so");
         if (!libFile.exists()) {
-            startDownload();
+            if (Downtwo.hasInstalledLib(this)) {
+                showStatusToggle("LIB INCOMPLETE — tap UPDATE to reinstall", true);
+                isUpdateAvailable = true;
+                updateButtonState(isGameRunning);
+            } else {
+                showStatusToggle("NO LIB INSTALLED — publish one in the panel", true);
+                setLaunchButtonText("NO LIB INSTALLED");
+            }
             return;
         }
 
         if (!isObbCopied) {
-            copyObbFiles();
+            ensureObbReady();
         } else {
             showStatusToggle("LAUNCHING BGMI", false);
             new Handler().postDelayed(() -> {
@@ -685,67 +910,28 @@ public class MAct extends AppCompatActivity {
         }
     }
 
-    private void copyObbFiles() {
-        if (obbButton == null) return;
-        
-        Button btn = (Button) obbButton;
-        btn.setEnabled(false);
-        if (downloadBox != null) downloadBox.setVisibility(View.VISIBLE);
-        if (downloadStatusText != null) downloadStatusText.setText("Preparing process...");
-        if (percentText != null) percentText.setText("0%");
-        if (downloadProgressBar != null) {
-            downloadProgressBar.setIndeterminate(false);
-            downloadProgressBar.setMax(100);
-            downloadProgressBar.setProgress(0);
-        }
-        
-        AppManager appManager = new AppManager(this);
-        appManager.copyObbFolderAsync(PKG_BGMI, new AppManager.CopyCallback() {
-            @Override
-            public void onCopyCompleted(boolean success) {
-                runOnUiThread(() -> {
-                    if (success) {
-                        isObbCopied = true;
-                        btn.setVisibility(View.GONE);
-                        if (downloadStatusText != null) downloadStatusText.setText("Facebook access ready");
-                        if (percentText != null) percentText.setText("100%");
-                        if (downloadProgressBar != null) downloadProgressBar.setProgress(100);
-                        new Handler().postDelayed(() -> {
-                            if (downloadBox != null) downloadBox.setVisibility(View.GONE);
-                        }, 900);
-                        Toast.makeText(MAct.this, "OBB Copied Successfully", Toast.LENGTH_SHORT).show();
-                    } else {
-                        btn.setEnabled(true);
-                        btn.setText("APPLY OBB");
-                        if (downloadBox != null) downloadBox.setVisibility(View.GONE);
-                        Toast.makeText(MAct.this, "OBB Copy Failed", Toast.LENGTH_SHORT).show();
-                    }
-                });
-            }
+    /* ------------------------------------------------------- permissions */
 
-            @Override
-            public void onProgressUpdate(int progress) {
-                runOnUiThread(() -> {
-                    if (downloadStatusText != null) downloadStatusText.setText("Preparing process...");
-                    if (percentText != null) percentText.setText(progress + "%");
-                    if (downloadProgressBar != null) downloadProgressBar.setProgress(progress);
-                });
-            }
-        }, false); // false to hide the default dialog
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // coming back from the "all files access" settings screen
+        if (!launchReady && !obbWorking) {
+            ensureObbReady();
+        }
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (!launchReady && !obbWorking) ensureObbReady();
+    }
+
+    /** Asks once, quietly, for the storage access the OBB copy needs. */
     private void checkPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 100);
-            }
-        }
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!Environment.isExternalStorageManager()) {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-                startActivity(intent);
-            }
+        if (!hasStorageAccess()) {
+            requestStorageAccess();
         }
     }
 }

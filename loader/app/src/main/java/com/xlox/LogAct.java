@@ -72,7 +72,6 @@ public class LogAct extends AppCompatActivity {
 
     // Permissions
     private static final int REQUEST_MANAGE_STORAGE_PERMISSION = 100;
-    private static final int REQUEST_MANAGE_UNKNOWN_APP_SOURCES = 200;
 
     private static final String PREFS_NAME = "com.xlox.prefs";
     private static final String PREF_PERMISSIONS_GRANTED = "permissions_granted";
@@ -116,18 +115,7 @@ public class LogAct extends AppCompatActivity {
         }
 
         if (pasteKey != null) {
-            pasteKey.setOnClickListener(v -> {
-                ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-                if (clipboard != null && clipboard.hasPrimaryClip()
-                        && clipboard.getPrimaryClip() != null
-                        && clipboard.getPrimaryClip().getItemCount() > 0) {
-                    CharSequence copiedKey = clipboard.getPrimaryClip().getItemAt(0).coerceToText(this);
-                    if (copiedKey != null) {
-                        textUsername.setText(copiedKey);
-                        textUsername.setSelection(textUsername.getText().length());
-                    }
-                }
-            });
+            pasteKey.setOnClickListener(v -> pasteFromClipboard());
         }
 
         startIntroAnimation();
@@ -143,12 +131,17 @@ public class LogAct extends AppCompatActivity {
                 return;
             }
 
+            if (!hasNetwork()) {
+                showLoginError("No internet connection — connect and try again");
+                return;
+            }
+
             prefs.setSt(USER, userKey);
-            
+
             btnLogin.setEnabled(false);
             btnLogin.setText("Checking key...");
             btnLogin.setTextColor(Color.WHITE);
-            
+
             Login(this, userKey);
         });
     }
@@ -190,22 +183,47 @@ public class LogAct extends AppCompatActivity {
     }
 
     private void Login(final Context m_Context, final String userKey) {
+        final AlertDialog[] verifying = new AlertDialog[1];
+        try {
+            verifying[0] = new AlertDialog.Builder(this)
+                    .setTitle("Verifying key")
+                    .setMessage("Checking your license with the panel…")
+                    .setCancelable(false)
+                    .create();
+            verifying[0].show();
+        } catch (Throwable ignored) {
+        }
+
         Handler loginHandler = new Handler(msg -> {
+            if (verifying[0] != null && verifying[0].isShowing()) {
+                verifying[0].dismiss();
+            }
             if (msg.what == 0) {
-                Intent i = new Intent(m_Context, MAct.class);
+                // key is valid — the startup gate runs once more (instantly when
+                // the lib is current) before the main screen opens
+                Intent i = new Intent(m_Context, SplashActivity.class);
+                i.putExtra(SplashActivity.EXTRA_NEXT, SplashActivity.NEXT_MAIN);
                 startActivity(i);
                 finish();
             } else if (msg.what == 1) {
-                btnLogin.setEnabled(true);
-                btnLogin.setText("LOGIN");
-                btnLogin.setTextColor(Color.parseColor("#FF8C00"));
-                Toast.makeText(m_Context, (String) msg.obj, Toast.LENGTH_SHORT).show();
+                resetLoginButton();
+                showLoginError((String) msg.obj);
             }
             return true;
         });
 
         new Thread(() -> {
-            String result = Check(m_Context, userKey);
+            String result;
+            try {
+                result = Check(m_Context, userKey);
+            } catch (Throwable t) {
+                String m = t.getMessage();
+                result = "Verification failed" + (m == null || m.trim().isEmpty() ? "" : ": " + m);
+            }
+            if (result == null || result.trim().isEmpty()) {
+                result = "The server rejected this key (empty answer)";
+            }
+
             if ("OK".equals(result)) {
                 loginHandler.sendEmptyMessage(0);
             } else {
@@ -217,11 +235,71 @@ public class LogAct extends AppCompatActivity {
         }).start();
     }
 
+    private void resetLoginButton() {
+        runOnUiThread(() -> {
+            if (btnLogin == null) return;
+            btnLogin.setEnabled(true);
+            btnLogin.setText("LOGIN");
+            btnLogin.setTextColor(Color.parseColor("#FF8C00"));
+        });
+    }
+
+    /** A dialog, not a toast: a rejected key must stay on screen until read. */
+    private void showLoginError(String message) {
+        if (isFinishing()) return;
+        String text = message == null || message.trim().isEmpty()
+                ? "The key could not be verified"
+                : message.trim();
+        try {
+            new AlertDialog.Builder(this)
+                    .setTitle("Key not accepted")
+                    .setMessage(text)
+                    .setPositiveButton("Try again", (d, w) -> d.dismiss())
+                    .setNegativeButton("Paste key", (d, w) -> {
+                        d.dismiss();
+                        pasteFromClipboard();
+                    })
+                    .show();
+        } catch (Throwable t) {
+            Toast.makeText(this, text, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void pasteFromClipboard() {
+        try {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (clipboard != null && clipboard.hasPrimaryClip()
+                    && clipboard.getPrimaryClip() != null
+                    && clipboard.getPrimaryClip().getItemCount() > 0) {
+                CharSequence copied = clipboard.getPrimaryClip().getItemAt(0).coerceToText(this);
+                if (copied != null) {
+                    textUsername.setText(copied.toString().trim());
+                    textUsername.setSelection(textUsername.getText().length());
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private boolean hasNetwork() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm == null) return true;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Network active = cm.getActiveNetwork();
+                if (active == null) return false;
+                NetworkCapabilities caps = cm.getNetworkCapabilities(active);
+                return caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+            }
+            return cm.getActiveNetworkInfo() != null && cm.getActiveNetworkInfo().isConnected();
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
     private void checkAndRequestPermissions() {
         if (!isStoragePermissionGranted()) {
             requestStoragePermissionDirect();
-        } else if (!canRequestPackageInstalls()) {
-            requestUnknownAppPermissionsDirect();
         }
     }
 
@@ -239,26 +317,11 @@ public class LogAct extends AppCompatActivity {
         }
     }
 
-    private boolean canRequestPackageInstalls() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O || getPackageManager().canRequestPackageInstalls();
-    }
-
-    private void requestUnknownAppPermissionsDirect() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName()));
-            startActivityForResult(intent, REQUEST_MANAGE_UNKNOWN_APP_SOURCES);
-        }
-    }
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_MANAGE_STORAGE_PERMISSION) {
             checkAndRequestPermissions();
-        } else if (requestCode == REQUEST_MANAGE_UNKNOWN_APP_SOURCES) {
-            if (canRequestPackageInstalls()) {
-                android.os.Process.killProcess(android.os.Process.myPid());
-            }
         }
     }
 

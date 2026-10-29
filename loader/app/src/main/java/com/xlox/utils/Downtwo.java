@@ -15,23 +15,40 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Downloads the optional "lib" payload from our own panel.
+ * Downloads the "lib" payload from our own panel.
  *
- *  GET <panel>/api/version   → plain text, first line = version (e.g. "1.4")
- *  GET <panel>/api/download  → a zip, extracted into filesDir/loader/
+ *   GET <panel>/api/version?format=json  → {"version":"1.4","file_name":"lib.zip",
+ *                                           "file_size":12345,"sha256":"…","external":false}
+ *   GET <panel>/api/download             → the zip, extracted into filesDir/loader/
+ *
+ * If the JSON form is unavailable the plain-text version endpoint still works, so
+ * an older panel cannot break the client.
  *
  * The version from the server is compared with the one we stored after the last
  * successful extraction. If they are identical nothing is downloaded, so the
  * panel only has to change the version string to push an update.
  *
- * Every failure path returns a {@link Result} with a human readable message
- * instead of failing silently.
+ * Two states matter for the startup gate:
+ *
+ *   NO_PAYLOAD  the panel has no lib published (or published it without a zip).
+ *               There is nothing the client could install, so this must NOT be
+ *               treated as a failure — otherwise the loader would be bricked
+ *               until the first lib upload.
+ *   ERROR       something the retry loop can fix: no network, HTTP 5xx, disk
+ *               full, corrupt zip…
+ *
+ * Every failure path returns a {@link Result} with a human readable message.
  */
 public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
 
@@ -58,6 +75,11 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
     private static final int MAX_ATTEMPTS = 3;
     private static final long MIN_FREE_BYTES = 12L * 1024L * 1024L; // 12 MB headroom
 
+    private static final Pattern JSON_VERSION = Pattern.compile("\"version\"\\s*:\\s*\"([^\"]*)\"");
+    private static final Pattern JSON_FILE = Pattern.compile("\"file_name\"\\s*:\\s*(null|\"([^\"]*)\")");
+    private static final Pattern JSON_SIZE = Pattern.compile("\"file_size\"\\s*:\\s*(\\d+)");
+    private static final Pattern JSON_SHA = Pattern.compile("\"sha256\"\\s*:\\s*(null|\"([^\"]*)\")");
+
     /** modes accepted by {@link #execute(Object[])} */
     public static final String MODE_CHECK = "check_only";
     public static final String MODE_DOWNLOAD = "download";
@@ -73,6 +95,8 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
         ALREADY_NOTIFIED,
         /** download + extraction finished */
         INSTALLED,
+        /** the panel has nothing published — nothing to install, not an error */
+        NO_PAYLOAD,
         /** anything went wrong — see message */
         ERROR
     }
@@ -94,6 +118,16 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
 
         public boolean isUpdateAvailable() {
             return status == Status.UPDATE_AVAILABLE;
+        }
+
+        /**
+         * True when the client is allowed to continue: up to date, freshly
+         * installed, or the panel simply has no lib to hand out.
+         */
+        public boolean canProceed() {
+            return status == Status.UP_TO_DATE
+                    || status == Status.INSTALLED
+                    || status == Status.NO_PAYLOAD;
         }
 
         @Override
@@ -139,61 +173,121 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
         return lastError;
     }
 
+    /* ---------------------------------------------------------- installed */
+
     public static String installedVersion(Context context) {
         return prefs(context).getString(PREF_VERSION_KEY, "0.0");
+    }
+
+    /** True when a previous download left actual files behind. */
+    public static boolean hasInstalledLib(Context context) {
+        File dir = new File(context.getFilesDir(), LOADER_DIR_NAME);
+        return containsFile(dir);
+    }
+
+    private static boolean containsFile(File dir) {
+        if (dir == null || !dir.isDirectory()) return false;
+        File[] files = dir.listFiles();
+        if (files == null) return false;
+        for (File f : files) {
+            if (f.isDirectory() ? containsFile(f) : (f.isFile() && f.length() > 0)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Forgets the installed version so the next run re-downloads the lib even
+     * when the panel version has not changed (the "REDOWNLOAD" button).
+     */
+    public static void forceReinstall(Context context) {
+        prefs(context).edit()
+                .remove(PREF_VERSION_KEY)
+                .remove(PREF_FAILED_VERSION)
+                .apply();
+    }
+
+    /** Remembers that this version keeps failing, so the UI can offer a manual retry. */
+    public static String lastFailedVersion(Context context) {
+        return prefs(context).getString(PREF_FAILED_VERSION, "");
     }
 
     private static SharedPreferences prefs(Context context) {
         return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
     }
 
+    /* --------------------------------------------------------- release info */
+
+    /** What the panel says about the current lib. */
+    private static class ReleaseInfo {
+        String version = "";
+        String fileName = "";
+        String sha256 = "";
+        long size = 0L;
+
+        boolean hasPayload() {
+            return fileName != null && !fileName.trim().isEmpty();
+        }
+    }
+
     /* -------------------------------------------------------------- worker */
 
     @Override
     protected Result doInBackground(String... params) {
-        String downloadUrl = (params.length > 0 && params[0] != null) ? params[0] : Link();
+        String downloadUrl = (params.length > 0 && params[0] != null) ? params[0] : safeLink();
         String mode = (params.length > 1 && params[1] != null) ? params[1] : MODE_DOWNLOAD;
 
-        serverVersion = fetchServerVersion();
-        if (serverVersion == null) {
-            // The version endpoint being unreachable is not fatal: the cached lib
-            // (if any) still works, so report it as an error the caller may ignore.
+        ReleaseInfo info = fetchRelease();
+        if (info == null) {
+            // The version endpoint being unreachable is not something the user
+            // can fix except by getting connectivity back.
             return error(lastError.isEmpty() ? "Cannot reach the update server" : lastError);
         }
+        serverVersion = info.version;
 
-        SharedPreferences p = prefs(context);
-        String installed = p.getString(PREF_VERSION_KEY, "0.0");
+        String installed = prefs(context).getString(PREF_VERSION_KEY, "0.0");
+        boolean haveLib = hasInstalledLib(context);
 
         if (MODE_CHECK.equals(mode)) {
-            boolean haveLib = loaderDir().isDirectory();
             if (serverVersion.equals(installed) && haveLib) {
                 return new Result(Status.UP_TO_DATE, "", serverVersion);
             }
-            if (!haveLib) {
-                // nothing installed yet — always worth downloading
+            if (serverVersion.equals(installed) && !haveLib) {
+                // the version was stored but the files are gone (cleared cache)
                 return new Result(Status.UPDATE_AVAILABLE, "", serverVersion);
             }
-            if (serverVersion.equals(p.getString(PREF_LAST_NOTIFIED, ""))) {
+            if (!info.hasPayload()) {
+                return new Result(Status.NO_PAYLOAD, "No lib published yet", serverVersion);
+            }
+            if (serverVersion.equals(prefs(context).getString(PREF_LAST_NOTIFIED, "")) && haveLib) {
                 return new Result(Status.ALREADY_NOTIFIED, "", serverVersion);
             }
             return new Result(Status.UPDATE_AVAILABLE, "", serverVersion);
         }
 
-        // MODE_DOWNLOAD: skip the transfer when nothing changed.
-        if (serverVersion.equals(installed) && loaderDir().isDirectory()) {
+        /* ---- MODE_DOWNLOAD ---- */
+
+        if (serverVersion.equals(installed) && haveLib) {
             return new Result(Status.UP_TO_DATE, "", serverVersion);
+        }
+        if (!info.hasPayload()) {
+            // Nothing to fetch. Never block the app for a missing payload; the
+            // main screen explains that no lib is published yet.
+            return new Result(Status.NO_PAYLOAD, "No lib published yet", serverVersion);
         }
 
         Exception last = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
-                downloadAndExtract(downloadUrl);
-                p.edit()
+                downloadAndExtract(downloadUrl, info);
+                prefs(context).edit()
                         .putString(PREF_VERSION_KEY, serverVersion)
                         .putString(PREF_LAST_NOTIFIED, serverVersion)
                         .remove(PREF_FAILED_VERSION)
                         .apply();
                 return new Result(Status.INSTALLED, "", serverVersion);
+            } catch (NoPayloadException e) {
+                cleanupTemp();
+                return new Result(Status.NO_PAYLOAD, e.getMessage(), serverVersion);
             } catch (Exception e) {
                 last = e;
                 Log.w(TAG, "attempt " + attempt + "/" + MAX_ATTEMPTS + " failed: " + e.getMessage(), e);
@@ -204,10 +298,30 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
                 }
             }
         }
-        // remember that this version keeps failing so the UI can offer a manual retry
-        p.edit().putString(PREF_FAILED_VERSION, serverVersion).apply();
+        prefs(context).edit().putString(PREF_FAILED_VERSION, serverVersion).apply();
         String msg = last == null ? "Unknown download error" : friendly(last);
         return error(msg);
+    }
+
+    /** {@link #Link()} guarded: a missing native lib must not crash the updater. */
+    private static String safeLink() {
+        try {
+            return Link();
+        } catch (Throwable t) {
+            Log.e(TAG, "native download URL unavailable", t);
+            return null;
+        }
+    }
+
+    private static String versionEndpoint() {
+        try {
+            String base = Version();
+            if (base == null || base.trim().isEmpty()) return null;
+            return base + (base.contains("?") ? "&" : "?") + "format=json";
+        } catch (Throwable t) {
+            Log.e(TAG, "native version URL unavailable", t);
+            return null;
+        }
     }
 
     @Override
@@ -249,19 +363,85 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
         return c;
     }
 
-    /** @return version string, or null with {@link #lastError} set */
-    private String fetchServerVersion() {
+    /** @return parsed release info, or null with {@link #lastError} set */
+    private ReleaseInfo fetchRelease() {
+        publishProgress(new Object[]{-1, "Checking for updates…"});
+
+        String jsonUrl = versionEndpoint();
+        if (jsonUrl != null) {
+            ReleaseInfo fromJson = fetchReleaseJson(jsonUrl);
+            if (fromJson != null) return fromJson;
+            // fall through to the plain-text form (older panel)
+        }
+        return fetchReleasePlain();
+    }
+
+    private ReleaseInfo fetchReleaseJson(String jsonUrl) {
         HttpURLConnection connection = null;
         try {
-            publishProgress(new Object[]{-1, "Checking for updates…"});
-            connection = open(Version());
+            connection = open(jsonUrl);
             int code = connection.getResponseCode();
             if (code != HttpURLConnection.HTTP_OK) {
                 lastError = "Update server returned HTTP " + code;
                 return null;
             }
+            String body = readAll(connection.getInputStream());
+            if (body == null || !body.trim().startsWith("{")) return null;
 
-            BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), "UTF-8"));
+            Matcher m = JSON_VERSION.matcher(body);
+            if (!m.find()) return null;
+            ReleaseInfo info = new ReleaseInfo();
+            info.version = clean(m.group(1));
+            if (!isValidVersion(info.version)) {
+                lastError = "Unexpected version format: " + abbreviate(info.version, 40);
+                return null;
+            }
+
+            Matcher f = JSON_FILE.matcher(body);
+            if (f.find()) {
+                info.fileName = f.group(1) != null && f.group(1).startsWith("\"")
+                        ? clean(f.group(2))
+                        : "";
+            }
+            Matcher s = JSON_SIZE.matcher(body);
+            if (s.find()) {
+                try {
+                    info.size = Long.parseLong(s.group(1));
+                } catch (NumberFormatException ignored) {}
+            }
+            Matcher h = JSON_SHA.matcher(body);
+            if (h.find() && h.group(1) != null && h.group(1).startsWith("\"")) {
+                info.sha256 = clean(h.group(2)).toLowerCase(Locale.US);
+            }
+            return info;
+        } catch (Exception e) {
+            lastError = friendly(e);
+            Log.w(TAG, "json version check failed: " + e.getMessage());
+            return null;
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private ReleaseInfo fetchReleasePlain() {
+        HttpURLConnection connection = null;
+        try {
+            String plainUrl = null;
+            try {
+                plainUrl = Version();
+            } catch (Throwable ignored) {}
+            if (plainUrl == null) {
+                if (lastError.isEmpty()) lastError = "Update endpoint is not configured";
+                return null;
+            }
+            connection = open(plainUrl);
+            int code = connection.getResponseCode();
+            if (code != HttpURLConnection.HTTP_OK) {
+                lastError = "Update server returned HTTP " + code;
+                return null;
+            }
+            BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(connection.getInputStream(), "UTF-8"));
             String line;
             try {
                 line = reader.readLine();
@@ -272,12 +452,16 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
                 lastError = "Update server sent an empty version";
                 return null;
             }
-            String version = line.trim();
-            if (!version.matches("[A-Za-z0-9._-]{1,32}")) {
-                lastError = "Unexpected version format: " + abbreviate(version, 40);
+            ReleaseInfo info = new ReleaseInfo();
+            info.version = clean(line);
+            if (!isValidVersion(info.version)) {
+                lastError = "Unexpected version format: " + abbreviate(info.version, 40);
                 return null;
             }
-            return version;
+            // Plain text carries no file name: assume a payload exists and let
+            // the download step decide (a 404 becomes NoPayload).
+            info.fileName = "lib.zip";
+            return info;
         } catch (Exception e) {
             lastError = friendly(e);
             Log.e(TAG, "version check failed: " + e.getMessage(), e);
@@ -287,7 +471,7 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
         }
     }
 
-    private void downloadAndExtract(String urlString) throws Exception {
+    private void downloadAndExtract(String urlString, ReleaseInfo info) throws Exception {
         if (urlString == null || urlString.trim().isEmpty()) {
             throw new IOException("No download URL configured");
         }
@@ -301,13 +485,18 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
         HttpURLConnection connection = open(urlString);
         try {
             int code = connection.getResponseCode();
+            if (code == HttpURLConnection.HTTP_NOT_FOUND) {
+                throw new NoPayloadException("The panel has no lib published yet");
+            }
             if (code != HttpURLConnection.HTTP_OK) {
                 throw new IOException("Download server returned HTTP " + code);
             }
 
-            long total = connection.getContentLength(); // int in the API, widened for clarity
+            long total = connection.getContentLength();
+            if (total <= 0 && info.size > 0) total = info.size;
             if (total > 0 && freeBytes(base) < total + MIN_FREE_BYTES) {
-                throw new IOException("Not enough free storage for " + human(total));
+                throw new IOException("Not enough free storage for " + human(total)
+                        + " (needs about " + human(total + MIN_FREE_BYTES) + " free)");
             }
 
             if (partFile.exists() && !partFile.delete()) {
@@ -326,20 +515,30 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
                     int percent = total > 0 ? (int) (downloaded * 100L / total) : -1;
                     if (percent != lastPercent) {
                         lastPercent = percent;
-                        publishProgress(new Object[]{percent, "Downloading lib…"});
+                        publishProgress(new Object[]{percent, "Downloading update…"});
                     }
                 }
                 out.flush();
             }
 
             if (downloaded <= 0) {
-                throw new IOException("The downloaded file is empty");
+                throw new IOException("The server sent an empty file");
             }
             if (total > 0 && downloaded != total) {
-                throw new IOException("Download incomplete (" + human(downloaded) + " of " + human(total) + ")");
+                throw new IOException("Download interrupted (" + human(downloaded)
+                        + " of " + human(total) + ")");
             }
             if (partFile.length() > 4 && !isZip(partFile)) {
                 throw new IOException("The server did not return a zip file");
+            }
+
+            // integrity: the panel publishes the sha256 of the zip
+            if (info.sha256 != null && info.sha256.length() == 64) {
+                publishProgress(new Object[]{100, "Verifying…"});
+                String actual = sha256(partFile);
+                if (!info.sha256.equalsIgnoreCase(actual)) {
+                    throw new IOException("The download was corrupted (checksum mismatch)");
+                }
             }
 
             if (zipFile.exists() && !zipFile.delete()) {
@@ -353,7 +552,7 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
         }
 
         // 2. extract into a staging directory ----------------------------
-        publishProgress(new Object[]{100, "Extracting…"});
+        publishProgress(new Object[]{100, "Installing update…"});
         File target = loaderDir();
         File staging = new File(base, TMP_DIR_NAME);
         deleteRecursive(staging);
@@ -366,6 +565,10 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
         } catch (Exception e) {
             deleteRecursive(staging);
             throw new IOException("The zip could not be extracted: " + e.getMessage());
+        }
+        if (!containsFile(staging)) {
+            deleteRecursive(staging);
+            throw new IOException("The zip was empty");
         }
 
         // zip may have a single top-level folder — flatten it
@@ -399,6 +602,13 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
         publishProgress(new Object[]{100, "Done"});
     }
 
+    /** The panel answered, but there is nothing to download. */
+    private static class NoPayloadException extends IOException {
+        NoPayloadException(String message) {
+            super(message);
+        }
+    }
+
     /* ------------------------------------------------------------ helpers */
 
     private File loaderDir() {
@@ -412,12 +622,42 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
         deleteRecursive(new File(base, LOADER_DIR_NAME + ".old"));
     }
 
+    private static String readAll(InputStream inputStream) {
+        try (InputStream in = inputStream) {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            copy(in, out);
+            return new String(out.toByteArray(), "UTF-8");
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static void copy(InputStream in, OutputStream out) throws IOException {
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+    }
+
     private static boolean isZip(File file) {
         try (FileInputStream in = new FileInputStream(file)) {
             byte[] head = new byte[2];
             return in.read(head) == 2 && head[0] == 'P' && head[1] == 'K';
         } catch (IOException e) {
             return false;
+        }
+    }
+
+    private static String sha256(File file) {
+        try (FileInputStream in = new FileInputStream(file)) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buf = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) digest.update(buf, 0, n);
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest.digest()) sb.append(String.format(Locale.US, "%02x", b));
+            return sb.toString();
+        } catch (Exception e) {
+            return "";
         }
     }
 
@@ -443,9 +683,7 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
             }
             try (FileInputStream in = new FileInputStream(from);
                  FileOutputStream out = new FileOutputStream(to)) {
-                byte[] buf = new byte[8192];
-                int n;
-                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                copy(in, out);
             }
             return true;
         } catch (Exception e) {
@@ -494,20 +732,33 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
     /** Turns exceptions into something a user can act on. */
     private static String friendly(Exception e) {
         String m = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-        String lower = m.toLowerCase();
-        if (lower.contains("unknownhost") || lower.contains("unable to resolve host")) {
-            return "No internet connection (cannot reach the update server)";
+        String lower = m.toLowerCase(Locale.US);
+        if (lower.contains("unknownhost") || lower.contains("unable to resolve host")
+                || lower.contains("nodename nor servname")) {
+            return "No internet connection — the update server was not found";
         }
         if (lower.contains("timed out") || lower.contains("timeout")) {
             return "The update server took too long to respond";
         }
         if (lower.contains("ssl") || lower.contains("certificate")) {
-            return "Secure connection to the update server failed";
+            return "The secure connection to the update server failed";
         }
         if (lower.contains("enospc") || lower.contains("no space")) {
             return "Not enough free storage to install the update";
         }
+        if (lower.contains("econnreset") || lower.contains("connection reset")
+                || lower.contains("network is unreachable") || lower.contains("failed to connect")) {
+            return "The connection dropped — check your internet and retry";
+        }
         return abbreviate(m, 120);
+    }
+
+    private static String clean(String s) {
+        return s == null ? "" : s.trim();
+    }
+
+    private static boolean isValidVersion(String version) {
+        return version != null && version.matches("[A-Za-z0-9._-]{1,32}");
     }
 
     private static String abbreviate(String s, int max) {
@@ -517,13 +768,13 @@ public class Downtwo extends AsyncTask<String, Object, Downtwo.Result> {
 
     private static String human(long bytes) {
         if (bytes < 1024) return bytes + " B";
-        if (bytes < 1024 * 1024) return String.format(java.util.Locale.US, "%.1f KB", bytes / 1024.0);
-        return String.format(java.util.Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0));
+        if (bytes < 1024 * 1024) return String.format(Locale.US, "%.1f KB", bytes / 1024.0);
+        return String.format(Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0));
     }
 
     /** Convenience for the UI: "install" or "check" without touching the button states. */
     public static void check(Context context, Callback callback) {
-        new Downtwo(context, callback).execute(Link(), MODE_CHECK);
+        new Downtwo(context, callback).execute(safeLink(), MODE_CHECK);
     }
 
     /** Used by the panel docs / debug screens. */
