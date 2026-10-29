@@ -111,9 +111,10 @@ Three things used to make that silently do nothing:
   `/data/user/0/<pkg>/files/loader/libbgmi.so` and its `/data/data/` twin, then
   the context-relative locations (`files`, `noBackupFiles`, `codeCache`).
 * **The ABI.** A 32-bit or non-ELF file can never load into an arm64-v8a
-  process. `Elf` reads the header before loading, and the panel shows
-  `Lib · arm64-v8a, 812 KB` after an update. Wrong architecture reads
-  `armeabi-v7a, … — cannot load into arm64-v8a`.
+  process. `Elf` reads the header before loading, and the version line under
+  LAUNCH shows what is on disk: `Version 3 · arm64-v8a, 812 KB`. A wrong
+  architecture reads `armeabi-v7a, 23 KB — cannot load into arm64-v8a`, and a
+  file that is not a library at all reads `not an ELF file (…)`.
 * **Dependencies.** A zip that ships extra `.so` files gets them preloaded from
   the same directory; otherwise the load fails with `library "libX.so" not
   found`. Newer Android also refuses to `dlopen` a world-writable file, so a
