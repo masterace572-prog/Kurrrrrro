@@ -8,7 +8,8 @@ instead of drifting away from it:
 | --- | --- |
 | `01-splash.png` | startup gate (lib check / update) |
 | `02-login.png` | sign in |
-| `02b-verify.png` | key being verified — panel, device binding, subscription |
+| `02b-verify.png` | sign in with a rejected key (inline error) |
+| `02c-dialog.png` | the "checking your key" dialog |
 | `03-main.png` | loader, key good, game data ready |
 | `04-file-access.png` | loader asking for all-files access before the OBB copy |
 | `05-license-failed.png` | loader after the panel rejected the key |
