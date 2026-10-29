@@ -25,6 +25,7 @@ import androidx.appcompat.widget.AppCompatButton;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.xlox.utils.AppManager;
 import com.xlox.utils.LibGate;
 import com.xlox.utils.LibLoader;
@@ -85,6 +86,10 @@ public class MAct extends AppCompatActivity {
     private boolean gameInstalled = false;
     private boolean gameRunning = false;
     private boolean obbCopied = false;
+    /** Where the game data was found ("Android/obb", "sandbox", …) for the card. */
+    private String obbWhere = "";
+    /** Why the last copy did not work, shown verbatim instead of "try again". */
+    private String obbProblem = "";
     private boolean busy = false;
 
     @SuppressLint("SetTextI18n")
@@ -177,23 +182,33 @@ public class MAct extends AppCompatActivity {
             }
 
             boolean copied = false;
+            String where = "";
+            String problem = "";
             if (installed) {
                 try {
-                    copied = new AppManager(this).checkObbContainer(PKG_BGMI);
+                    AppManager.ObbStatus status = new AppManager(this).obbStatus(PKG_BGMI);
+                    copied = status.ready;
+                    where = status.where;
+                    problem = status.detail;
                 } catch (Exception e) {
                     // The folder could not be inspected at all. Asking for a
                     // fresh copy every launch because of that is what this
                     // used to do; trust the record of the copy instead.
-                    Log.w("MAct", "could not inspect the game's obb folder", e);
+                    Log.w("MAct", "could not look for the game data", e);
                     copied = AppManager.hasObbReceipt(this, PKG_BGMI);
+                    problem = e.getMessage() == null ? e.toString() : e.getMessage();
                 }
             }
 
             final boolean fInstalled = installed;
             final boolean fCopied = copied;
+            final String fWhere = where;
+            final String fProblem = problem;
             runOnUiThread(() -> {
                 gameInstalled = fInstalled;
                 obbCopied = fCopied;
+                obbWhere = fWhere;
+                obbProblem = fCopied ? "" : fProblem;
                 renderState();
             });
         }).start();
@@ -207,7 +222,10 @@ public class MAct extends AppCompatActivity {
         }
 
         if (obbState != null) {
-            obbState.setText(obbCopied ? "Ready" : "Not copied yet");
+            String text = obbCopied
+                    ? (obbWhere.isEmpty() ? "Ready" : "Ready · " + obbWhere)
+                    : "Not copied yet";
+            obbState.setText(text);
             obbState.setTextColor(Color.parseColor(obbCopied ? "#4CB98A" : "#F2F3F5"));
         }
 
@@ -229,13 +247,21 @@ public class MAct extends AppCompatActivity {
             actionButton.setTextColor(Color.parseColor("#E0737C"));
             return;
         } else if (!obbCopied) {
-            setAction("Copy game data", "One-time copy. After this the button just launches.");
+            // say what the last attempt found instead of a cheerful generic line
+            setAction("Copy game data", obbProblem.isEmpty()
+                    ? "One-time copy. After this the button just launches."
+                    : shorten(obbProblem, 120));
         } else {
             // data is already in place: no copying, straight to the game
             setAction("Launch game", "Game data ready. Nothing else to do.");
         }
         actionButton.setBackgroundResource(R.drawable.bg_primary_action);
         actionButton.setTextColor(Color.parseColor("#0B0C0E"));
+    }
+
+    private String shorten(String text, int max) {
+        String clean = text.replace('\n', ' ').trim();
+        return clean.length() <= max ? clean : clean.substring(0, max - 1) + "…";
     }
 
     private void setAction(String label, String hint) {
@@ -258,10 +284,11 @@ public class MAct extends AppCompatActivity {
                     setBusyCopy(false);
                     if (success) {
                         obbCopied = true;
-                        showStatus("Game data copied. You can launch.", false);
+                        showStatus("Game data ready. You can launch.", false);
                         hideStatusSoon(2500);
+                        refreshGameState();   // fill in where it was found
                     } else {
-                        aborted("Copy failed. Try again.");
+                        aborted("Copy failed.");
                     }
                     renderState();
                 });
@@ -275,7 +302,36 @@ public class MAct extends AppCompatActivity {
                     if (obbState != null) obbState.setText("Copying…");
                 });
             }
+
+            @Override
+            public void onCopyFailed(String reason) {
+                runOnUiThread(() -> explainCopyFailure(reason));
+            }
         }, false);
+    }
+
+    /**
+     * Says what actually went wrong. "Copy failed. Try again." was true for every
+     * possible cause — no permission, no file, a folder that cannot be written —
+     * so it never told anybody what to change.
+     */
+    private void explainCopyFailure(String reason) {
+        String text = reason == null || reason.trim().isEmpty()
+                ? "The game data could not be copied."
+                : reason.trim();
+        obbProblem = text;
+        if (obbState != null) obbState.setText("Copy failed");
+        showStatus(text, true);
+
+        if (isFinishing()) return;
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Copy failed")
+                .setMessage(text + "\n\nIf the game data is already on the phone "
+                        + "(Android/obb) the game can be started as it is.")
+                .setPositiveButton("Retry", (dialog, which) -> copyGameData())
+                .setNeutralButton("Launch anyway", (dialog, which) -> launchGame())
+                .setNegativeButton("Close", null)
+                .show();
     }
 
     private void setBusyCopy(boolean working) {
@@ -299,30 +355,90 @@ public class MAct extends AppCompatActivity {
     // ---------------------------------------------------------- launch / stop
 
     private void launchGame() {
+        // Neither of these is a reason to refuse to start the game. The sandbox
+        // reports an inactive container until something has been launched, and
+        // older builds launch perfectly well after that check said no.
         try {
             if (!MetaActivationManager.getActivationStatus()) {
-                showStatus("Launch failed: container not ready.", true);
-                return;
+                Log.w("MAct", "sandbox reports no activation, launching anyway");
             }
         } catch (Exception e) {
-            showStatus("Launch failed: container not ready.", true);
-            return;
+            Log.w("MAct", "activation check failed", e);
         }
 
+        boolean started = false;
+        String why = "";
+
+        // 1. the documented way: build the splash intent and start it
         try {
             Intent intent = MetaActivityManager.obtainSplashLaunchIntent(PKG_BGMI, this);
-            if (intent == null) {
-                showStatus("Launch failed: game not available.", true);
-                return;
+            if (intent != null) {
+                startActivity(intent);
+                started = true;
+            } else {
+                why = "the sandbox returned no launch intent";
             }
-            startActivity(intent);
-            gameRunning = true;
-            showStatus("Game started.", false);
-            renderState();
         } catch (Exception e) {
-            Log.e("MAct", "Launch error", e);
-            showStatus("Launch failed: " + e.getMessage(), true);
+            Log.e("MAct", "splash launch failed", e);
+            why = e.getMessage() == null ? e.toString() : e.getMessage();
         }
+
+        // 2. the direct call, for the builds where the intent comes back empty
+        if (!started) {
+            try {
+                MetaActivityManager.launchAppWithSplash(this, PKG_BGMI);
+                started = true;
+                why = "";
+            } catch (Exception e) {
+                Log.e("MAct", "direct launch failed", e);
+                if (why.isEmpty()) why = e.getMessage() == null ? e.toString() : e.getMessage();
+            }
+        }
+
+        // 3. last resort: a plain intent. If the sandbox maps the package this
+        //    still lands in the game, and if it does not, nothing else would.
+        if (!started) {
+            try {
+                Intent fallback = getPackageManager().getLaunchIntentForPackage(PKG_BGMI);
+                if (fallback != null) {
+                    startActivity(fallback);
+                    started = true;
+                    why = "";
+                }
+            } catch (Exception e) {
+                Log.e("MAct", "plain launch failed", e);
+            }
+        }
+
+        showStatus("Starting the game…", false);
+
+        // The launch goes through the sandbox and can take a few seconds, so ask
+        // whether it actually started instead of trusting the call: reporting
+        // "not available" while the game is opening is worse than saying nothing.
+        final String failure = why;
+        new Handler(getMainLooper()).postDelayed(() -> {
+            boolean running = false;
+            try {
+                running = MetaActivityManager.isAppRunning(PKG_BGMI);
+            } catch (Exception e) {
+                Log.w("MAct", "could not ask whether the game is running", e);
+            }
+
+            if (running) {
+                gameRunning = true;
+                showStatus("Game started.", false);
+                hideStatusSoon(2500);
+            } else if (failure.isEmpty()) {
+                // A launch was handed to the sandbox and it reports nothing yet.
+                // It is on its way up, so say nothing rather than something
+                // wrong: "game not available" over a game that is opening is
+                // the worst of both answers.
+                hideStatusSoon(1200);
+            } else {
+                showStatus("Launch failed: " + failure, true);
+            }
+            renderState();
+        }, 3500);
     }
 
     private void stopGame() {

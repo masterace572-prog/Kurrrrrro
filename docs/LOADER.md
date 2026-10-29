@@ -114,30 +114,57 @@ password `11111111` — **replace it**, the whole internet knows that one now).
 
 ## 4b. The game data (OBB) copy
 
-`loader/` is the original source again, so the copy behaves as it always did:
-`AppManager.copyObbFolder()` reads
+`AppManager` looks for `main.<version>.com.pubg.imobile.obb` in every place it
+can legitimately be, in this order:
 
-    /storage/emulated/0/Android/obb/com.pubg.imobile/
+| where | why |
+|---|---|
+| the sandbox folder for the game | the copy the loader writes |
+| `/storage/emulated/0/Android/obb/com.pubg.imobile/` | the normal install location, and the one a user pastes into by hand |
+| `/storage/emulated/0/Android/media/com.pubg.imobile/` | where some installs end up |
+| `Download`, `Downloads`, the storage root | a file still sitting where it was downloaded |
 
-and copies `main.<version>.com.pubg.imobile.obb` (plus `patch.*`) into the
-sandbox folder the SDK hands out:
+The first file found wins and its location is shown on the GAME DATA card
+(`Ready · Android/obb`). If it is not in the sandbox folder, the loader copies it
+there; if that copy cannot be written but the file is in the phone's own
+`Android/obb`, the copy is treated as done — the sandbox serves that exact path,
+which is why a hand-pasted obb starts the game.
 
-    …/Android/obb/com.pubg.imobile/Android/obb/com.pubg.imobile/
+When nothing is found, the failure dialog now names the reason instead of
+"Copy failed. Try again.": the folders that were checked, the write path that
+failed, or the exception the sandbox threw. It also offers **Launch anyway** —
+if the data is in place and only the copy is broken, the game still opens.
 
-Two things are worth knowing when it does not copy:
+Two older traps are still worth knowing:
 
 * **The folder has to exist.** A freshly installed BGMI that has never been
   opened has no OBB folder at all — the game downloads its data on first run.
-  The loader reports `OBB folder not found!`, which means "there is nothing
-  there to copy", not "permission denied".
+  The loader then says no data was found, which means "there is nothing there
+  to copy", not "permission denied".
 * **The sandbox folder appears after the game is installed into the sandbox.**
-  That is the LAUNCH button's install step. Install first, then copy.
+  Install first, then copy.
 
 On Android 11 and newer the shared `/Android/obb` folder of another app is
 restricted by the platform. This build targets Android 9 (`targetSdk 28`, the
 upstream value) and sets `requestLegacyExternalStorage="true"`, which is the
 combination that still reads it; a build with `-PxloxTargetSdk=34` gives that
 up.
+
+### Launching
+
+`MAct.launchGame()` tries, in order:
+
+1. `MetaActivityManager.obtainSplashLaunchIntent(pkg, ctx)` and `startActivity`
+2. `MetaActivityManager.launchAppWithSplash(ctx, pkg)` — for builds where the
+   intent comes back null
+3. `getLaunchIntentForPackage(pkg)` — a plain intent
+
+After 3.5 s it asks `MetaActivityManager.isAppRunning(pkg)`. If the game is
+up, the strip says *Game started*; if a launch was handed over and nothing has
+come up yet, it says nothing rather than reporting a failure. It only prints
+*Launch failed* when every path threw. The old build reported
+"Launch failed: game not available" while the game was opening, because it
+trusted a null return value instead of the game actually starting.
 
 ## 5. Local testing without an APK
 
