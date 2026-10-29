@@ -61,7 +61,7 @@ export default async function KeysPage({
     <>
       <PageHeader
         title="Keys"
-        subtitle={staff ? 'Every reseller in one table' : 'Your keys only'}
+        subtitle={staff ? 'Every reseller in one place' : 'Your keys only'}
         breadcrumb={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Keys' }]}
         action={
           <Link href="/keys/generate" className="btn-primary">

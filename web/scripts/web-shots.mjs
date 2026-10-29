@@ -154,6 +154,17 @@ try {
 
   await page.goto(`${BASE}/settings/server`, { waitUntil: 'domcontentloaded' });
   await shot('11-mobile-server');
+
+  // the lists that used to be wide tables: these are the pages most likely to
+  // break at phone width, so they get their own captures
+  await page.goto(`${BASE}/keys`, { waitUntil: 'domcontentloaded' });
+  await shot('12-mobile-keys');
+
+  await page.goto(`${BASE}/admin/manage-users`, { waitUntil: 'domcontentloaded' });
+  await shot('13-mobile-users');
+
+  await page.goto(`${BASE}/settings/server/releases`, { waitUntil: 'domcontentloaded' });
+  await shot('14-mobile-releases');
 } finally {
   writeFileSync(path.join(OUT, 'audit.txt'), auditLog.join('\n') + '\n');
   if (overflow.length) {
