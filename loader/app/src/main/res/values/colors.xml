@@ -1,42 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+      iOS dark palette: pure black canvas, elevated #1C1C1E surfaces, hairline
+      #38383A separators, one system-blue action and the three system status
+      colours. No gradients, no neon, no custom hues.
+    -->
     <color name="colorPrimary">#000000</color>
     <color name="colorPrimaryDark">#000000</color>
-    <color name="colorAccent">#8FA8CC</color>
+    <color name="colorAccent">#0A84FF</color>
     <color name="black">#000000</color>
     <color name="white">#FFFFFF</color>
     <color name="bg_main">#000000</color>
-    <color name="card_bg">#111115</color>
-    <color name="input_bg">#17171B</color>
-    <color name="accent_gold">#FF9800</color>
-    <color name="text_primary">#F4F4F5</color>
-    <color name="text_secondary">#85858D</color>
-    <color name="divider">#34343A</color>
-    <color name="status_safe">#8FA8CC</color>
-    <color name="status_ready">#4CB98A</color>
-    <color name="primaryText">#F4F4F5</color>
-    <color name="hintText">#85858D</color>
-    <color name="darker_gray">#85858D</color>
-    <color name="button">#F2F3F5</color>
-    <color name="buttonPrimary">#F2F3F5</color>
+    <color name="card_bg">#1C1C1E</color>
+    <color name="input_bg">#2C2C2E</color>
+    <color name="accent_gold">#FF9F0A</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#8E8E93</color>
+    <color name="divider">#38383A</color>
+    <color name="status_safe">#0A84FF</color>
+    <color name="status_ready">#30D158</color>
+    <color name="primaryText">#FFFFFF</color>
+    <color name="hintText">#8E8E93</color>
+    <color name="darker_gray">#8E8E93</color>
+    <color name="button">#0A84FF</color>
+    <color name="buttonPrimary">#0A84FF</color>
     <color name="primary">#000000</color>
-    <color name="primaryVariant">#111115</color>
-    <color name="secondary">#111115</color>
+    <color name="primaryVariant">#1C1C1E</color>
+    <color name="secondary">#1C1C1E</color>
     <color name="background">#000000</color>
-    <color name="background2">#111115</color>
-    <color name="error">#FF6B81</color>
-    <color name="secondary2">#111115</color>
+    <color name="background2">#1C1C1E</color>
+    <color name="error">#FF453A</color>
+    <color name="secondary2">#1C1C1E</color>
 
-    <!-- calm palette: near-black surfaces, one muted steel accent, no neon -->
-    <color name="surface_void">#0B0C0E</color>
-    <color name="surface_card">#121317</color>
-    <color name="surface_raised">#1A1C21</color>
-    <color name="line">#23262C</color>
-    <color name="text_muted">#8A909B</color>
-    <color name="text_dim">#6E7480</color>
-    <color name="text_faint">#3A3F49</color>
-    <color name="accent">#8FA8CC</color>
-    <color name="accent_good">#4CB98A</color>
-    <color name="accent_warn">#D7A363</color>
-    <color name="danger">#E0737C</color>
+    <color name="surface_void">#000000</color>
+    <color name="surface_card">#1C1C1E</color>
+    <color name="surface_raised">#2C2C2E</color>
+    <color name="line">#38383A</color>
+    <color name="text_muted">#8E8E93</color>
+    <color name="text_dim">#8E8E93</color>
+    <color name="text_faint">#48484A</color>
+    <color name="accent">#0A84FF</color>
+    <color name="accent_good">#30D158</color>
+    <color name="accent_warn">#FF9F0A</color>
+    <color name="danger">#FF453A</color>
+    <color name="scrim">#B3000000</color>
 </resources>

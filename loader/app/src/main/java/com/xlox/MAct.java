@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
@@ -28,6 +29,7 @@ import com.xlox.utils.StorageAccess;
 import org.lsposed.lsparanoid.Obfuscate;
 
 import java.io.File;
+import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -51,6 +53,8 @@ public class MAct extends AppCompatActivity {
     private static final String PKG_BGMI = "com.pubg.imobile";
     private static final String PREF_NAME = "com.xlox.download";
     private static final String PREF_VERSION_KEY = "version";
+    /** The system file picker, for an .obb the app is not allowed to reach. */
+    private static final int REQUEST_PICK_OBB = 4202;
 
     private static native String exdate();
 
@@ -61,6 +65,8 @@ public class MAct extends AppCompatActivity {
     }
 
     private AppCompatButton actionButton;
+    private TextView pickObbButton;
+    private TextView launchAnywayButton;
     private TextView actionHint;
     private TextView obbState;
     private TextView percentText;
@@ -94,7 +100,7 @@ public class MAct extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        getWindow().setStatusBarColor(Color.parseColor("#0B0C0E"));
+        getWindow().setStatusBarColor(Color.parseColor("#000000"));
         setContentView(R.layout.activity_main);
 
         bindViews();
@@ -123,6 +129,10 @@ public class MAct extends AppCompatActivity {
     private void bindViews() {
         actionButton = findViewById(R.id.startBgmi);
         actionHint = findViewById(R.id.actionHint);
+        pickObbButton = findViewById(R.id.pickObbButton);
+        launchAnywayButton = findViewById(R.id.launchAnywayButton);
+        if (pickObbButton != null) pickObbButton.setOnClickListener(v -> pickObbFile());
+        if (launchAnywayButton != null) launchAnywayButton.setOnClickListener(v -> launchGame());
         obbState = findViewById(R.id.obbState);
         percentText = findViewById(R.id.percentText);
         obbProgress = findViewById(R.id.downloadProgressBar);
@@ -222,7 +232,14 @@ public class MAct extends AppCompatActivity {
     private void renderState() {
         if (deviceStatus != null) {
             deviceStatus.setText(gameInstalled ? "Ready" : "No game");
-            deviceStatus.setTextColor(Color.parseColor(gameInstalled ? "#4CB98A" : "#D7A363"));
+            deviceStatus.setTextColor(Color.parseColor(gameInstalled ? "#30D158" : "#FF9F0A"));
+        }
+
+        if (pickObbButton != null) {
+            pickObbButton.setVisibility(gameInstalled && !obbCopied ? View.VISIBLE : View.GONE);
+        }
+        if (launchAnywayButton != null) {
+            launchAnywayButton.setVisibility(gameInstalled && !obbCopied ? View.VISIBLE : View.GONE);
         }
 
         if (obbState != null) {
@@ -232,7 +249,7 @@ public class MAct extends AppCompatActivity {
                     : permitted ? "Not copied yet" : "Needs file access";
             obbState.setText(text);
             obbState.setTextColor(Color.parseColor(
-                    obbCopied ? "#4CB98A" : permitted ? "#F2F3F5" : "#D7A363"));
+                    obbCopied ? "#30D158" : permitted ? "#F2F3F5" : "#FF9F0A"));
         }
 
         if (busy) {
@@ -251,7 +268,7 @@ public class MAct extends AppCompatActivity {
             setAction("Allow file access", StorageAccess.describe(this)
                     + " · needed to copy the game data");
             actionButton.setBackgroundResource(R.drawable.bg_primary_action);
-            actionButton.setTextColor(Color.parseColor("#0B0C0E"));
+            actionButton.setTextColor(Color.parseColor("#FFFFFF"));
             return;
         }
 
@@ -260,7 +277,7 @@ public class MAct extends AppCompatActivity {
         } else if (gameRunning) {
             setAction("Stop game", "The game is running.");
             actionButton.setBackgroundResource(R.drawable.bg_ref_stop_button);
-            actionButton.setTextColor(Color.parseColor("#E0737C"));
+            actionButton.setTextColor(Color.parseColor("#FF453A"));
             return;
         } else if (!obbCopied) {
             // say what the last attempt found instead of a cheerful generic line
@@ -272,7 +289,7 @@ public class MAct extends AppCompatActivity {
             setAction("Launch game", "Game data ready. Nothing else to do.");
         }
         actionButton.setBackgroundResource(R.drawable.bg_primary_action);
-        actionButton.setTextColor(Color.parseColor("#0B0C0E"));
+        actionButton.setTextColor(Color.parseColor("#FFFFFF"));
     }
 
     private String shorten(String text, int max) {
@@ -289,6 +306,7 @@ public class MAct extends AppCompatActivity {
 
     private void copyGameData() {
         busy = true;
+        obbProblem = "";
         setBusyCopy(true);
         showStatus("Copying game data…", false);
 
@@ -303,9 +321,8 @@ public class MAct extends AppCompatActivity {
                         showStatus("Game data ready. You can launch.", false);
                         hideStatusSoon(2500);
                         refreshGameState();   // fill in where it was found
-                    } else {
-                        aborted("Copy failed.");
                     }
+                    // the reason is delivered in onCopyFailed, which follows
                     renderState();
                 });
             }
@@ -341,11 +358,12 @@ public class MAct extends AppCompatActivity {
 
         if (isFinishing()) return;
         new MaterialAlertDialogBuilder(this)
-                .setTitle("Copy failed")
+                .setTitle("Game data not found")
                 .setMessage(text + "\n\nIf the game data is already on the phone "
-                        + "(Android/obb) the game can be started as it is.")
-                .setPositiveButton("Retry", (dialog, which) -> copyGameData())
-                .setNeutralButton("Launch anyway", (dialog, which) -> launchGame())
+                        + "(Android/obb) the game can be started as it is. To copy it, "
+                        + "choose the .obb file with the picker.")
+                .setPositiveButton("Launch game", (dialog, which) -> launchGame())
+                .setNeutralButton("Choose .obb", (dialog, which) -> pickObbFile())
                 .setNegativeButton("Close", null)
                 .show();
     }
@@ -578,7 +596,7 @@ public class MAct extends AppCompatActivity {
                 if (remaining <= 0L) {
                     if (subscriptionStatus != null) {
                         subscriptionStatus.setText("Expired");
-                        subscriptionStatus.setTextColor(Color.parseColor("#E0737C"));
+                        subscriptionStatus.setTextColor(Color.parseColor("#FF453A"));
                     }
                     if (timeRemaining != null) timeRemaining.setText("Expired");
                     return;
@@ -590,7 +608,7 @@ public class MAct extends AppCompatActivity {
 
                 if (subscriptionStatus != null) {
                     subscriptionStatus.setText("Active");
-                    subscriptionStatus.setTextColor(Color.parseColor("#4CB98A"));
+                    subscriptionStatus.setTextColor(Color.parseColor("#30D158"));
                 }
                 if (timeRemaining != null) {
                     timeRemaining.setText(days > 0
@@ -647,7 +665,7 @@ public class MAct extends AppCompatActivity {
             statusToggle.animate().alpha(1f).setDuration(200).start();
             if (statusToggleText != null) {
                 statusToggleText.setText(message);
-                statusToggleText.setTextColor(Color.parseColor(error ? "#E0737C" : "#8A909B"));
+                statusToggleText.setTextColor(Color.parseColor(error ? "#FF453A" : "#8E8E93"));
             }
             if (statusLoader != null) {
                 statusLoader.setVisibility(error ? View.GONE : View.VISIBLE);
@@ -663,6 +681,104 @@ public class MAct extends AppCompatActivity {
                 if (statusLoader != null) statusLoader.setVisibility(View.GONE);
             }).start();
         }, delay);
+    }
+
+    // ------------------------------------------------------------- picked obb
+
+    /** Opens the system file picker on the .obb the user already has. */
+    private void pickObbFile() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            startActivityForResult(intent, REQUEST_PICK_OBB);
+        } catch (Exception e) {
+            showStatus("No file picker on this device.", true);
+        }
+    }
+
+    private String pickedName(Uri uri) {
+        try (Cursor cursor = getContentResolver()
+                .query(uri, new String[]{android.provider.OpenableColumns.DISPLAY_NAME},
+                        null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                if (index >= 0) return cursor.getString(index);
+            }
+        } catch (Exception e) {
+            Log.w("XloxObb", "could not read the picked file's name: " + e.getMessage());
+        }
+        String last = uri.getLastPathSegment();
+        return last == null ? "" : last;
+    }
+
+    private long pickedSize(Uri uri) {
+        try (Cursor cursor = getContentResolver()
+                .query(uri, new String[]{android.provider.OpenableColumns.SIZE},
+                        null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int index = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE);
+                if (index >= 0 && !cursor.isNull(index)) return cursor.getLong(index);
+            }
+        } catch (Exception ignored) {}
+        return 0L;
+    }
+
+    /** Copies the picked file into the game's obb folder — a real copy, no grants. */
+    private void importPickedObb(Uri uri) {
+        String name = pickedName(uri);
+        if (name == null || !name.toLowerCase(Locale.US).endsWith(".obb")) {
+            showStatus("Pick the game's .obb file, for example "
+                    + "main.<version>.com.pubg.imobile.obb.", true);
+            return;
+        }
+
+        InputStream input;
+        long size;
+        try {
+            input = getContentResolver().openInputStream(uri);
+            size = pickedSize(uri);
+        } catch (Exception e) {
+            showStatus("That file could not be opened: " + e.getMessage(), true);
+            return;
+        }
+        if (input == null) {
+            showStatus("That file could not be opened.", true);
+            return;
+        }
+
+        busy = true;
+        setBusyCopy(true);
+        showStatus("Copying " + name + "…", false);
+
+        long total = size;
+        new AppManager(this).importObbAsync(PKG_BGMI, input, name, total, new AppManager.CopyCallback() {
+            @Override
+            public void onCopyCompleted(boolean success) {
+                runOnUiThread(() -> {
+                    busy = false;
+                    setBusyCopy(false);
+                    if (success) {
+                        showStatus("Game data copied.", false);
+                        hideStatusSoon(2200);
+                        refreshGameState();
+                    }
+                });
+            }
+
+            @Override
+            public void onProgressUpdate(int progress) {
+                runOnUiThread(() -> {
+                    if (obbProgress != null) obbProgress.setProgress(progress);
+                    if (percentText != null) percentText.setText(progress + "%");
+                });
+            }
+
+            @Override
+            public void onCopyFailed(String reason) {
+                runOnUiThread(() -> explainCopyFailure(reason));
+            }
+        });
     }
 
     // ------------------------------------------------------------ permissions
@@ -707,6 +823,12 @@ public class MAct extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_PICK_OBB) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                importPickedObb(data.getData());
+            }
+            return;
+        }
         if (StorageAccess.isOurs(requestCode)) afterStorageChange();
     }
 

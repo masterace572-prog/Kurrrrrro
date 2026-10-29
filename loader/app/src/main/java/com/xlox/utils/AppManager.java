@@ -23,6 +23,7 @@ import org.lsposed.lsparanoid.Obfuscate;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -598,6 +599,90 @@ public class AppManager extends AppCompatActivity {
                 .putLong(RECEIPT_AT + packageName, System.currentTimeMillis())
                 .putString(RECEIPT_SOURCE + packageName, path == null ? "" : path)
                 .apply();
+    }
+
+    /**
+     * Copies an .obb the user picked in the system file picker into the folder
+     * the sandboxed game reads.
+     *
+     * This is the one copy route that needs no storage grant at all: the picker
+     * hands back a readable stream for the file the user chose, which is the
+     * only way in on Android releases that hide another app's Android/obb
+     * completely — the case the app kept reporting as "not found".
+     */
+    @SuppressLint("StaticFieldLeak")
+    public void importObbAsync(final String pkg, final InputStream input,
+                               final String fileName, final long size,
+                               final CopyCallback callback) {
+
+        new AsyncTask<Void, Integer, Boolean>() {
+
+            String errorMessage = "";
+
+            @Override
+            protected Boolean doInBackground(Void... voids) {
+                File dir;
+                try {
+                    dir = getMundoObbDir(pkg);
+                } catch (Exception e) {
+                    errorMessage = "The sandbox folder for the game is not available ("
+                            + e.getMessage() + ").";
+                    return false;
+                }
+
+                if (!dir.exists() && !dir.mkdirs()) {
+                    errorMessage = "Could not create " + dir.getAbsolutePath() + ".";
+                    return false;
+                }
+
+                File target = new File(dir, fileName);
+                FileOutputStream output = null;
+                try {
+                    output = new FileOutputStream(target);
+                    byte[] buffer = new byte[1024 * 1024];
+                    long done = 0;
+                    int length;
+                    while ((length = input.read(buffer)) > 0) {
+                        output.write(buffer, 0, length);
+                        done += length;
+                        if (size > 0) {
+                            publishProgress((int) Math.min(100, (done * 100) / size));
+                        }
+                    }
+                    output.flush();
+
+                    if (target.length() <= 0) {
+                        errorMessage = "The file that was picked was empty.";
+                        return false;
+                    }
+
+                    rememberObb(pkg, fileName, target.length(), target.getAbsolutePath());
+                    Log.i(TAG, "imported " + target + " (" + target.length() + " bytes)");
+                    return true;
+
+                } catch (Exception e) {
+                    errorMessage = e.getMessage() == null ? e.toString() : e.getMessage();
+                    return false;
+                } finally {
+                    if (output != null) {
+                        try { output.close(); } catch (Exception ignored) {}
+                    }
+                    try { input.close(); } catch (Exception ignored) {}
+                }
+            }
+
+            @Override
+            protected void onProgressUpdate(Integer... values) {
+                if (callback != null) callback.onProgressUpdate(values[0]);
+            }
+
+            @Override
+            protected void onPostExecute(Boolean success) {
+                if (callback == null) return;
+                callback.onCopyCompleted(success);
+                if (!success) callback.onCopyFailed(errorMessage);
+            }
+        }.execute();
     }
 
     public void copyObbFolderAsync(String pkg, final CopyCallback callback) {
