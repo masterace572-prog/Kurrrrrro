@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="@color/surface_void">
 
     <ScrollView
         android:layout_width="match_parent"
@@ -47,7 +47,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="22dp"
                 android:text="XLOX LOADER"
-                android:textColor="#F4F4F5"
+                android:textColor="@color/text_primary"
                 android:textSize="27sp"
                 android:textStyle="bold" />
 
@@ -58,7 +58,7 @@
                 android:layout_marginTop="5dp"
                 android:letterSpacing="0.2"
                 android:text="SECURE ACCESS"
-                android:textColor="#315FE5"
+                android:textColor="@color/accent"
                 android:textSize="13sp" />
 
             <LinearLayout
@@ -85,8 +85,8 @@
                         android:hint="Enter access key"
                         android:inputType="textPassword"
                         android:singleLine="true"
-                        android:textColor="#F4F4F5"
-                        android:textColorHint="#77777F"
+                        android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_dim"
                         android:textSize="14sp" />
 
                     <ImageView
@@ -98,7 +98,7 @@
                         android:contentDescription="Show or hide key"
                         android:focusable="true"
                         android:src="@drawable/ic_eye"
-                        app:tint="#D8D8DE" />
+                        app:tint="@color/text_secondary" />
                 </LinearLayout>
 
                 <androidx.appcompat.widget.AppCompatButton
@@ -106,11 +106,12 @@
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
                     android:layout_marginTop="14dp"
-                    android:background="@drawable/bg_blue_action"
+                    android:background="@drawable/bg_primary_action"
+                    android:backgroundTint="@null"
                     android:stateListAnimator="@null"
                     android:text="Login"
                     android:textAllCaps="false"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/surface_void"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
@@ -124,7 +125,7 @@
                     android:focusable="true"
                     android:gravity="center"
                     android:text="Paste Key"
-                    android:textColor="#315FE5"
+                    android:textColor="@color/accent"
                     android:textSize="15sp" />
 
                 <TextView
@@ -135,7 +136,7 @@
                     android:layout_marginTop="4dp"
                     android:gravity="center"
                     android:text="Don't Have a Key? Buy Now"
-                    android:textColor="#77777F"
+                    android:textColor="@color/text_dim"
                     android:textSize="13sp" />
             </LinearLayout>
         </LinearLayout>
@@ -148,6 +149,6 @@
         android:layout_marginBottom="34dp"
         android:letterSpacing="0.2"
         android:text="SYSTEM READY"
-        android:textColor="#3E3E45"
+        android:textColor="@color/text_faint"
         android:textSize="10sp" />
 </FrameLayout>

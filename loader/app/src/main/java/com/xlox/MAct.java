@@ -96,6 +96,13 @@ public class MAct extends AppCompatActivity {
     private TextView secondsValue;
 
     private View obbButton;
+    private TextView checkUpdateButton;
+    private TextView downloadSubText;
+    private TextView systemReady;
+
+    /** Version the panel/mirror is offering, when it is newer than ours. */
+    private String pendingLibVersion = "";
+    private boolean libCheckRunning = false;
     private boolean isObbCopied = false;
     private boolean isGameRunning = false;
     private boolean isGameInstalled = false;
@@ -125,6 +132,9 @@ public class MAct extends AppCompatActivity {
         restartButton = findViewById(R.id.restartButton);
         loadingCursor = findViewById(R.id.loadingCursor);
         appVersionText = findViewById(R.id.appVersionText);
+        checkUpdateButton = findViewById(R.id.checkUpdateButton);
+        downloadSubText = findViewById(R.id.downloadSubText);
+        systemReady = findViewById(R.id.systemReady);
 
         // Action UI
         startText = findViewById(R.id.startText);
@@ -175,6 +185,10 @@ public class MAct extends AppCompatActivity {
             restartButton.setOnClickListener(v -> restartApp());
         }
 
+        if (checkUpdateButton != null) {
+            checkUpdateButton.setOnClickListener(v -> checkForLibUpdate(true));
+        }
+
         if (startBgmi != null) {
             startBgmi.setOnClickListener(v -> {
                 if (isUpdateAvailable) {
@@ -195,6 +209,11 @@ public class MAct extends AppCompatActivity {
 
         // Start Workflow: Update Check -> Download Files (if needed)
         startWorkflow();
+
+        // The lib is updated outside the APK, so it has to be checked on every
+        // start. Without this the app only ever looked for the file, never for a
+        // newer one — the only way to get an update was to wipe the app data.
+        checkForLibUpdate(false);
     }
 
     @Override
@@ -343,14 +362,8 @@ public class MAct extends AppCompatActivity {
     }
 
     private void updateVersionDisplay() {
-        SharedPreferences prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        String localVersion = prefs.getString(PREF_VERSION_KEY, "1.0");
-        if (appVersionText != null) {
-            // the library's architecture next to the version: a downloaded
-            // 32-bit or broken .so can never load into the arm64 game process
-            String lib = LibLoader.describe(new File(getFilesDir(), "loader/libbgmi.so"));
-            appVersionText.setText("Version " + localVersion + " · " + lib);
-        }
+        // version, architecture and size of the library on disk
+        updateLibLine();
     }
 
     private void startWorkflow() {
@@ -362,11 +375,74 @@ public class MAct extends AppCompatActivity {
         isUpdateAvailable = false;
     }
 
+    /**
+     * Asks the panel (and, if it has nothing, the repo mirror) whether a newer
+     * library exists. Cheap enough to run on every start: one small GET unless
+     * an update is found.
+     */
+    private void checkForLibUpdate(boolean manual) {
+        if (libCheckRunning) return;
+        libCheckRunning = true;
+
+        if (manual) {
+            if (checkUpdateButton != null) checkUpdateButton.setText("...");
+            showStatusToggle("CHECKING FOR LIB UPDATE", false);
+        }
+
+        final Downtwo[] ref = new Downtwo[1];
+        ref[0] = new Downtwo(this, success -> {
+            Downtwo task = ref[0];
+            String result = task == null || task.getResult() == null ? "" : task.getResult();
+            String version = task == null ? "" : task.getFetchedServerVersion();
+            runOnUiThread(() -> {
+                libCheckRunning = false;
+                if (checkUpdateButton != null) checkUpdateButton.setText("CHECK");
+
+                boolean update = "Update Available".equals(result) || "Already Notified".equals(result);
+                isUpdateAvailable = update;
+                pendingLibVersion = update ? version : "";
+                updateLibLine();
+
+                if (update) {
+                    String label = version == null || version.isEmpty() ? "" : " " + version;
+                    setLaunchButtonText("INSTALL UPDATE" + label);
+                    if (systemReady != null) systemReady.setText("UPDATE READY");
+                    showStatusToggle(version == null || version.isEmpty()
+                            ? "LIB UPDATE READY · TAP TO INSTALL"
+                            : "LIB " + version + " READY · TAP TO INSTALL", false);
+                } else if (manual) {
+                    if (result.startsWith("No Update") || result.isEmpty()) {
+                        showStatusToggle("LIB IS UP TO DATE", false);
+                    } else {
+                        showStatusToggle("CHECK FAILED · " + result, true);
+                    }
+                    if (systemReady != null) systemReady.setText("SYSTEM READY");
+                }
+            });
+        });
+        ref[0].execute(Downtwo.Link(), Downtwo.MODE_CHECK);
+    }
+
+    /** "v1.1.0 · arm64-v8a, 2.9 MB", with the pending version appended when there is one. */
+    private void updateLibLine() {
+        if (appVersionText == null) return;
+        SharedPreferences prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        String localVersion = prefs.getString(PREF_VERSION_KEY, "1.0");
+        String lib = LibLoader.describe(new File(getFilesDir(), "loader/libbgmi.so"));
+
+        StringBuilder text = new StringBuilder("v").append(localVersion).append(" · ").append(lib);
+        if (!pendingLibVersion.isEmpty() && !pendingLibVersion.equals(localVersion)) {
+            text.append("  →  v").append(pendingLibVersion);
+        }
+        appVersionText.setText(text.toString());
+    }
+
     private void startDownload() {
         runOnUiThread(() -> {
             if (downloadBox != null) downloadBox.setVisibility(View.VISIBLE);
             setLaunchButtonText("UPDATING...");
             if (downloadStatusText != null) downloadStatusText.setText("Preparing process...");
+            if (downloadSubText != null) downloadSubText.setText("Fetching the library from the panel");
             if (percentText != null) percentText.setText("0%");
             if (downloadProgressBar != null) {
                 downloadProgressBar.setIndeterminate(false);
@@ -388,6 +464,9 @@ public class MAct extends AppCompatActivity {
                 }
                 runOnUiThread(() -> {
                     isUpdateAvailable = false;
+                    pendingLibVersion = "";
+                    updateVersionDisplay();
+                    if (systemReady != null) systemReady.setText("LIB READY");
                     if (downloadStatusText != null) downloadStatusText.setText("All process done");
                     if (percentText != null) percentText.setText("100%");
                     if (downloadProgressBar != null) downloadProgressBar.setProgress(100);
@@ -425,7 +504,8 @@ public class MAct extends AppCompatActivity {
                 downloadProgressBar.setProgress(progress);
             }
             if (percentText != null) percentText.setText(progress + "%");
-            if (downloadStatusText != null) downloadStatusText.setText("Preparing process...");
+            if (downloadStatusText != null) downloadStatusText.setText("Downloading library");
+            if (downloadSubText != null) downloadSubText.setText("Extracting after the transfer");
         }));
         
         task.execute(Downtwo.Link());
@@ -466,7 +546,7 @@ public class MAct extends AppCompatActivity {
                 if (gameStatus != null) gameStatus.setText("SAFE");
                 if (deviceStatus != null) {
                     deviceStatus.setText("Safe");
-                    deviceStatus.setTextColor(Color.parseColor("#315FE5"));
+                    deviceStatus.setTextColor(Color.parseColor("#4CB98A"));
                 }
                 updateButtonState(false);
             }
@@ -475,16 +555,16 @@ public class MAct extends AppCompatActivity {
             if (gameStatus != null) gameStatus.setText("Not Installed");
             if (deviceStatus != null) {
                 deviceStatus.setText("Not installed");
-                deviceStatus.setTextColor(Color.parseColor("#FF9800"));
+                deviceStatus.setTextColor(Color.parseColor("#D7A363"));
             }
             setLaunchButtonText("INSTALL GAME");
             if (startText != null) {
                 startText.setText("INSTALL GAME");
-                startText.setTextColor(Color.parseColor("#FF8C00"));
+                startText.setTextColor(Color.parseColor("#8FA8CC"));
             }
             if (actionIcon != null) {
                 actionIcon.setImageResource(android.R.drawable.ic_menu_save);
-                actionIcon.setColorFilter(Color.parseColor("#FF8C00"));
+                actionIcon.setColorFilter(Color.parseColor("#8FA8CC"));
             }
         }
     }
@@ -501,14 +581,17 @@ public class MAct extends AppCompatActivity {
                 setLaunchButtonText("STOP GAME");
                 if (startText != null) {
                     startText.setText("STOP GAME");
-                    startText.setTextColor(Color.parseColor("#FF4444"));
+                    startText.setTextColor(Color.parseColor("#E0737C"));
                 }
                 if (actionIcon != null) {
                     actionIcon.setImageResource(android.R.drawable.ic_delete);
-                    actionIcon.setColorFilter(Color.parseColor("#FF4444"));
+                    actionIcon.setColorFilter(Color.parseColor("#E0737C"));
                 }
                 if (startBgmi != null) {
                     startBgmi.setBackgroundResource(R.drawable.bg_ref_stop_button);
+                    if (startBgmi instanceof Button) {
+                        ((Button) startBgmi).setTextColor(Color.parseColor("#E0737C"));
+                    }
                 }
                 if (downloadBox != null) {
                     downloadBox.setVisibility(View.VISIBLE);
@@ -522,24 +605,29 @@ public class MAct extends AppCompatActivity {
                 }
             } else {
                 if (isUpdateAvailable) {
-                    setLaunchButtonText("UPDATE AVAILABLE");
+                    String label = pendingLibVersion.isEmpty()
+                            ? "INSTALL UPDATE" : "INSTALL UPDATE " + pendingLibVersion;
+                    setLaunchButtonText(label);
                     if (startText != null) {
-                        startText.setText("UPDATE AVAILABLE");
-                        startText.setTextColor(Color.parseColor("#FF8C00"));
+                        startText.setText(label);
+                        startText.setTextColor(Color.parseColor("#8FA8CC"));
                     }
                 } else {
                     setLaunchButtonText("LAUNCH GAME");
                     if (startText != null) {
                         startText.setText("LAUNCH");
-                        startText.setTextColor(Color.parseColor("#FF8C00"));
+                        startText.setTextColor(Color.parseColor("#8FA8CC"));
                     }
                 }
                 if (actionIcon != null) {
                     actionIcon.setImageResource(android.R.drawable.ic_media_play);
-                    actionIcon.setColorFilter(Color.parseColor("#FF8C00"));
+                    actionIcon.setColorFilter(Color.parseColor("#8FA8CC"));
                 }
                 if (startBgmi != null) {
-                    startBgmi.setBackgroundResource(R.drawable.bg_orange_action);
+                    startBgmi.setBackgroundResource(R.drawable.bg_primary_action);
+                    if (startBgmi instanceof Button) {
+                        ((Button) startBgmi).setTextColor(Color.parseColor("#0B0C0E"));
+                    }
                 }
                 if (downloadBox != null) {
                     new Handler().postDelayed(() -> {

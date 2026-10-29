@@ -45,6 +45,7 @@ jobs:
           mkdir -p /tmp/elf
           javac -d /tmp/elf loader/app/src/main/java/com/xlox/utils/Elf.java \
             loader/app/src/main/java/com/xlox/utils/LibZip.java \
+            loader/app/src/main/java/com/xlox/utils/LibUpdate.java \
             loader/app/src/test/ElfTest.java
           java -cp /tmp/elf ElfTest /tmp/libmmkv.so
 

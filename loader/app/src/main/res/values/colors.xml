@@ -2,7 +2,7 @@
 <resources>
     <color name="colorPrimary">#000000</color>
     <color name="colorPrimaryDark">#000000</color>
-    <color name="colorAccent">#315FE5</color>
+    <color name="colorAccent">#8FA8CC</color>
     <color name="black">#000000</color>
     <color name="white">#FFFFFF</color>
     <color name="bg_main">#000000</color>
@@ -12,13 +12,13 @@
     <color name="text_primary">#F4F4F5</color>
     <color name="text_secondary">#85858D</color>
     <color name="divider">#34343A</color>
-    <color name="status_safe">#315FE5</color>
-    <color name="status_ready">#25C779</color>
+    <color name="status_safe">#8FA8CC</color>
+    <color name="status_ready">#4CB98A</color>
     <color name="primaryText">#F4F4F5</color>
     <color name="hintText">#85858D</color>
     <color name="darker_gray">#85858D</color>
-    <color name="button">#2457E6</color>
-    <color name="buttonPrimary">#2457E6</color>
+    <color name="button">#F2F3F5</color>
+    <color name="buttonPrimary">#F2F3F5</color>
     <color name="primary">#000000</color>
     <color name="primaryVariant">#111115</color>
     <color name="secondary">#111115</color>
@@ -26,4 +26,16 @@
     <color name="background2">#111115</color>
     <color name="error">#FF6B81</color>
     <color name="secondary2">#111115</color>
+
+    <!-- calm palette: near-black surfaces, one muted steel accent, no neon -->
+    <color name="surface_void">#0B0C0E</color>
+    <color name="surface_card">#121317</color>
+    <color name="surface_raised">#1A1C21</color>
+    <color name="line">#23262C</color>
+    <color name="text_dim">#6E7480</color>
+    <color name="text_faint">#3A3F49</color>
+    <color name="accent">#8FA8CC</color>
+    <color name="accent_good">#4CB98A</color>
+    <color name="accent_warn">#D7A363</color>
+    <color name="danger">#E0737C</color>
 </resources>

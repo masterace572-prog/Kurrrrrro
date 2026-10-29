@@ -1,4 +1,5 @@
 import com.xlox.utils.Elf;
+import com.xlox.utils.LibUpdate;
 import com.xlox.utils.LibZip;
 
 import java.io.File;
@@ -6,6 +7,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -98,6 +100,56 @@ public class ElfTest {
                 picked != null && picked.getAbsolutePath().equals(lone32.getAbsolutePath()));
         check("and the caller can see it is the wrong arch",
                 !Elf.read(picked).is64Bit && Elf.read(picked).machine == 0x28);
+
+        // ---- when is a lib an update? ---------------------------------------
+        LibUpdate.Source panelOld = new LibUpdate.Source("panel", "1.0", "/api/download");
+        LibUpdate.Source mirrorOld = new LibUpdate.Source("mirror", "1.0", "libbbb.zip");
+        LibUpdate.Source mirrorNew = new LibUpdate.Source("mirror", "1.1.0", "libbbb.zip");
+        LibUpdate.Source panelNew = new LibUpdate.Source("panel", "1.2", "/api/download");
+
+        List<LibUpdate.Source> bothOld = new ArrayList<>();
+        bothOld.add(panelOld);
+        bothOld.add(mirrorOld);
+        check("up to date: nothing to download",
+                LibUpdate.choose(bothOld, "1.0", true) == null);
+        check("up to date: the check says so",
+                !LibUpdate.isUpdateResult("No Update Available"));
+
+        // The reported bug: a newer version on the mirror, an unchanged one in
+        // the panel — the mirror has to win.
+        List<LibUpdate.Source> panelStale = new ArrayList<>();
+        panelStale.add(panelOld);
+        panelStale.add(mirrorNew);
+        LibUpdate.Source picked = LibUpdate.choose(panelStale, "1.0", true);
+        check("newer mirror version beats a stale panel release",
+                picked != null && "mirror".equals(picked.name) && "1.1.0".equals(picked.version));
+        check("and it counts as an update", LibUpdate.isUpdateResult("Update Available"));
+        check("the installed version is not downloaded again",
+                !LibUpdate.worthDownloading(panelOld, "1.0", true));
+
+        // Same version from the other channel is the same file, not an update.
+        check("switching channel does not re-download the same version",
+                LibUpdate.choose(bothOld, "1.0", true) == null);
+
+        // A lib that is missing from disk is always an update.
+        check("missing lib forces a download even at the same version",
+                LibUpdate.choose(bothOld, "1.0", false) != null);
+        check("...and the download is allowed",
+                LibUpdate.worthDownloading(panelOld, "1.0", false));
+
+        // Bumped panel version wins over the older mirror.
+        List<LibUpdate.Source> panelNewer = new ArrayList<>();
+        panelNewer.add(panelNew);
+        panelNewer.add(mirrorOld);
+        picked = LibUpdate.choose(panelNewer, "1.0", true);
+        check("a newer panel release wins",
+                picked != null && "1.2".equals(picked.version));
+
+        // Nothing reachable at all must not look like an update.
+        check("no sources, lib on disk: no update",
+                LibUpdate.choose(new ArrayList<>(), "1.0", true) == null);
+        check("no sources, no lib: nothing to choose",
+                LibUpdate.choose(new ArrayList<>(), "1.0", false) == null);
 
         System.out.println();
         System.out.println(passed + " passed, " + failed + " failed");

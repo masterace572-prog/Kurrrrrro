@@ -63,9 +63,12 @@ There are two channels, tried in this order:
    The loader compares that line with the version it installed and downloads
    only when it differs — so *bump `Version.txt` first*, then re-upload.
 
-The loader remembers which channel it installed from (`lib_source` next to
-`version` in SharedPreferences), so switching channels does not cause a
-download loop.
+A version string identifies the bytes, not the channel: if the panel and the
+mirror both say `1.1.0`, that is the same file. Changing **either** side is
+enough — the first source (panel, then mirror) whose version differs from what
+is installed is the one that gets downloaded, and the same version is never
+downloaded twice. That is why switching channels cannot start a download loop,
+and why an older panel release can never hide a newer mirror version.
 
 ## What the zip must contain
 
@@ -119,9 +122,12 @@ original panel. The version string is public information anyway.
 * `main.cpp` → `Downtwo.Version()` returns `<PANEL_BASE_URL>/api/version` and
   `Downtwo.Link()` returns `<PANEL_BASE_URL>/api/download`, both derived from the
   single `PANEL_BASE_URL` define.
-* `MAct.startWorkflow()` runs a **check-only** pass at launch
-  (`Downtwo.MODE_CHECK`). If an update exists the main button becomes
-  `UPDATE AVAILABLE` (one toast per version); tapping it downloads.
+* `MAct` runs a **check-only** pass on every start (`Downtwo.MODE_CHECK`) and
+  whenever `CHECK` in the LIBRARY card is tapped. If an update exists, the
+  launch button becomes `INSTALL UPDATE 1.2`, the card shows
+  `v1.1.0 · arm64-v8a, 2.9 MB  →  v1.2`, and tapping the button downloads.
+  Before this check existed the app only looked for the file, never for a newer
+  one — so the only way to get an update was to clear the app data.
 * `Downtwo` downloads to `Xlox.zip.part`, checks the HTTP status, the byte count
   and the `PK` header, then extracts into `files/loader/`. A zip that packs the
   library inside a folder is hoisted, so `files/loader/libbgmi.so` always ends up
@@ -181,5 +187,6 @@ adb logcat -s Load LibLoader Downtwo
 | `Download incomplete (a of b)` | Connection dropped; it retries twice automatically. |
 | `Not enough free storage …` | Device is full (needs size + 12 MB). |
 | `The zip has no libbgmi.so in it` | The archive contains something else entirely — check what was uploaded. |
+| `LIB IS UP TO DATE` (after CHECK) | The version on the panel/mirror equals the installed one. Re-uploading the same version changes nothing: bump the version. |
 | `LIB LOAD FAILED · … not arm64` | The file is not a 64-bit ARM library (or is not an ELF at all). |
 | `LIB LOAD FAILED · System.load(…): dlopen failed …` | The platform refused it; the message says why (missing dependency, wrong arch, empty file). |

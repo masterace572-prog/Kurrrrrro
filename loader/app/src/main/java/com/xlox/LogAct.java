@@ -198,7 +198,7 @@ public class LogAct extends AppCompatActivity {
             } else if (msg.what == 1) {
                 btnLogin.setEnabled(true);
                 btnLogin.setText("LOGIN");
-                btnLogin.setTextColor(Color.parseColor("#FF8C00"));
+                btnLogin.setTextColor(Color.parseColor("#8FA8CC"));
                 Toast.makeText(m_Context, (String) msg.obj, Toast.LENGTH_SHORT).show();
             }
             return true;

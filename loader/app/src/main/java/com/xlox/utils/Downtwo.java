@@ -36,6 +36,20 @@ public class Downtwo extends AsyncTask<String, String, String> {
         void onComplete(boolean success);
     }
 
+    /** Second argument to execute(): check and report, download nothing. */
+    public static final String MODE_CHECK = "check_only";
+
+    /**
+     * The raw result of the last run: null when a download finished, otherwise
+     * "No Update Available" / "Update Available" / "Already Notified" or the
+     * reason the download failed.
+     */
+    private String result = "";
+
+    public String getResult() {
+        return result;
+    }
+
     public interface ProgressListener {
         void onProgress(int percent);
     }
@@ -70,26 +84,13 @@ public class Downtwo extends AsyncTask<String, String, String> {
         return lastError;
     }
 
-    /** One place a lib can come from: the panel, or the GitHub mirror. */
-    private static final class Source {
-        final String name;
-        final String version;
-        final String zipUrl;
-
-        Source(String name, String version, String zipUrl) {
-            this.name = name;
-            this.version = version;
-            this.zipUrl = zipUrl;
-        }
-    }
-
     @Override
     protected String doInBackground(String... params) {
         try {
-            List<Source> sources = new ArrayList<>();
-            Source panel = panelSource();
+            List<LibUpdate.Source> sources = new ArrayList<>();
+            LibUpdate.Source panel = panelSource();
             if (panel != null) sources.add(panel);
-            Source mirror = mirrorSource();
+            LibUpdate.Source mirror = mirrorSource();
             if (mirror != null) sources.add(mirror);
             if (sources.isEmpty()) {
                 return "Failed to retrieve server version";
@@ -105,22 +106,18 @@ public class Downtwo extends AsyncTask<String, String, String> {
             // version string has not moved: without this, one failed download
             // left the loader convinced it was up to date for good.
             boolean libOnDisk = libFile().isFile();
-            Source chosen = null;
-            for (Source source : sources) {
-                boolean sameVersion = source.version.equals(localVersion)
-                        && (localSource.isEmpty() || localSource.equals(source.name));
-                if (!libOnDisk || !sameVersion) {
-                    chosen = source;
-                    break;
-                }
-            }
+            // Same version string means same bytes, whichever channel it came
+            // from: see LibUpdate.choose for why the channel is not part of it.
+            LibUpdate.Source chosen = LibUpdate.choose(sources, localVersion, libOnDisk);
 
             // Check-only pass at launch: nothing is downloaded, it only decides
             // whether the button should say UPDATE AVAILABLE.
-            if (params.length > 1 && "check_only".equals(params[1])) {
+            if (params.length > 1 && MODE_CHECK.equals(params[1])) {
                 if (chosen == null) {
                     return "No Update Available";
                 }
+                // the version the user would get, for the UI to show
+                serverVersion = chosen.version;
                 return chosen.version.equals(lastNotified)
                         ? "Already Notified"
                         : "Update Available";
@@ -134,13 +131,13 @@ public class Downtwo extends AsyncTask<String, String, String> {
             // Try the chosen source, then the others: a missing release in the
             // panel is exactly the case the mirror exists for.
             String firstError = null;
-            List<Source> order = new ArrayList<>();
+            List<LibUpdate.Source> order = new ArrayList<>();
             order.add(chosen);
-            for (Source source : sources) {
+            for (LibUpdate.Source source : sources) {
                 if (source != chosen) order.add(source);
             }
-            for (Source source : order) {
-                if (libOnDisk && source.version.equals(localVersion)) {
+            for (LibUpdate.Source source : order) {
+                if (!LibUpdate.worthDownloading(source, localVersion, libOnDisk)) {
                     Log.i(TAG, "lib " + source.version + " is already installed");
                     continue;
                 }
@@ -163,6 +160,7 @@ public class Downtwo extends AsyncTask<String, String, String> {
     @Override
     protected void onPostExecute(String result) {
         super.onPostExecute(result);
+        this.result = result == null ? "" : result;
         // We consider it a success if it's not an error message
         boolean success = result == null || 
                          "No Update Available".equals(result) || 
@@ -186,13 +184,13 @@ public class Downtwo extends AsyncTask<String, String, String> {
      * fallback version even when nothing is published, so ask the JSON form,
      * where `file_name` is null in that case.
      */
-    private Source panelSource() {
+    private LibUpdate.Source panelSource() {
         String json = httpText(Version() + "?format=json");
         if (json == null) {
             // The probe failed (offline, or a hosting error page): keep trusting
             // the panel and let the download itself decide.
             String version = readVersion(Version());
-            return version == null ? null : new Source("panel", version, Link());
+            return version == null ? null : new LibUpdate.Source("panel", version, Link());
         }
         try {
             JSONObject object = new JSONObject(json.trim());
@@ -204,16 +202,16 @@ public class Downtwo extends AsyncTask<String, String, String> {
                 Log.i(TAG, "panel has no lib published, using the mirror");
                 return null;
             }
-            return new Source("panel", version, Link());
+            return new LibUpdate.Source("panel", version, Link());
         } catch (Exception e) {
             Log.w(TAG, "panel release probe unreadable: " + e.getMessage());
             return null;
         }
     }
 
-    private Source mirrorSource() {
+    private LibUpdate.Source mirrorSource() {
         String version = readVersion(MirrorVersion());
-        return version == null ? null : new Source("mirror", version, MirrorLink());
+        return version == null ? null : new LibUpdate.Source("mirror", version, MirrorLink());
     }
 
     /** Body of a small GET, or null. */
