@@ -23,9 +23,6 @@ mkdirSync(OUT, { recursive: true });
 const desktop = { width: 1440, height: 900 };
 const mobile = { width: 390, height: 844 };
 
-// the page the generate form lands on, re-used for the phone capture
-let generatedUrl = '';
-
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: desktop, deviceScaleFactor: 2 });
 const page = await ctx.newPage();
@@ -150,25 +147,23 @@ try {
   // the detail page and the dashboard table show their real states.
   await page.goto(`${BASE}/keys/generate`, { waitUntil: 'domcontentloaded' });
   await shot('04-generate');
-  // The generate form lives on /keys/generate, so "did we reach /keys" is
-  // always true and the old wait resolved before the action had answered —
-  // the shot then showed the button still spinning. Wait for the redirect the
-  // action actually performs, which carries the new keys in ?fresh=.
+  // The form sits on /keys/generate, so waiting for a URL that *starts with*
+  // /keys was satisfied instantly and the capture showed the button mid-spin.
+  // Wait until the page is no longer the form, whatever it lands on.
   const gen = page.getByRole('button', { name: /generate keys/i }).last();
   if (await gen.count()) {
     await Promise.all([
       page
-        .waitForURL((u) => u.pathname === '/keys' && u.searchParams.has('fresh'), { timeout: 30000 })
-        .catch(() => console.log('::warning title=generate::the generate form did not land on /keys?fresh=')),
+        .waitForURL((u) => !u.pathname.startsWith('/keys/generate'), { timeout: 25000 })
+        .catch(() => console.log('::warning title=generate::the generate form did not navigate away')),
       gen.click().catch(() => {}),
     ]);
-    await page.waitForTimeout(600);
-    // the redirect carries the keys that were just made, so this is the screen
-    // the user sees straight after generating
-    generatedUrl = page.url();
-    await shot('15-keys-generated');
-    await countCopies('15-keys-generated');
+    await page.waitForTimeout(800);
   }
+
+  await page.goto(`${BASE}/keys`, { waitUntil: 'domcontentloaded' });
+  await shot('15-keys-after-generate');
+  await countCopies('15-keys-after-generate');
 
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
   await shot('02-dashboard');
@@ -221,13 +216,6 @@ try {
   await page.goto(`${BASE}/settings/server/releases`, { waitUntil: 'domcontentloaded' });
   await shot('14-mobile-releases');
 
-  // the freshly generated keys on a phone: this is where the copy buttons are
-  // the whole point, so it gets a phone capture of its own
-  if (generatedUrl) {
-    await page.goto(generatedUrl, { waitUntil: 'domcontentloaded' });
-    await shot('16-mobile-keys-generated');
-    await countCopies('16-mobile-keys-generated');
-  }
 } finally {
   writeFileSync(path.join(OUT, 'audit.txt'), auditLog.join('\n') + '\n');
   if (overflow.length) {

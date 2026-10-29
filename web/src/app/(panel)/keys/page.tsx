@@ -30,18 +30,12 @@ type Row = {
 export default async function KeysPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; fresh?: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
-  const { q: search, fresh } = await searchParams;
+  const { q: search } = await searchParams;
   const me = await currentUser();
   const staff = isStaff(me);
   const term = (search ?? '').trim().slice(0, 64);
-  // the keys this visit just created, so they can be copied straight away
-  const freshKeys = (fresh ?? '')
-    .split(',')
-    .map((k) => k.trim())
-    .filter((k) => k.length > 0 && k.length <= 64)
-    .slice(0, 100);
 
   const rows = await q<Row>(
     `SELECT id_keys, game, user_key, duration, expired_date, max_devices, devices, status, registrator, created_at
@@ -53,6 +47,14 @@ export default async function KeysPage({
       LIMIT 300`,
     [staff, me.username, term]
   );
+
+  // Keys made in the last quarter of an hour, so a fresh batch can be copied
+  // without hunting for it. Read from created_at rather than a query string:
+  // it survives a reload, a bookmark and the phone and desktop both.
+  const recentKeys = rows
+    .filter((k) => k.created_at && Date.now() - new Date(k.created_at).getTime() < 15 * 60_000)
+    .slice(0, 8)
+    .map((k) => k.user_key);
 
   const counts = await q<{ total: string; active: string; expired: string }>(
     `SELECT count(*)::text AS total,
@@ -93,25 +95,25 @@ export default async function KeysPage({
         ))}
       </div>
 
-      {freshKeys.length > 0 ? (
+      {recentKeys.length > 0 ? (
         <div className="card mb-4 border-emerald-500/30 bg-emerald-500/5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-emerald-300">
-                {freshKeys.length === 1 ? 'Key generated' : `${freshKeys.length} keys generated`}
+                {recentKeys.length === 1 ? 'New key' : `${recentKeys.length} new keys`}
               </p>
-              <p className="mt-0.5 text-xs text-slate-400">Copy what you need — they stay in the list below.</p>
+              <p className="mt-0.5 text-xs text-slate-400">Made in the last 15 minutes. Copy what you need.</p>
             </div>
-            {freshKeys.length > 1 ? (
+            {recentKeys.length > 1 ? (
               <CopyButton
-                value={freshKeys.join('\n')}
+                value={recentKeys.join('\n')}
                 label="Copy all"
                 className="btn-ghost shrink-0 px-2 py-1 text-xs"
               />
             ) : null}
           </div>
           <ul className="mt-3 space-y-1.5">
-            {freshKeys.map((key) => (
+            {recentKeys.map((key) => (
               <li
                 key={key}
                 className="flex items-center gap-2 rounded-lg border border-line bg-ink-900 px-3 py-2"
