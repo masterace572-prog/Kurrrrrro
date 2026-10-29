@@ -114,43 +114,30 @@ password `11111111` — **replace it**, the whole internet knows that one now).
 
 ## 4b. The game data (OBB) copy
 
-Two ways the game data gets into the sandbox, in this order:
+`loader/` is the original source again, so the copy behaves as it always did:
+`AppManager.copyObbFolder()` reads
 
-1. **Automatic copy** — if the phone lets the app read
-   `/storage/emulated/0/Android/obb/com.pubg.imobile`, the loader copies every
-   `.obb` it finds there and skips the rest of this section. That works on
-   Android 10 and below, and on some OEM builds.
-2. **Hand-over through the picker** — everything from Android 11 up. Google
-   closed the folder to third-party apps: `/Android/obb` and `/Android/data`
-   belong to the app whose name is on them, and **All files access
-   (`MANAGE_EXTERNAL_STORAGE`) does not open them** — it grants shared storage
-   *except* those two directories. Android 13 also closed the Storage Access
-   Framework loophole that file managers used to reach them. So no permission
-   can make the loader read that folder on a current phone; the file has to be
-   given to it. The card says so, and "Choose the .obb file" opens the system
-   picker. The read grant travels with the selected file, and the sandbox
-   folder is writable, so nothing blocks that route.
+    /storage/emulated/0/Android/obb/com.pubg.imobile/
 
-   The file must keep its name: `main.<version>.com.pubg.imobile.obb` (or
-   `patch.<version>…`). Anything else is rejected with a message saying what to
-   rename it to. Keeping the file in `Download` is the easiest place for the
-   picker to find it.
+and copies `main.<version>.com.pubg.imobile.obb` (plus `patch.*`) into the
+sandbox folder the SDK hands out:
 
-If copying fails, the card's **Show details** opens a report you can copy and
-send on: Android version, the grant state, every folder that was probed with
-what the filesystem answered (`exists`, `readable`, `.obb` count), the sandbox
-folder, free space and the last error.
+    …/Android/obb/com.pubg.imobile/Android/obb/com.pubg.imobile/
 
-The two file decisions are plain Java (`ObbSelection`, `ObbAccess`) with JVM
-tests that the build workflow runs before compiling the APK:
+Two things are worth knowing when it does not copy:
 
-```bash
-javac -d /tmp/obb loader/app/src/main/java/com/xlox/utils/ObbSelection.java \
-      loader/app/src/main/java/com/xlox/utils/ObbAccess.java \
-      loader/app/src/test/*.java
-java -cp /tmp/obb ObbSelectionTest
-java -cp /tmp/obb ObbAccessTest
-```
+* **The folder has to exist.** A freshly installed BGMI that has never been
+  opened has no OBB folder at all — the game downloads its data on first run.
+  The loader reports `OBB folder not found!`, which means "there is nothing
+  there to copy", not "permission denied".
+* **The sandbox folder appears after the game is installed into the sandbox.**
+  That is the LAUNCH button's install step. Install first, then copy.
+
+On Android 11 and newer the shared `/Android/obb` folder of another app is
+restricted by the platform. This build targets Android 9 (`targetSdk 28`, the
+upstream value) and sets `requestLegacyExternalStorage="true"`, which is the
+combination that still reads it; a build with `-PxloxTargetSdk=34` gives that
+up.
 
 ## 5. Local testing without an APK
 
