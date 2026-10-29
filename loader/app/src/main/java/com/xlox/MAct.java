@@ -158,10 +158,10 @@ public class MAct extends AppCompatActivity {
         hoursValue = findViewById(R.id.hoursBox).findViewById(R.id.timeValue);
         minutesValue = findViewById(R.id.minutesBox).findViewById(R.id.timeValue);
         secondsValue = findViewById(R.id.secondsBox).findViewById(R.id.timeValue);
-        label(daysBox, R.string.label_days);
-        label(hoursBox, R.string.label_hours);
-        label(minutesBox, R.string.label_minutes);
-        label(secondsBox, R.string.label_seconds);
+        label(findViewById(R.id.daysBox), R.string.label_days);
+        label(findViewById(R.id.hoursBox), R.string.label_hours);
+        label(findViewById(R.id.minutesBox), R.string.label_minutes);
+        label(findViewById(R.id.secondsBox), R.string.label_seconds);
         setKeyTimeUnavailable();
         startKeyCountdown();
         startPageAnimation();
