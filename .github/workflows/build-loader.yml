@@ -1,0 +1,48 @@
+name: Build loader APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'loader/**'
+      - '.github/workflows/build-loader.yml'
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: loader
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK + NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-34 build-tools;34.0.0 ndk;24.0.8215888 cmake;3.22.1'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('loader/**/*.gradle', 'loader/gradle/wrapper/gradle-wrapper.properties') }}
+
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: xlox-loader-debug
+          path: loader/app/build/outputs/apk/**/*.apk
+          if-no-files-found: warn

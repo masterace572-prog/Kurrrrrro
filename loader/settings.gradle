@@ -1,0 +1,4 @@
+
+rootProject.name = "A15ZBox"
+include ':app'
+project(':app').projectDir = file('app')
