@@ -69,13 +69,18 @@ jobs:
             echo "::error title=build::gradle produced no output (failed before the build step)"
             exit 0
           fi
-          HITS=$(grep -nE 'error:|e: |FAILURE: Build failed|Could not resolve|Caused by:|> Task .* FAILED|Execution failed|What went wrong' /tmp/gradle.log | tail -8)
+          # javac/apk errors first: those are the ones that need acting on
+          HITS=$(grep -nE '\.java:[0-9]+: error|error:|symbol:|location:|FAILURE: Build failed|Caused by:|> Task .* FAILED' /tmp/gradle.log | grep -v '^[0-9]*:WARNING' | tail -14)
           if [ -z "$HITS" ]; then
             HITS=$(grep -v '^[[:space:]]*$' /tmp/gradle.log | tail -8)
           fi
           echo "$HITS" | while IFS= read -r line; do
             echo "::error title=gradle::$(echo "$line" | tr -d '\r' | cut -c1-900)"
           done
+          COMPILE=$(grep -nE '\.java:[0-9]+' /tmp/gradle.log | tr -d '\r' | cut -c1-1600 | head -12)
+          if [ -n "$COMPILE" ]; then
+            echo "::error title=javac::$COMPILE"
+          fi
           exit 0
 
       - name: Rename APK
