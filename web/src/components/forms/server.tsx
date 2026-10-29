@@ -157,7 +157,8 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
               mode === m ? 'bg-brand-500 text-ink-950' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            {m === 'file' ? `Upload zip (≤ ${maxMb} MB)` : 'External URL'}
+            {/* short labels: the size limit is stated under the picker */}
+            {m === 'file' ? 'Upload zip' : 'External URL'}
           </button>
         ))}
       </div>
@@ -175,7 +176,9 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
               {fileName || 'Click to choose the lib zip'}
             </span>
             <span className="text-xs text-slate-500">
-              {fileName ? `${(size / 1024).toFixed(0)} KB` : 'must be a .zip containing the lib files'}
+              {fileName
+                ? `${(size / 1024).toFixed(0)} KB`
+                : `.zip with the lib files · up to ${maxMb} MB`}
             </span>
             <input
               id="libfile"
