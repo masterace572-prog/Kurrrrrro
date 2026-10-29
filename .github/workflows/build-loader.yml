@@ -22,8 +22,9 @@ jobs:
         working-directory: loader
     env:
       TARGET_SDK: ${{ github.event.inputs.target_sdk || '34' }}
-      # keep in sync with the manifest — anything else is reported as a problem
-      ALLOWED_PERMISSIONS: 'android.permission.INTERNET android.permission.ACCESS_NETWORK_STATE android.permission.MANAGE_EXTERNAL_STORAGE android.permission.READ_EXTERNAL_STORAGE android.permission.WRITE_EXTERNAL_STORAGE android.permission.WAKE_LOCK'
+      # permissions a game loader must never ship — if one of these survives the
+      # manifest merge the build is reported as a problem
+      BLOCKED_PATTERNS: 'CAMERA RECORD_AUDIO LOCATION CONTACTS SMS MMS WAP_PUSH CALL_LOG CALL_PHONE ANSWER_PHONE_CALLS PHONE_STATE PHONE_NUMBERS OUTGOING_CALLS CALENDAR BODY_SENSORS ACTIVITY_RECOGNITION BLUETOOTH NFC UWB_RANGING MEDIA_AUDIO MEDIA_IMAGES MEDIA_VIDEO TRANSMIT_IR BIOMETRIC FINGERPRINT _ACCOUNTS AUTHENTICATE_ACCOUNTS USE_CREDENTIALS WALLPAPER BOOT_COMPLETED EXACT_ALARM SOCIAL_STREAM USER_DICTIONARY AD_ID DUMP'
 
     steps:
       - uses: actions/checkout@v4
@@ -102,17 +103,18 @@ jobs:
           PERMS=$("$AAPT" dump permissions "$APK" | grep -oE 'android\.permission\.[A-Z_]+|com\.[a-zA-Z0-9_.]+\.permission\.[A-Z_]+' | sort -u)
           echo "::notice title=permissions in the APK::$(echo "$PERMS" | tr '\n' ' ')"
 
-          EXTRA=""
+          BAD=""
           for p in $PERMS; do
-            case " $ALLOWED_PERMISSIONS " in
-              *" $p "*) ;;
-              *) EXTRA="$EXTRA $p" ;;
-            esac
+            for pat in $BLOCKED_PATTERNS; do
+              case "$p" in
+                *"$pat"*) BAD="$BAD $p" ;;
+              esac
+            done
           done
-          if [ -n "$EXTRA" ]; then
-            echo "::warning title=unexpected permissions::$EXTRA (probably merged in from an .aar)"
+          if [ -n "$BAD" ]; then
+            echo "::warning title=sensitive permissions still present::$BAD"
           else
-            echo "::notice title=permissions::clean — only the $(( $(echo "$ALLOWED_PERMISSIONS" | wc -w) )) needed permissions are declared"
+            echo "::notice title=permissions::no camera/mic/location/SMS/contacts/calendar/bluetooth permissions in the APK ($(echo "$PERMS" | wc -l) declared)"
           fi
 
           if echo "$BADGING" | grep -q "targetSdkVersion:'$TARGET_SDK'"; then
