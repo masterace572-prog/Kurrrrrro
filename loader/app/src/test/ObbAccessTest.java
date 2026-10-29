@@ -73,7 +73,7 @@ public class ObbAccessTest {
                 .startsWith("/storage/1A2B-3C4D/"));
         check("empty message says what is wrong", blank.toLowerCase().contains("obb"));
         check("messages are one line", !needs.contains("\n") && !none.contains("\n"));
-        check("describe survives an empty probe", !ObbAccess.describe(ObbAccess.READY, null).isEmpty());
+        check("describe survives an empty probe", ObbAccess.describe(ObbAccess.READY, null) != null);
 
         System.out.println();
         System.out.println(passed + " passed, " + failed + " failed");

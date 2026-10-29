@@ -45,8 +45,24 @@ jobs:
             loader/app/src/main/java/com/xlox/utils/ObbAccess.java \
             loader/app/src/test/ObbSelectionTest.java \
             loader/app/src/test/ObbAccessTest.java
-          java -cp /tmp/obb ObbSelectionTest
-          java -cp /tmp/obb ObbAccessTest
+          set -o pipefail
+          java -cp /tmp/obb ObbSelectionTest | tee /tmp/obb-test.log
+          java -cp /tmp/obb ObbAccessTest | tee -a /tmp/obb-test.log
+
+      # Same reason as the gradle step below: the log is a zip behind a signed
+      # URL, so anything worth acting on is re-published as an annotation.
+      - name: Explain a failed check
+        if: failure()
+        working-directory: .
+        run: |
+          if [ ! -s /tmp/obb-test.log ]; then
+            echo "::error title=obb checks::the checks did not run (look at the step above)"
+            exit 0
+          fi
+          grep -E 'FAIL|error:|Exception|passed, ' /tmp/obb-test.log | cut -c1-300 | while IFS= read -r line; do
+            echo "::error title=obb checks::$(echo "$line" | tr -d '\r')"
+          done
+          exit 0
 
       - name: Set up Android SDK + NDK
         uses: android-actions/setup-android@v3
