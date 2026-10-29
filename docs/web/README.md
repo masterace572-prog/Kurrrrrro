@@ -13,10 +13,14 @@ publishes the PNGs to the `web-screenshots` branch.
 | `05-key-detail.png` | one key |
 | `06-server.png` | server control |
 | `07-users.png` | user management |
+| `07b-api-docs.png` | the public `/docs/api` reference |
 | `08-mobile-dashboard.png` | dashboard at 390 px |
 | `09-mobile-nav.png` | navigation drawer |
+| `10-mobile-api-docs.png` | API reference at 390 px |
+| `11-mobile-server.png` | server control at 390 px |
 
-`overview.png` stacks login, dashboard and keys.
+`overview.png` is the desktop pages in two columns, then the four phone captures
+in a row. The panel is dark by default.
 
 To run it by hand against a local panel:
 
