@@ -1,125 +1,67 @@
-import Flash from '@/components/Flash';
 import PageHeader from '@/components/PageHeader';
-import { generateKeysAction } from '@/app/actions';
+import { GenerateForm } from '@/components/forms/keys';
 import { currentUser } from '@/lib/session';
-import { DURATIONS, GAMES } from '@/lib/domain';
+import { DURATIONS } from '@/lib/domain';
 
-export const metadata = { title: 'Generate · KURO PANEL' };
+export const metadata = { title: 'Generate keys · KURO PANEL' };
 export const dynamic = 'force-dynamic';
 
-export default async function GeneratePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ m?: string; t?: string }>;
-}) {
-  const { m, t } = await searchParams;
+export default async function GeneratePage() {
   const me = await currentUser();
 
   return (
     <>
-      <PageHeader title="Generate keys" subtitle="Keys are charged per device from your balance" />
-      <Flash m={m} t={t} />
+      <PageHeader
+        title="Generate keys"
+        subtitle="Charged per device from your balance"
+        breadcrumb={[{ label: 'Keys', href: '/keys' }, { label: 'Generate' }]}
+      />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="card lg:col-span-2">
-          <form action={generateKeysAction} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="label" htmlFor="game">
-                  Game
-                </label>
-                <select id="game" name="game" className="input">
-                  {Object.entries(GAMES).map(([id, label]) => (
-                    <option key={id} value={id}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label" htmlFor="max_devices">
-                  Max devices
-                </label>
-                <input
-                  id="max_devices"
-                  name="max_devices"
-                  type="number"
-                  min={1}
-                  max={50}
-                  defaultValue={1}
-                  className="input"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="label" htmlFor="duration">
-                Duration
-              </label>
-              <select id="duration" name="duration" className="input" defaultValue={24}>
-                {Object.entries(DURATIONS).map(([hours, d]) => (
-                  <option key={hours} value={hours}>
-                    {d.label} — ₹{d.price}/device
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="label" htmlFor="loopcount">
-                  How many keys
-                </label>
-                <select id="loopcount" name="loopcount" className="input" defaultValue="1">
-                  <option value="1">5 keys</option>
-                  <option value="2">10 keys</option>
-                  <option value="3">50 keys</option>
-                  <option value="4">100 keys</option>
-                  <option value="5">1 key</option>
-                </select>
-              </div>
-              <div>
-                <label className="label" htmlFor="custominput">
-                  Key name
-                </label>
-                <select id="custominput" name="custominput" className="input" defaultValue="auto">
-                  <option value="auto">Automatic (reseller-DURATION-xxxxx)</option>
-                  <option value="custom">Custom key</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="label" htmlFor="cuslicense">
-                Custom key (only if selected above)
-              </label>
-              <input id="cuslicense" name="cuslicense" className="input" placeholder="4-20 characters" maxLength={20} />
-            </div>
-
-            <button className="btn-primary" type="submit">
-              Generate
-            </button>
-          </form>
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className="card xl:col-span-2">
+          <GenerateForm saldo={Number(me.saldo)} />
         </div>
 
         <div className="space-y-4">
           <div className="card">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Your balance</p>
-            <p className="mt-2 text-3xl font-black text-slate-100">{Number(me.saldo).toLocaleString()}</p>
-            <p className="mt-1 text-xs text-slate-500">credits</p>
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-500/15 text-brand-400">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <circle cx="8" cy="15" r="4" />
+                  <path d="M10.8 12.2 20 3m-3 3 2.5 2.5M14 6l2.5 2.5" strokeLinecap="round" />
+                </svg>
+              </span>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-slate-500">Balance</p>
+                <p className="text-2xl font-black text-slate-100">{Number(me.saldo).toLocaleString()}</p>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-slate-500">
+              Credits are deducted when keys are generated. Top-ups are handled by your upline.
+            </p>
           </div>
+
           <div className="card">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Pricing</p>
-            <ul className="mt-2 space-y-1 text-sm text-slate-400">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Price list</p>
+            <ul className="divide-y divide-white/5 text-sm">
               {Object.entries(DURATIONS).map(([hours, d]) => (
-                <li key={hours} className="flex justify-between">
-                  <span>{d.label}</span>
-                  <span className="text-slate-200">₹{d.price}</span>
+                <li key={hours} className="flex items-center justify-between py-1.5">
+                  <span className="text-slate-400">{d.label}</span>
+                  <span className="font-semibold text-slate-200">₹{d.price}</span>
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-xs text-slate-500">Prices are per device and multiplied by your device count.</p>
+            <p className="mt-2 text-xs text-slate-500">Per device, per key.</p>
+          </div>
+
+          <div className="card">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">How the loader uses a key</p>
+            <ol className="mt-2 list-inside list-decimal space-y-1 text-xs text-slate-400">
+              <li>First successful login binds the device (HWID).</li>
+              <li>Expiry starts at that first login if it was empty.</li>
+              <li>Extra devices are rejected with “MAX DEVICE REACHED”.</li>
+              <li>Use the HWID button to free a slot after a reinstall.</li>
+            </ol>
           </div>
         </div>
       </div>

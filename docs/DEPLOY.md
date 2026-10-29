@@ -57,6 +57,8 @@ Android loader  ───────►  https://<app>.vercel.app/server
    | `AUTH_SECRET` | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
    | `PUBLIC_BASE_URL` | `https://<your-app>.vercel.app` |
    | `LOADER_LICENSE_SALT` | leave default (see `docs/LOADER.md`) |
+| `FALLBACK_LIB_VERSION` | `1.0` (optional — only used before you publish a lib) |
+| `MAX_LIB_UPLOAD_MB` | `4` (optional; Vercel caps bodies at 4.5 MB) |
 
 6. **Deploy**. Your panel is live at `https://<your-app>.vercel.app` and the
    loader endpoint is `https://<your-app>.vercel.app/server`.
@@ -87,6 +89,10 @@ Edit one line in `loader/app/src/main/jni/main.cpp`:
 ```
 
 Then rebuild the APK — see `docs/LOADER.md`.
+
+After that first build you never need to rebuild for a **lib** change: publish
+the new zip under **Server control → Lib updates** and bump the version. Every
+device downloads it once and caches it — see `docs/LIB-UPDATES.md`.
 
 ---
 
@@ -138,4 +144,5 @@ npm run dev                    # http://localhost:3000
 ```
 
 `npm run db:dev -- --reset` wipes the local cluster.
-`npm run smoke` (with the app running) exercises the whole loader contract — 17 checks.
+`npm run smoke` (with the app running) exercises the whole loader contract plus
+the lib update channel — **28 checks**.

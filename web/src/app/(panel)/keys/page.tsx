@@ -1,10 +1,15 @@
 import Link from 'next/link';
-import Flash from '@/components/Flash';
 import PageHeader from '@/components/PageHeader';
 import { q } from '@/lib/db';
 import { currentUser, isStaff } from '@/lib/session';
-import { fmtLocal, devicesOf } from '@/lib/domain';
-import { deleteKeysAction, resetDevicesAction } from '@/app/actions';
+import { fmtLocal, devicesOf, durationLabel } from '@/lib/domain';
+import {
+  BulkDeleteButton,
+  DeleteKeyButton,
+  ResetHwidButton,
+  ToggleStatusButton,
+} from '@/components/forms/keys';
+import { Icon } from '@/components/ui';
 
 export const metadata = { title: 'Keys · KURO PANEL' };
 export const dynamic = 'force-dynamic';
@@ -24,77 +29,118 @@ type Row = {
 export default async function KeysPage({
   searchParams,
 }: {
-  searchParams: Promise<{ m?: string; t?: string; q?: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
-  const { m, t, q: search } = await searchParams;
+  const { q: search } = await searchParams;
   const me = await currentUser();
   const staff = isStaff(me);
+  const term = (search ?? '').trim().slice(0, 64);
 
-  const term = (search ?? '').trim();
   const rows = await q<Row>(
     `SELECT id_keys, game, user_key, duration, expired_date, max_devices, devices, status, registrator
        FROM keys_code
       WHERE ($1::boolean OR registrator = $2)
-        AND ($3 = '' OR user_key ILIKE '%' || $3 || '%' OR registrator ILIKE '%' || $3 || '%')
-      ORDER BY id_keys DESC LIMIT 300`,
+        AND ($3 = '' OR user_key ILIKE '%' || $3 || '%' OR coalesce(registrator,'') ILIKE '%' || $3 || '%'
+             OR coalesce(devices,'') ILIKE '%' || $3 || '%')
+      ORDER BY id_keys DESC
+      LIMIT 300`,
     [staff, me.username, term]
   );
+
+  const counts = await q<{ total: string; active: string; expired: string }>(
+    `SELECT count(*)::text AS total,
+            count(*) FILTER (WHERE status = 1 AND (expired_date IS NULL OR expired_date > now()))::text AS active,
+            count(*) FILTER (WHERE expired_date IS NOT NULL AND expired_date < now())::text AS expired
+       FROM keys_code WHERE ($1::boolean OR registrator = $2)`,
+    [staff, me.username]
+  );
+  const stats = counts[0];
 
   return (
     <>
       <PageHeader
         title="Keys"
-        subtitle={`${rows.length} key(s) shown${staff ? ' · all resellers' : ' · your keys only'}`}
+        subtitle={staff ? 'Every reseller in one table' : 'Your keys only'}
+        breadcrumb={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Keys' }]}
         action={
           <Link href="/keys/generate" className="btn-primary">
-            Generate
+            <Icon name="plus" /> Generate
           </Link>
         }
       />
-      <Flash m={m} t={t} />
+
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+        {[
+          { label: 'Total', value: stats?.total ?? '0', tone: 'text-slate-100' },
+          { label: 'Active', value: stats?.active ?? '0', tone: 'text-emerald-400' },
+          { label: 'Expired', value: stats?.expired ?? '0', tone: 'text-red-400' },
+        ].map((s) => (
+          <div key={s.label} className="card flex items-center justify-between py-3">
+            <span className="text-xs uppercase tracking-wider text-slate-500">{s.label}</span>
+            <span className={`text-xl font-black ${s.tone}`}>{s.value}</span>
+          </div>
+        ))}
+      </div>
 
       <div className="card mb-4">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <form className="flex flex-1 gap-2" action="/keys" method="get">
-            <input name="q" defaultValue={term} placeholder="Search key or reseller…" className="input" />
+            <div className="relative flex-1">
+              <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <input
+                name="q"
+                defaultValue={term}
+                placeholder="Search by key, reseller or device ID…"
+                className="input pl-9"
+                maxLength={64}
+              />
+            </div>
             <button className="btn-ghost" type="submit">
               Search
             </button>
+            {term ? (
+              <Link href="/keys" className="btn-ghost" title="Clear search">
+                <Icon name="close" />
+              </Link>
+            ) : null}
           </form>
-          <form action={deleteKeysAction}>
-            <input type="hidden" name="scope" value="expired" />
-            <button className="btn-danger" type="submit">
-              Delete expired
-            </button>
-          </form>
-          <form action={deleteKeysAction}>
-            <input type="hidden" name="scope" value="unused" />
-            <button className="btn-danger" type="submit">
-              Delete unused
-            </button>
-          </form>
+          <div className="flex flex-wrap gap-2">
+            <BulkDeleteButton scope="expired" label="Delete expired" />
+            <BulkDeleteButton scope="unused" label="Delete unused" />
+          </div>
         </div>
       </div>
 
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto p-0">
         <table className="table">
           <thead>
             <tr>
-              <th>Key</th>
+              <th className="pl-5">Key</th>
               <th>Game</th>
               <th>Duration</th>
               <th>Expires</th>
               <th>Devices</th>
-              <th>Reseller</th>
+              {staff ? <th>Reseller</th> : null}
               <th>Status</th>
-              <th className="text-right">Actions</th>
+              <th className="pr-5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-10 text-center text-slate-500">
-                  No keys found.
+                <td colSpan={staff ? 8 : 7} className="py-14 text-center">
+                  <p className="font-semibold text-slate-300">{term ? 'No keys match that search' : 'No keys yet'}</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {term ? (
+                      <Link href="/keys" className="text-brand-400 hover:underline">
+                        Clear the search
+                      </Link>
+                    ) : (
+                      <Link href="/keys/generate" className="text-brand-400 hover:underline">
+                        Generate your first key
+                      </Link>
+                    )}
+                  </p>
                 </td>
               </tr>
             ) : (
@@ -102,46 +148,45 @@ export default async function KeysPage({
                 const expired = k.expired_date ? new Date(k.expired_date) < new Date() : false;
                 const dev = devicesOf(k.devices);
                 return (
-                  <tr key={k.id_keys}>
-                    <td className="whitespace-nowrap font-mono text-xs text-slate-200">{k.user_key}</td>
-                    <td>{k.game}</td>
-                    <td className="text-slate-400">{k.duration}h</td>
-                    <td className="whitespace-nowrap text-slate-400">
-                      {k.expired_date ? fmtLocal(k.expired_date) : <span className="text-slate-500">not started</span>}
+                  <tr key={k.id_keys} className="transition hover:bg-white/[0.02]">
+                    <td className="pl-5">
+                      <Link href={`/keys/${k.id_keys}`} className="font-mono text-xs text-slate-200 hover:text-brand-400">
+                        {k.user_key}
+                      </Link>
+                    </td>
+                    <td className="text-slate-400">{k.game}</td>
+                    <td className="whitespace-nowrap text-slate-400">{durationLabel(k.duration)}</td>
+                    <td className="whitespace-nowrap text-xs text-slate-400">
+                      {k.expired_date ? fmtLocal(k.expired_date) : <span className="text-slate-600">not started</span>}
                     </td>
                     <td>
-                      <span className="text-slate-300">
+                      <span
+                        className={`text-sm ${dev.length >= k.max_devices ? 'text-amber-300' : 'text-slate-300'}`}
+                        title={dev.join(', ') || 'no devices bound'}
+                      >
                         {dev.length}/{k.max_devices}
                       </span>
                     </td>
-                    <td className="text-slate-400">{k.registrator ?? '—'}</td>
+                    {staff ? <td className="text-xs text-slate-400">{k.registrator ?? '—'}</td> : null}
                     <td>
                       {!k.status ? (
                         <span className="badge bg-slate-500/15 text-slate-300">blocked</span>
                       ) : expired ? (
                         <span className="badge bg-red-500/15 text-red-300">expired</span>
-                      ) : (
+                      ) : k.expired_date ? (
                         <span className="badge bg-emerald-500/15 text-emerald-300">active</span>
+                      ) : (
+                        <span className="badge bg-sky-500/15 text-sky-300">unused</span>
                       )}
                     </td>
-                    <td>
-                      <div className="flex justify-end gap-2">
+                    <td className="pr-5">
+                      <div className="flex items-center justify-end gap-1.5">
                         <Link href={`/keys/${k.id_keys}`} className="btn-ghost px-2 py-1 text-xs">
                           Edit
                         </Link>
-                        <form action={resetDevicesAction}>
-                          <input type="hidden" name="user_key" value={k.user_key} />
-                          <button className="btn-ghost px-2 py-1 text-xs" type="submit" disabled={dev.length === 0}>
-                            Reset HWID
-                          </button>
-                        </form>
-                        <form action={deleteKeysAction}>
-                          <input type="hidden" name="scope" value="one" />
-                          <input type="hidden" name="user_key" value={k.user_key} />
-                          <button className="btn-danger px-2 py-1 text-xs" type="submit">
-                            Delete
-                          </button>
-                        </form>
+                        <ResetHwidButton userKey={k.user_key} disabled={dev.length === 0} />
+                        <ToggleStatusButton userKey={k.user_key} status={Number(k.status)} />
+                        <DeleteKeyButton userKey={k.user_key} />
                       </div>
                     </td>
                   </tr>
@@ -151,6 +196,12 @@ export default async function KeysPage({
           </tbody>
         </table>
       </div>
+
+      {rows.length === 300 ? (
+        <p className="mt-3 text-center text-xs text-slate-500">
+          Showing the newest 300 keys — use the search box to narrow down.
+        </p>
+      ) : null}
     </>
   );
 }

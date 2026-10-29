@@ -316,10 +316,10 @@ public class MAct extends AppCompatActivity {
     }
 
     private void updateVersionDisplay() {
-        SharedPreferences prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        String localVersion = prefs.getString(PREF_VERSION_KEY, "1.0");
+        String localVersion = Downtwo.installedVersion(this);
         if (appVersionText != null) {
-            appVersionText.setText("Version " + localVersion);
+            boolean installed = !"0.0".equals(localVersion);
+            appVersionText.setText(installed ? "Version " + localVersion : "Version —");
         }
     }
 
@@ -330,6 +330,50 @@ public class MAct extends AppCompatActivity {
             if (loadingCursor != null) loadingCursor.setVisibility(View.GONE);
         });
         isUpdateAvailable = false;
+        checkForUpdates(false);
+    }
+
+    /**
+     * Asks the panel which lib version is live.
+     * @param announceOnly show a toast when an update is found
+     */
+    private void checkForUpdates(final boolean announceOnly) {
+        Downtwo checker = new Downtwo(this, result -> {
+            switch (result.status) {
+                case UPDATE_AVAILABLE:
+                case ALREADY_NOTIFIED: { // still offer the button, just no second toast
+                    final boolean fresh = result.status == Downtwo.Status.UPDATE_AVAILABLE;
+                    isUpdateAvailable = true;
+                    runOnUiThread(() -> {
+                        updateButtonState(isGameRunning);
+                        setLaunchButtonText("UPDATE AVAILABLE");
+                        if (announceOnly && fresh && !isFinishing()) {
+                            Toast.makeText(MAct.this,
+                                    "New lib v" + result.version + " is available — tap UPDATE to install",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    });
+                    break;
+                }
+                case ERROR:
+                    // Unreachable update server must never block the loader.
+                    Log.w("MAct", "update check failed: " + result.message);
+                    isUpdateAvailable = false;
+                    runOnUiThread(() -> {
+                        updateButtonState(isGameRunning);
+                        if (announceOnly && !isFinishing()) {
+                            Toast.makeText(MAct.this, "Update check failed: " + result.message,
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    });
+                    break;
+                default:
+                    isUpdateAvailable = false;
+                    runOnUiThread(() -> updateButtonState(isGameRunning));
+                    break;
+            }
+        });
+        checker.execute(Downtwo.Link(), Downtwo.MODE_CHECK);
     }
 
     private void startDownload() {
@@ -339,7 +383,8 @@ public class MAct extends AppCompatActivity {
             if (downloadStatusText != null) downloadStatusText.setText("Preparing process...");
             if (percentText != null) percentText.setText("0%");
             if (downloadProgressBar != null) {
-                downloadProgressBar.setIndeterminate(false);
+                downloadProgressBar.setVisibility(View.VISIBLE);
+                downloadProgressBar.setIndeterminate(true);
                 downloadProgressBar.setMax(100);
                 downloadProgressBar.setProgress(0);
             }
@@ -347,46 +392,72 @@ public class MAct extends AppCompatActivity {
             if (loadingCursor != null) loadingCursor.setVisibility(View.VISIBLE);
         });
 
-        Downtwo task = new Downtwo(this, success -> {
-            if (success) {
+        Downtwo task = new Downtwo(this, result -> {
+            if (!result.isSuccess()) {
+                // Surface the real reason instead of failing silently, and let the
+                // user retry by tapping the button again.
+                isUpdateAvailable = true;
+                final String message = result.message.isEmpty() ? "Update failed" : result.message;
+                Log.e("MAct", "update failed: " + message);
                 runOnUiThread(() -> {
-                    isUpdateAvailable = false;
-                    if (downloadStatusText != null) downloadStatusText.setText("All process done");
-                    if (percentText != null) percentText.setText("100%");
-                    if (downloadProgressBar != null) downloadProgressBar.setProgress(100);
+                    if (downloadStatusText != null) downloadStatusText.setText(message);
+                    if (percentText != null) percentText.setText("FAILED");
+                    if (downloadProgressBar != null) {
+                        downloadProgressBar.setIndeterminate(false);
+                        downloadProgressBar.setProgress(0);
+                    }
                     if (loadingCursor != null) loadingCursor.setVisibility(View.GONE);
-                    
-                    updateVersionDisplay(); // Refresh version text after update
-                    setLaunchButtonText(isGameInstalled ? "LAUNCH GAME" : "INSTALL GAME");
-                    
-                    if (restartButton != null) {
-                        restartButton.setVisibility(View.VISIBLE);
-                        restartButton.setAlpha(0f);
-                        restartButton.animate().alpha(1f).setDuration(500).start();
+                    if (restartButton != null) restartButton.setVisibility(View.VISIBLE);
+                    setLaunchButtonText("RETRY UPDATE");
+                    if (startText != null) {
+                        startText.setText("RETRY");
+                        startText.setTextColor(Color.parseColor("#FF4444"));
+                    }
+                    if (!isFinishing()) {
+                        Toast.makeText(MAct.this, message, Toast.LENGTH_LONG).show();
                     }
                 });
-            } else {
-                runOnUiThread(() -> {
-                    // Keep update failures silent instead of showing a popup/toast.
-                    isUpdateAvailable = false;
-                    if (downloadBox != null) downloadBox.setVisibility(View.GONE);
-                    if (loadingCursor != null) loadingCursor.setVisibility(View.GONE);
-                    setLaunchButtonText(isGameInstalled ? "LAUNCH GAME" : "INSTALL GAME");
-                });
+                return;
             }
+
+            runOnUiThread(() -> {
+                isUpdateAvailable = false;
+                if (downloadStatusText != null) downloadStatusText.setText("All process done");
+                if (percentText != null) percentText.setText("100%");
+                if (downloadProgressBar != null) {
+                    downloadProgressBar.setIndeterminate(false);
+                    downloadProgressBar.setProgress(100);
+                }
+                if (loadingCursor != null) loadingCursor.setVisibility(View.GONE);
+                updateVersionDisplay();
+                setLaunchButtonText(isGameInstalled ? "LAUNCH GAME" : "INSTALL GAME");
+                if (restartButton != null) {
+                    restartButton.setVisibility(View.VISIBLE);
+                    restartButton.setAlpha(0f);
+                    restartButton.animate().alpha(1f).setDuration(500).start();
+                }
+            });
         });
 
-        task.setProgressListener(progress -> runOnUiThread(() -> {
-            if (downloadProgressBar != null) {
-                downloadProgressBar.setIndeterminate(false);
-                downloadProgressBar.setMax(100);
-                downloadProgressBar.setProgress(progress);
+        task.setProgressListener((percent, stage) -> runOnUiThread(() -> {
+            if (downloadStatusText != null && stage != null && !stage.isEmpty()) {
+                downloadStatusText.setText(stage);
             }
-            if (percentText != null) percentText.setText(progress + "%");
-            if (downloadStatusText != null) downloadStatusText.setText("Preparing process...");
+            if (downloadProgressBar != null) {
+                if (percent < 0) {
+                    downloadProgressBar.setIndeterminate(true);
+                } else {
+                    downloadProgressBar.setIndeterminate(false);
+                    downloadProgressBar.setMax(100);
+                    downloadProgressBar.setProgress(percent);
+                }
+            }
+            if (percentText != null) {
+                percentText.setText(percent < 0 ? "…" : percent + "%");
+            }
         }));
-        
-        task.execute(Downtwo.Link());
+
+        task.execute(Downtwo.Link(), Downtwo.MODE_DOWNLOAD);
     }
 
     private void restartApp() {

@@ -1,24 +1,20 @@
 import { notFound } from 'next/navigation';
-import Flash from '@/components/Flash';
 import PageHeader from '@/components/PageHeader';
 import { q1 } from '@/lib/db';
-import { currentUser, isStaff } from '@/lib/session';
-import { updateUserAction } from '@/app/actions';
-import { fmtUtc } from '@/lib/domain';
+import { currentUser, isStaff, levelName } from '@/lib/session';
+import { fmtUtc, fmtLocal } from '@/lib/domain';
+import { UserForm } from '@/components/forms/admin';
+import { Alert } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
-export default async function UserEditPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ m?: string; t?: string }>;
-}) {
+export default async function UserEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { m, t } = await searchParams;
   const me = await currentUser();
   if (!isStaff(me)) notFound();
+
+  const numericId = Number(id);
+  if (!Number.isInteger(numericId)) notFound();
 
   const user = await q1<{
     id_users: number;
@@ -28,96 +24,75 @@ export default async function UserEditPage({
     level: number;
     saldo: number;
     status: number;
+    uplink: string | null;
     expiration_date: Date | null;
-  }>(`SELECT id_users, username, fullname, email, level, saldo, status, expiration_date FROM users WHERE id_users = $1`, [
-    Number(id),
-  ]);
+    created_at: Date | null;
+  }>(`SELECT id_users, username, fullname, email, level, saldo, status, uplink, expiration_date, created_at
+        FROM users WHERE id_users = $1`, [numericId]);
 
   if (!user) notFound();
+
   const owner = Number(me.level) === 1;
+  if (!owner && user.uplink !== me.username) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <Alert tone="danger" title="Not in your downline">
+          {user.username} belongs to {user.uplink ?? 'another uplink'}.
+        </Alert>
+      </div>
+    );
+  }
+
+  const keys = await q1<{ n: number; active: number }>(
+    `SELECT count(*)::int AS n,
+            count(*) FILTER (WHERE status = 1 AND (expired_date IS NULL OR expired_date > now()))::int AS active
+       FROM keys_code WHERE registrator = $1`,
+    [user.username]
+  );
 
   return (
     <>
-      <PageHeader title={`Edit ${user.username}`} subtitle={`Account #${user.id_users}`} />
-      <Flash m={m} t={t} />
+      <PageHeader
+        title={`Edit ${user.username}`}
+        subtitle={`${levelName(Number(user.level))} · joined ${fmtLocal(user.created_at)}`}
+        breadcrumb={[{ label: 'Users', href: '/admin/manage-users' }, { label: user.username }]}
+      />
 
-      <form action={updateUserAction} className="card max-w-2xl space-y-4">
-        <input type="hidden" name="id_users" value={user.id_users} />
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="label" htmlFor="fullname">
-              Full name
-            </label>
-            <input id="fullname" name="fullname" defaultValue={user.fullname ?? ''} className="input" readOnly={!owner} />
-          </div>
-          <div>
-            <label className="label" htmlFor="email">
-              Email
-            </label>
-            <input id="email" name="email" type="email" defaultValue={user.email} className="input" readOnly={!owner} />
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <label className="label" htmlFor="saldo">
-              Balance
-            </label>
-            <input id="saldo" name="saldo" type="number" defaultValue={user.saldo} className="input" />
-          </div>
-          <div>
-            <label className="label" htmlFor="status">
-              Status
-            </label>
-            <select id="status" name="status" defaultValue={String(user.status)} className="input">
-              <option value="1">Active</option>
-              <option value="0">Disabled</option>
-            </select>
-          </div>
-          <div>
-            <label className="label" htmlFor="level">
-              Role
-            </label>
-            <select id="level" name="level" defaultValue={String(user.level)} className="input" disabled={!owner}>
-              <option value="1">Owner</option>
-              <option value="2">Admin</option>
-              <option value="3">Reseller</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="label" htmlFor="expiration_date">
-            Panel access until (UTC)
-          </label>
-          <input
-            id="expiration_date"
-            name="expiration_date"
-            defaultValue={fmtUtc(user.expiration_date) ?? ''}
-            placeholder="2050-01-01 00:00:00"
-            className="input"
-            readOnly={!owner}
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <UserForm
+            user={{
+              id_users: user.id_users,
+              username: user.username,
+              fullname: user.fullname ?? '',
+              email: user.email ?? '',
+              level: Number(user.level),
+              saldo: Number(user.saldo),
+              status: Number(user.status),
+              expiration_date: fmtUtc(user.expiration_date) ?? '',
+            }}
+            owner={owner}
           />
         </div>
 
-        {owner ? (
-          <div>
-            <label className="label" htmlFor="password">
-              Reset password (leave empty to keep)
-            </label>
-            <input id="password" name="password" type="password" className="input" minLength={6} />
-          </div>
-        ) : null}
-
-        <button className="btn-primary" type="submit">
-          Save user
-        </button>
-      </form>
-
-      <p className="mt-4 text-xs text-slate-500">
-        Disabled fields are read-only for admins. An admin can only manage accounts whose uplink is their own username.
-      </p>
+        <div className="card h-fit space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Account</p>
+          <dl className="space-y-2 text-sm">
+            {[
+              ['ID', `#${user.id_users}`],
+              ['Uplink', user.uplink ?? '—'],
+              ['Keys created', `${keys?.n ?? 0} (${keys?.active ?? 0} active)`],
+              ['Balance', Number(user.saldo).toLocaleString()],
+              ['Access until', fmtLocal(user.expiration_date)],
+            ].map(([k, v]) => (
+              <div key={k} className="flex justify-between gap-3">
+                <dt className="text-slate-500">{k}</dt>
+                <dd className="text-right text-slate-200">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </div>
     </>
   );
 }

@@ -60,16 +60,21 @@ Java_com_xlox_LogAct_GetKey(JNIEnv *env, jobject thiz) {
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_xlox_utils_Downtwo_Version(JNIEnv *env, jclass clazz) {
-    // return URL to version file
-    const char *versionUrl = (oxorany("https://onlinelib.ggff.net/DIExManger/download.php?t=ver15"));// can put GitHub too
+    // Plain-text version of the lib hosted by our own panel (GET /api/version).
+    // Only the first line matters; e.g. "1.4". Changing this number in the
+    // panel is what makes every client download the new lib once.
+    static char versionUrl[256];
+    snprintf(versionUrl, sizeof(versionUrl), "%s/api/version", PANEL_BASE_URL);
     return env->NewStringUTF(versionUrl);
 }
 
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_xlox_utils_Downtwo_Link(JNIEnv *env, jclass clazz) {
-    // return URL to your update ZIP file
-    const char *downloadUrl = (oxorany("https://onlinelib.ggff.net/DIExManger/download.php?t=zip13"));// can put GitHub too
+    // The lib zip (GET /api/download) served by the same panel. The server may
+    // redirect to GitHub Releases for large archives; HttpURLConnection follows it.
+    static char downloadUrl[256];
+    snprintf(downloadUrl, sizeof(downloadUrl), "%s/api/download", PANEL_BASE_URL);
     return env->NewStringUTF(downloadUrl);
 }
 

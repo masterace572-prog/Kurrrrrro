@@ -114,3 +114,43 @@ CREATE TABLE IF NOT EXISTS lib (
   file_size varchar(32)  NOT NULL,
   time      timestamptz  NOT NULL DEFAULT now()
 );
+
+-- ===========================================================================
+--  CLIENT (LIB) UPDATES
+--  The loader compares the version text from GET /api/version with the value
+--  it stored from the last download. Same version = keep the local lib,
+--  different version = download GET /api/download and extract it.
+-- ===========================================================================
+CREATE TABLE IF NOT EXISTS client_release (
+  id           serial       PRIMARY KEY,
+  version      varchar(32)  NOT NULL,          -- "1.4" — this is what the loader compares
+  file_name    varchar(255) NOT NULL DEFAULT 'lib.zip',
+  file_size    integer      NOT NULL DEFAULT 0,
+  sha256       varchar(64)  NOT NULL DEFAULT '',
+  content      bytea,                          -- the zip itself (small libs)
+  external_url text,                           -- or a URL we redirect to (big libs / GitHub Releases)
+  notes        text,
+  is_current   boolean      NOT NULL DEFAULT false,
+  uploaded_by  varchar(66),
+  created_at   timestamptz  NOT NULL DEFAULT now()
+);
+
+-- only one release can be "current" at a time
+CREATE UNIQUE INDEX IF NOT EXISTS client_release_single_current
+  ON client_release (is_current) WHERE is_current;
+
+-- ===========================================================================
+--  LOGIN THROTTLING  (brute-force protection for /login)
+-- ===========================================================================
+CREATE TABLE IF NOT EXISTS auth_attempt (
+  id         bigserial   PRIMARY KEY,
+  username   varchar(66) NOT NULL,
+  ip         varchar(64) NOT NULL DEFAULT '',
+  ok         boolean     NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS auth_attempt_lookup_idx ON auth_attempt (username, created_at DESC);
+CREATE INDEX IF NOT EXISTS auth_attempt_created_idx ON auth_attempt (created_at);
+
+-- no release rows are seeded: /api/version falls back to FALLBACK_LIB_VERSION
+-- until you publish one in Server → Lib updates.

@@ -89,15 +89,10 @@ Set it to your deployment (no trailing slash). It is used as
 `snprintf(lol, sizeof lol, "%s/server", PANEL_BASE_URL);` — the old hard-coded
 `https://vipercheat.authapi.xyz/server` is gone.
 
-While you're in there, two other URLs are baked in further down:
-
-```cpp
-Java_com_xlox_utils_Downtwo_Version  → https://onlinelib.ggff.net/DIExManger/download.php?t=ver15
-Java_com_xlox_utils_Downtwo_Link     → https://onlinelib.ggff.net/DIExManger/download.php?t=zip13
-```
-
-Those are the "update available / download the new loader zip" URLs. Host the
-files anywhere public (GitHub Releases works) and swap the links.
+The two other URLs (`Downtwo.Version()` / `Downtwo.Link()`) are also derived from
+`PANEL_BASE_URL` now — they return `<PANEL_BASE_URL>/api/version` and
+`<PANEL_BASE_URL>/api/download`. Nothing else has to be edited to push lib
+updates; see **[LIB-UPDATES.md](LIB-UPDATES.md)**.
 
 ## 4. Build the APK
 

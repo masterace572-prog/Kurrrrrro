@@ -30,6 +30,7 @@ deleted here. Details, plus the SQL injections and token weaknesses, are in
 | `loader/` | XLOX loader source, extracted; endpoint switched to your own panel |
 | `docs/DEPLOY.md` | Step-by-step free deployment (Supabase + Vercel) and alternatives |
 | `docs/LOADER.md` | The `/server` contract, how to change the URL, how to build the APK |
+| `docs/LIB-UPDATES.md` | Pushing a new lib to every device by changing only the version |
 | `docs/SECURITY-FINDINGS.md` | Full audit of what came in the zip |
 | `.github/workflows/build-loader.yml` | Builds the APK on GitHub Actions |
 
@@ -41,7 +42,7 @@ npm install
 npm run db:dev     # terminal 1 — real embedded Postgres on :55432
 npm run db:push    # terminal 2 — schema + seed
 npm run dev        # http://localhost:3000  → admin / admin123
-npm run smoke      # terminal 3 — 17 checks against /server
+npm run smoke      # terminal 3 — 28 checks against /server + lib channel
 ```
 
 Deploy for free in ~10 minutes: **[docs/DEPLOY.md](docs/DEPLOY.md)**.
@@ -71,6 +72,9 @@ APK (Android Studio or the included GitHub Actions workflow).
 | `/settings` | `/settings` |
 | `/Server` | `/settings/server` (panel UI) |
 | `POST /connect` | **`POST /server`** (loader endpoint — same payload) |
+| `download.php?t=ver15` (version text) | `GET /api/version` |
+| `download.php?t=zip13` (lib zip) | `GET /api/download` |
+| — | `/api/health` (deployment self-check) |
 | `/admin/manage-users`, `/admin/user/(:num)` | `/admin/manage-users`, `/admin/user/[id]` |
 | `/admin/create-referral` | `/admin/create-referral` |
 | `/dbg` (prints session dump) | removed |
@@ -88,6 +92,14 @@ APK (Android Studio or the included GitHub Actions workflow).
   keys across from the old MySQL dump, run `legacy-php/main.sql` through a
   MySQL→Postgres converter, or insert `keys_code` rows directly — the columns
   are the same.
+
+## Pushing a lib update
+
+Open **Server control → Lib updates**, upload the zip (or paste a GitHub Release
+URL), give it a version like `1.4`, publish. Every device whose stored version
+differs downloads it once; devices already on `1.4` skip the download entirely.
+To force a re-download without re-uploading, use **Bump version**.
+Details: [`docs/LIB-UPDATES.md`](docs/LIB-UPDATES.md).
 
 ## Roles
 

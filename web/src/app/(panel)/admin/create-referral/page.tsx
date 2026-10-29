@@ -1,20 +1,14 @@
 import { redirect } from 'next/navigation';
-import Flash from '@/components/Flash';
 import PageHeader from '@/components/PageHeader';
 import { q } from '@/lib/db';
 import { currentUser, isStaff, levelName } from '@/lib/session';
-import { createReferralAction } from '@/app/actions';
+import { ReferralForm } from '@/components/forms/admin';
 import { fmtLocal } from '@/lib/domain';
 
 export const metadata = { title: 'Referrals · KURO PANEL' };
 export const dynamic = 'force-dynamic';
 
-export default async function ReferralPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ m?: string; t?: string }>;
-}) {
-  const { m, t } = await searchParams;
+export default async function ReferralPage() {
   const me = await currentUser();
   if (!isStaff(me)) redirect('/dashboard?m=Access+denied.&t=danger');
 
@@ -26,74 +20,55 @@ export default async function ReferralPage({
     used_by: string;
     created_by: string;
     acc_expiration: Date | null;
+    created_at: Date | null;
   }>(
-    `SELECT id_reff, "Referral", level, set_saldo, used_by, created_by, acc_expiration
+    `SELECT id_reff, "Referral", level, set_saldo, used_by, created_by, acc_expiration, created_at
        FROM referral_code ORDER BY id_reff DESC LIMIT 50`
   );
 
   return (
     <>
-      <PageHeader title="Referral codes" subtitle="Each code creates one account with a preset role and balance" />
-      <Flash m={m} t={t} />
+      <PageHeader
+        title="Referral codes"
+        subtitle="Each code creates exactly one account with a preset role and balance"
+        breadcrumb={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Referrals' }]}
+      />
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <form action={createReferralAction} className="card space-y-4">
-          <h2 className="font-semibold text-slate-200">New code</h2>
-          <div>
-            <label className="label" htmlFor="level">
-              Role
-            </label>
-            <select id="level" name="level" defaultValue="3" className="input">
-              <option value="1">Owner</option>
-              <option value="2">Admin</option>
-              <option value="3">Reseller</option>
-            </select>
-          </div>
-          <div>
-            <label className="label" htmlFor="set_saldo">
-              Starting balance
-            </label>
-            <input id="set_saldo" name="set_saldo" type="number" min={0} defaultValue={0} className="input" />
-          </div>
-          <div>
-            <label className="label" htmlFor="accExpire">
-              Panel access (days)
-            </label>
-            <input id="accExpire" name="accExpire" type="number" min={1} defaultValue={30} className="input" />
-          </div>
-          <button className="btn-primary" type="submit">
-            Create code
-          </button>
-        </form>
+        <ReferralForm isOwner={Number(me.level) === 1} />
 
-        <div className="card overflow-x-auto xl:col-span-2">
+        <div className="card overflow-x-auto p-0 xl:col-span-2">
           <table className="table">
             <thead>
               <tr>
-                <th>Code</th>
+                <th className="pl-5">Code</th>
                 <th>Role</th>
                 <th>Balance</th>
                 <th>Access until</th>
                 <th>Used by</th>
-                <th>Created by</th>
+                <th className="pr-5">Created by</th>
               </tr>
             </thead>
             <tbody>
               {codes.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500">
-                    No referral codes yet.
+                  <td colSpan={6} className="py-12 text-center text-sm text-slate-500">
+                    No referral codes yet — create the first one on the left.
                   </td>
                 </tr>
               ) : (
                 codes.map((c) => (
-                  <tr key={c.id_reff}>
-                    <td className="font-mono text-xs text-emerald-300">{c.Referral}</td>
-                    <td>{levelName(Number(c.level))}</td>
-                    <td>{c.set_saldo}</td>
-                    <td className="whitespace-nowrap text-slate-400">{fmtLocal(c.acc_expiration)}</td>
-                    <td className={c.used_by ? 'text-slate-400' : 'text-emerald-300'}>{c.used_by || 'unused'}</td>
-                    <td className="text-slate-400">{c.created_by}</td>
+                  <tr key={c.id_reff} className="transition hover:bg-white/[0.02]">
+                    <td className="pl-5 font-mono text-xs font-semibold tracking-widest text-emerald-300">{c.Referral}</td>
+                    <td>
+                      <span className="badge bg-slate-500/15 text-slate-300">{levelName(Number(c.level))}</span>
+                    </td>
+                    <td className="text-slate-300">{c.set_saldo}</td>
+                    <td className="whitespace-nowrap text-xs text-slate-400">{fmtLocal(c.acc_expiration)}</td>
+                    <td className={c.used_by ? 'text-slate-400' : 'text-emerald-300'}>
+                      {c.used_by || 'unused'}
+                    </td>
+                    <td className="pr-5 text-xs text-slate-400">{c.created_by}</td>
                   </tr>
                 ))
               )}

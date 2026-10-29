@@ -111,6 +111,47 @@ try {
   }).then((r) => r.json());
   check('json body works', jsonRes.status === true);
 
+
+  /* ---------------------------------------------------- lib update channel */
+  console.log('\nLib update channel');
+  const verRes = await fetch(`${BASE}/api/version`);
+  const verText = (await verRes.text()).trim();
+  check('GET /api/version returns 200', verRes.status === 200);
+  check('version is plain text', /^[A-Za-z0-9._-]+$/.test(verText), `got "${verText}"`);
+  check('version is not cached', /no-store/.test(verRes.headers.get('cache-control') || ''));
+
+  const verJson = await fetch(`${BASE}/api/version?format=json`).then((r) => r.json());
+  check('json format works', typeof verJson.version === 'string');
+  check('json exposes download path', verJson.download === '/api/download');
+
+  const dl = await fetch(`${BASE}/api/download`, { redirect: 'manual' });
+  check('GET /api/download answers without 500', dl.status < 500, `status ${dl.status}`);
+
+  const health = await fetch(`${BASE}/api/health`).then((r) => r.json());
+  check('health reports ok', health.ok === true, JSON.stringify(health.checks));
+
+  if (db) {
+    // publish a fake zip release and confirm version/download flip
+    const zip = Buffer.from('PK\x05\x06' + '\0'.repeat(18), 'binary');
+    await db.query('UPDATE client_release SET is_current = false WHERE is_current = true');
+    await db.query(
+      `INSERT INTO client_release (version, file_name, file_size, sha256, content, is_current)
+       VALUES ('smoke-9.9', 'smoke.zip', $1, 'deadbeef', $2, true)`,
+      [zip.length, zip]
+    );
+    const v2 = (await (await fetch(`${BASE}/api/version`)).text()).trim();
+    check('published version is served', v2 === 'smoke-9.9', `got "${v2}"`);
+
+    const d2 = await fetch(`${BASE}/api/download`);
+    const buf = Buffer.from(await d2.arrayBuffer());
+    check('download returns the zip', d2.status === 200 && buf.equals(zip), `status ${d2.status}, ${buf.length} bytes`);
+    check('download sets zip content type', (d2.headers.get('content-type') || '').includes('zip'));
+    check('download exposes version header', d2.headers.get('x-lib-version') === 'smoke-9.9');
+
+    await db.query(`DELETE FROM client_release WHERE version = 'smoke-9.9'`);
+    await db.query('UPDATE client_release SET is_current = true WHERE id = (SELECT max(id) FROM client_release)');
+  }
+
   console.log('\nMaintenance mode');
   if (db) {
     await db.query(`UPDATE onoff SET status='on', myinput='Back in 10 minutes' WHERE id=1`);
