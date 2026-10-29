@@ -18,7 +18,11 @@ if (!BASE) {
 let passed = 0;
 let failed = 0;
 
+const GH = process.env.GITHUB_ACTIONS === 'true';
+const failures = [];
+
 function check(label, ok, extra = '') {
+  if (!ok && GH) failures.push(`${label}${extra ? ` — ${extra}` : ''}`);
   if (ok) {
     passed++;
     console.log(`  \x1b[32m✓\x1b[0m ${label}`);
@@ -110,4 +114,16 @@ try {
 }
 
 console.log(`\n${failed === 0 ? '\x1b[32m' : '\x1b[31m'}${passed} passed, ${failed} failed\x1b[0m\n`);
+
+// Annotations survive in the Checks API, which is handy when the raw job log
+// is not reachable.
+if (GH) {
+  for (const f of failures) {
+    console.log(`::error title=Verify failed::${f.replace(/[\r\n]+/g, ' ')}`);
+  }
+  console.log(
+    `::notice title=Live check::${BASE} — ${passed} passed, ${failed} failed`
+  );
+}
+
 process.exit(failed === 0 ? 0 : 1);

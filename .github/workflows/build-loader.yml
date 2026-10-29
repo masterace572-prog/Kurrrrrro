@@ -55,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: xlox-loader-debug
-          path: out/xlox-loader.apk
+          path: loader/out/xlox-loader.apk
           if-no-files-found: error
 
       # A GitHub Release gives a permanent download URL that never expires,
@@ -74,7 +74,7 @@ jobs:
 
             Install with `adb install xlox-loader.apk` or copy it to the phone.
             The APK is **debug-signed** — fine for testing, replace the keystore before selling it.
-          files: out/xlox-loader.apk
+          files: loader/out/xlox-loader.apk
           fail_on_unmatched_files: true
           draft: false
           prerelease: false
