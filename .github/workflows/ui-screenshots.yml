@@ -55,7 +55,7 @@ jobs:
         env:
           # throwaway key used only to photograph the main screen; delete it from
           # the panel afterwards. Override with the workflow input when dispatching.
-          PANEL_KEY: ${{ github.event.inputs.key || 'admin-24-UIPRV' }}
+          PANEL_KEY: ${{ github.event.inputs.key || 'admin-24-SHOT2' }}
         with:
           api-level: 34
           arch: x86_64
@@ -115,12 +115,20 @@ jobs:
                 adb shell input keyevent 111 >> $LOG 2>&1 || true
                 sleep 1
                 adb exec-out screencap -p > shot-3-typed.png 2>>$LOG || true
+                adb shell input keyevent 4 >> $LOG 2>&1 || true   # hide the keyboard
+                sleep 1
+                adb exec-out screencap -p > shot-3b-typed.png 2>>$LOG || true
                 adb shell input tap $BX $BY >> $LOG 2>&1 || true
+                sleep 2
+                adb exec-out screencap -p > shot-3c-verifying.png 2>>$LOG || true
+                note phase "tapped-continue"
                 sleep 5
                 adb exec-out screencap -p > shot-4-gate.png 2>>$LOG || true
                 sleep 15
                 adb exec-out screencap -p > shot-5-main.png 2>>$LOG || true
                 note phase "main-screen"
+                adb shell uiautomator dump /sdcard/ui2.xml >> $LOG 2>&1 || true
+                adb pull /sdcard/ui2.xml ui2.xml >> $LOG 2>&1 || true
               fi
             fi
 
@@ -146,6 +154,7 @@ jobs:
           cp logcat.txt ui/ 2>/dev/null || true
           cp steps.log ui/ 2>/dev/null || true
           cp ui.xml ui2.xml 2>/dev/null ui/ || true
+          rm -f ui/ui.xml.pull 2>/dev/null || true
           git add ui
           git commit -m "UI screenshots from ${GITHUB_SHA}" || true
           git push -f origin ui-screenshots || echo "::warning title=screenshots::could not push the branch"
