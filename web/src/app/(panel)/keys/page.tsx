@@ -9,7 +9,7 @@ import {
   ResetHwidButton,
   ToggleStatusButton,
 } from '@/components/forms/keys';
-import { Icon } from '@/components/ui';
+import { CopyButton, Icon } from '@/components/ui';
 
 export const metadata = { title: 'Keys · KURO PANEL' };
 export const dynamic = 'force-dynamic';
@@ -30,12 +30,18 @@ type Row = {
 export default async function KeysPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; fresh?: string }>;
 }) {
-  const { q: search } = await searchParams;
+  const { q: search, fresh } = await searchParams;
   const me = await currentUser();
   const staff = isStaff(me);
   const term = (search ?? '').trim().slice(0, 64);
+  // the keys this visit just created, so they can be copied straight away
+  const freshKeys = (fresh ?? '')
+    .split(',')
+    .map((k) => k.trim())
+    .filter((k) => k.length > 0 && k.length <= 64)
+    .slice(0, 100);
 
   const rows = await q<Row>(
     `SELECT id_keys, game, user_key, duration, expired_date, max_devices, devices, status, registrator, created_at
@@ -86,6 +92,37 @@ export default async function KeysPage({
           </div>
         ))}
       </div>
+
+      {freshKeys.length > 0 ? (
+        <div className="card mb-4 border-emerald-500/30 bg-emerald-500/5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-emerald-300">
+                {freshKeys.length === 1 ? 'Key generated' : `${freshKeys.length} keys generated`}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-400">Copy what you need — they stay in the list below.</p>
+            </div>
+            {freshKeys.length > 1 ? (
+              <CopyButton
+                value={freshKeys.join('\n')}
+                label="Copy all"
+                className="btn-ghost shrink-0 px-2 py-1 text-xs"
+              />
+            ) : null}
+          </div>
+          <ul className="mt-3 space-y-1.5">
+            {freshKeys.map((key) => (
+              <li
+                key={key}
+                className="flex items-center gap-2 rounded-lg border border-line bg-ink-900 px-3 py-2"
+              >
+                <code className="min-w-0 flex-1 truncate font-mono text-xs text-slate-200">{key}</code>
+                <CopyButton value={key} label="Copy key" iconOnly title={`Copy ${key}`} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="card mb-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -141,10 +178,13 @@ export default async function KeysPage({
                     : 'bg-sky-500/10 text-sky-300';
             return (
               <div key={k.id_keys} className="rounded-xl border border-line bg-ink-900 p-3.5">
-                <div className="flex items-start justify-between gap-2">
-                  <Link href={`/keys/${k.id_keys}`} className="min-w-0 truncate font-mono text-xs text-slate-200">
-                    {k.user_key}
-                  </Link>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-1">
+                    <Link href={`/keys/${k.id_keys}`} className="min-w-0 truncate font-mono text-xs text-slate-200">
+                      {k.user_key}
+                    </Link>
+                    <CopyButton value={k.user_key} label="Copy key" iconOnly title={`Copy ${k.user_key}`} />
+                  </div>
                   <span className={`badge shrink-0 ${tone}`}>{state}</span>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
@@ -204,9 +244,12 @@ export default async function KeysPage({
                 return (
                   <tr key={k.id_keys} className="transition hover:bg-white/[0.03]">
                     <td className="pl-5">
-                      <Link href={`/keys/${k.id_keys}`} className="font-mono text-xs text-slate-200 hover:text-brand-400">
-                        {k.user_key}
-                      </Link>
+                      <div className="flex items-center gap-1">
+                        <Link href={`/keys/${k.id_keys}`} className="font-mono text-xs text-slate-200 hover:text-brand-400">
+                          {k.user_key}
+                        </Link>
+                        <CopyButton value={k.user_key} label="Copy key" iconOnly title={`Copy ${k.user_key}`} />
+                      </div>
                       {fresh ? (
                         <span className="ml-2 rounded bg-ink-800 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-400">
                           new

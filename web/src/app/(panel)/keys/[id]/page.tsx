@@ -5,7 +5,7 @@ import { q1 } from '@/lib/db';
 import { currentUser } from '@/lib/session';
 import { devicesOf, fmtLocal, fmtUtc } from '@/lib/domain';
 import { EditKeyForm, RevokeDeviceButton } from '@/components/forms/keys';
-import { Alert, Icon } from '@/components/ui';
+import { Alert, CopyButton, Icon } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,7 +54,8 @@ export default async function EditKeyPage({ params }: { params: Promise<{ id: st
         subtitle={key.user_key}
         breadcrumb={[{ label: 'Keys', href: '/keys' }, { label: 'Edit' }]}
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <CopyButton value={key.user_key} label="Copy key" className="btn-primary px-3 py-1.5 text-xs" />
             {!key.status ? (
               <span className="badge bg-ink-800 text-slate-300">blocked</span>
             ) : expired ? (

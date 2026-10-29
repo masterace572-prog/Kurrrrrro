@@ -161,6 +161,100 @@ export function SubmitButton({
   );
 }
 
+/* ------------------------------------------------------------ copy button */
+
+/**
+ * Copies a string to the clipboard.
+ *
+ * The async Clipboard API only exists in a secure context, so a panel opened
+ * over plain http (a phone on the LAN, a self-hosted box) silently did nothing
+ * with it. The textarea fallback covers that case.
+ */
+export async function copyText(value: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch {
+    /* fall through to the selection trick */
+  }
+  try {
+    const area = document.createElement('textarea');
+    area.value = value;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.top = '-1000px';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    area.setSelectionRange(0, value.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(area);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * "Copy" for anything the user has to paste somewhere else: a licence key, an
+ * endpoint. Shows a tick for a moment instead of firing a toast, so copying a
+ * key from a list does not cover the list.
+ */
+export function CopyButton({
+  value,
+  label = 'Copy',
+  iconOnly = false,
+  className = 'btn-ghost px-2 py-1 text-xs',
+  title,
+  align = 'center',
+}: {
+  value: string;
+  label?: string;
+  iconOnly?: boolean;
+  className?: string;
+  title?: string;
+  align?: 'center' | 'left';
+}) {
+  const [result, setResult] = useState<'idle' | 'ok' | 'fail'>('idle');
+
+  useEffect(() => {
+    if (result === 'idle') return;
+    const timer = setTimeout(() => setResult('idle'), 1600);
+    return () => clearTimeout(timer);
+  }, [result]);
+
+  const text = result === 'ok' ? 'Copied' : result === 'fail' ? 'Press ⌘C' : label;
+  const tone = result === 'ok' ? 'text-emerald-300' : result === 'fail' ? 'text-amber-300' : '';
+
+  if (iconOnly) {
+    return (
+      <button
+        type="button"
+        onClick={() => copyText(value).then((ok) => setResult(ok ? 'ok' : 'fail'))}
+        className={`inline-flex shrink-0 items-center justify-center rounded p-1 text-slate-500 transition hover:bg-ink-800 hover:text-slate-200 ${tone}`}
+        title={result === 'fail' ? 'Copy failed — select the key and copy it' : title ?? label}
+        aria-label={title ?? label}
+      >
+        <Icon name={result === 'ok' ? 'check' : 'copy'} className="h-3.5 w-3.5" />
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => copyText(value).then((ok) => setResult(ok ? 'ok' : 'fail'))}
+      className={`${className} ${align === 'left' ? 'justify-start' : ''} ${tone}`}
+      title={result === 'fail' ? 'Copy failed — select the key and copy it' : title ?? label}
+    >
+      <Icon name={result === 'ok' ? 'check' : 'copy'} />
+      {text}
+    </button>
+  );
+}
+
 /* ---------------------------------------------------------------- inputs */
 
 export function Field({

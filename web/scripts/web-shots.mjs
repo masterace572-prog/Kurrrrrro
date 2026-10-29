@@ -23,6 +23,9 @@ mkdirSync(OUT, { recursive: true });
 const desktop = { width: 1440, height: 900 };
 const mobile = { width: 390, height: 844 };
 
+// the page the generate form lands on, re-used for the phone capture
+let generatedUrl = '';
+
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: desktop, deviceScaleFactor: 2 });
 const page = await ctx.newPage();
@@ -116,6 +119,14 @@ async function audit(name) {
   console.log(`::warning title=overflow ${name}::${line}`);
 }
 
+/** Records how many copy buttons a screen actually renders. */
+async function countCopies(name) {
+  const n = await page.locator('button[aria-label^="Copy"]').count();
+  auditLog.push(`${name}: copy buttons=${n}`);
+  if (!n) console.log(`::warning title=copy::${name} rendered no copy buttons`);
+  return n;
+}
+
 async function login() {
   await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
   await shot('01-login');
@@ -146,6 +157,11 @@ try {
       gen.click().catch(() => {}),
     ]);
     await page.waitForTimeout(800);
+    // the redirect carries the keys that were just made, so this is the screen
+    // the user sees straight after generating
+    generatedUrl = page.url();
+    await shot('15-keys-generated');
+    await countCopies('15-keys-generated');
   }
 
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
@@ -153,6 +169,7 @@ try {
 
   await page.goto(`${BASE}/keys`, { waitUntil: 'domcontentloaded' });
   await shot('03-keys');
+  await countCopies('03-keys');
 
   await page.goto(`${BASE}/keys/1`, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await shot('05-key-detail');
@@ -190,12 +207,21 @@ try {
   // break at phone width, so they get their own captures
   await page.goto(`${BASE}/keys`, { waitUntil: 'domcontentloaded' });
   await shot('12-mobile-keys');
+  await countCopies('12-mobile-keys');
 
   await page.goto(`${BASE}/admin/manage-users`, { waitUntil: 'domcontentloaded' });
   await shot('13-mobile-users');
 
   await page.goto(`${BASE}/settings/server/releases`, { waitUntil: 'domcontentloaded' });
   await shot('14-mobile-releases');
+
+  // the freshly generated keys on a phone: this is where the copy buttons are
+  // the whole point, so it gets a phone capture of its own
+  if (generatedUrl) {
+    await page.goto(generatedUrl, { waitUntil: 'domcontentloaded' });
+    await shot('16-mobile-keys-generated');
+    await countCopies('16-mobile-keys-generated');
+  }
 } finally {
   writeFileSync(path.join(OUT, 'audit.txt'), auditLog.join('\n') + '\n');
   if (overflow.length) {

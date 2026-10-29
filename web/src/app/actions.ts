@@ -21,7 +21,9 @@ const fail = (message: string, field?: string, code = 'VALIDATION'): FormState =
 const okay = (message: string): FormState => ({ ok: true, message });
 
 function flash(path: string, message: string, type: 'success' | 'danger' | 'warning' = 'success'): never {
-  redirect(`${path}?m=${encodeURIComponent(message)}&t=${type}`);
+  // some destinations already carry a query (the freshly generated keys do)
+  const separator = path.includes('?') ? '&' : '?';
+  redirect(`${path}${separator}m=${encodeURIComponent(message)}&t=${type}`);
 }
 
 async function clientIp(): Promise<string> {
@@ -218,12 +220,19 @@ export async function generateKeysAction(_prev: FormState, formData: FormData): 
     revalidatePath('/dashboard');
 
     // Land on the key list so the result is impossible to miss (the toast alone
-    // used to appear at the top of a long form, off-screen on a phone).
+    // used to appear at the top of a long form, off-screen on a phone). The
+    // keys themselves ride along, so the list can show them with a copy button
+    // instead of making the user hunt for the ones that were just made.
     const preview =
       created.length > 2
         ? `${created[0]}, ${created[1]} +${created.length - 2} more`
         : created.join(', ');
-    flash('/keys', `${created.length} key(s) generated · ${total} credits — ${preview}`, 'success');
+    const list = created.slice(0, 100).map((k) => encodeURIComponent(k)).join(',');
+    flash(
+      `/keys?fresh=${list}`,
+      `${created.length} key(s) generated · ${total} credits — ${preview}`,
+      'success'
+    );
   });
 }
 
