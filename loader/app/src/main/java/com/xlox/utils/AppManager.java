@@ -226,11 +226,6 @@ public class AppManager {
 
     /* ----------------------------------------------------------------- helpers */
 
-    /** Where the game's OBBs live inside the sandbox (exposed for the checker). */
-    public File sandboxObbDir(String pkg) {
-        return getSandboxObbDir(pkg);
-    }
-
     /** The first readable OBB directory for this package, or null. */
     private File findSourceDir(String pkg) {
         for (String root : SOURCE_ROOTS) {
