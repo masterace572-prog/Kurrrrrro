@@ -34,6 +34,18 @@ deleted here. Details, plus the SQL injections and token weaknesses, are in
 | `docs/SECURITY-FINDINGS.md` | Full audit of what came in the zip |
 | `.github/workflows/build-loader.yml` | Builds the APK on GitHub Actions |
 
+## Live right now
+
+| | |
+|---|---|
+| **Panel** | **https://kuro-panel-psi.vercel.app** — login `admin` / `admin123` (change it) |
+| **APK** | https://github.com/masterace572-prog/Kurrrrrro/releases/latest |
+| Loader endpoint | `https://kuro-panel-psi.vercel.app/server` |
+| Health | `https://kuro-panel-psi.vercel.app/api/health` |
+
+Deployment records, verification results and the manual steps left for you:
+**[`docs/LIVE.md`](docs/LIVE.md)**.
+
 ## Quick start
 
 ```bash

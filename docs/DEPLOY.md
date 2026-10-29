@@ -1,5 +1,9 @@
 # Deploying the panel for ₹0
 
+> **Already done for this repo** — the live deployment is at
+> `https://kuro-panel-psi.vercel.app`. See [`LIVE.md`](LIVE.md) for the record.
+> This file is the reproducible procedure, e.g. for a second instance.
+
 The old panel was PHP + MySQL, which needs a traditional host (cPanel / VPS).
 The rewrite in `web/` is a Next.js app + Postgres, so it runs on the free tiers
 you already have connected: **Vercel** (app) + **Supabase** (database).
