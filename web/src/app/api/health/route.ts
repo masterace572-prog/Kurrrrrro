@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { q1, activeHost } from '@/lib/db';
+import { q, q1, activeHost } from '@/lib/db';
 import { getCurrentRelease } from '@/lib/release';
 
 export const dynamic = 'force-dynamic';
@@ -42,12 +42,23 @@ export async function GET() {
   }
 
   try {
-    const tables = await q1<{ n: number }>(
-      `SELECT count(*)::int AS n FROM information_schema.tables
-        WHERE table_schema = 'public'
-          AND table_name IN ('users','keys_code','referral_code','onoff','client_release')`
+    // The count used to be compared against 6 while only five names were
+    // listed, so /api/health answered 503 (ok:false) on a perfectly good
+    // database. The list and the number now come from the same array.
+    const expected = ['users', 'keys_code', 'referral_code', 'onoff', 'client_release', 'history'];
+    const found = await q<{ table_name: string }>(
+      `SELECT table_name FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = ANY($1::text[])`,
+      [expected]
     );
-    checks.schema = { ok: tables?.n === 6, detail: `${tables?.n ?? 0}/6 expected tables present` };
+    const missing = expected.filter((t) => !found.some((f) => f.table_name === t));
+    checks.schema = {
+      ok: missing.length === 0,
+      detail:
+        missing.length === 0
+          ? `${expected.length}/${expected.length} expected tables present`
+          : `${expected.length - missing.length}/${expected.length} present · missing ${missing.join(', ')}`,
+    };
   } catch (e) {
     checks.schema = { ok: false, detail: (e as Error).message };
   }
