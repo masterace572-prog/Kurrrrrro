@@ -66,7 +66,7 @@ export default async function SettingsPage() {
             ) : null}
             <a
               href="/logout"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-red-300 hover:bg-red-500/100/10"
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-red-300 hover:bg-red-500/10"
             >
               <Icon name="logout" className="h-4 w-4" /> Sign out
             </a>

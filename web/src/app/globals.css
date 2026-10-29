@@ -32,7 +32,7 @@
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-line bg-ink-900 p-5 shadow-card;
+    @apply rounded-2xl border border-line bg-ink-900 p-4 shadow-card sm:p-5;
   }
   .label {
     @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500;

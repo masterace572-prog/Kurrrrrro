@@ -167,7 +167,7 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
           <label
             htmlFor="libfile"
             className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-4 py-8 text-center transition ${
-              tooBig ? 'border-red-500/30 bg-red-500/10/5' : 'border-ink-600 bg-ink-850 hover:border-brand-500/50'
+              tooBig ? 'border-red-500/30 bg-red-500/10' : 'border-ink-600 bg-ink-850 hover:border-brand-500/50'
             }`}
           >
             <Icon name="upload" className="h-6 w-6 text-slate-500" />

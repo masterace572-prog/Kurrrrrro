@@ -62,7 +62,7 @@ export default async function EditKeyPage({ params }: { params: Promise<{ id: st
             ) : key.expired_date ? (
               <span className="badge bg-emerald-500/10 text-emerald-300">active</span>
             ) : (
-              <span className="badge bg-sky-50 text-sky-700">unused</span>
+              <span className="badge bg-sky-500/10 text-sky-300">unused</span>
             )}
           </div>
         }

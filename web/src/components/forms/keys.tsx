@@ -126,7 +126,7 @@ export function GenerateForm({ saldo }: { saldo: number }) {
       </div>
 
       <div
-        className={`rounded-xl border p-4 ${affordable ? 'border-line bg-ink-850' : 'border-red-500/30 bg-red-500/10/5'}`}
+        className={`rounded-xl border p-4 ${affordable ? 'border-line bg-ink-850' : 'border-red-500/30 bg-red-500/10'}`}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

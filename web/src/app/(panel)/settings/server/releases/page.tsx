@@ -103,14 +103,37 @@ export default async function ReleasesPage() {
         </div>
       </div>
 
-      <div className="card mt-4 min-w-0 overflow-x-auto p-0">
-        <div className="px-5 py-4">
+      <div className="card mt-4 min-w-0 p-0">
+        <div className="px-4 py-4 sm:px-5">
           <h2 className="font-semibold text-slate-200">Release history</h2>
-          <p className="text-xs text-slate-500">
-            “Use” rolls every client back to that build — they re-download it because the version differs from what they
-            have.
-          </p>
+          <p className="mt-0.5 text-xs text-slate-500">“Use” sends every client back to that build.</p>
         </div>
+
+        {/* phones: one block per release */}
+        <div className="space-y-2 px-4 pb-4 sm:hidden">
+          {releases.length === 0 ? (
+            <p className="py-6 text-center text-sm text-slate-500">No releases yet.</p>
+          ) : (
+            releases.map((r) => (
+              <div key={r.id} className="rounded-xl border border-line bg-ink-850 p-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-sm font-semibold text-slate-100">v{r.version}</span>
+                  {r.is_current ? <span className="badge bg-emerald-500/10 text-emerald-300">live</span> : null}
+                </div>
+                <p className="mt-1 truncate font-mono text-[11px] text-slate-500">{r.file_name}</p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {r.external_url ? 'external' : r.has_content ? humanSize(r.file_size) : 'no file'} ·{' '}
+                  {fmtLocal(r.created_at)}
+                </p>
+                <div className="mt-2.5">
+                  <ReleaseActions id={r.id} isCurrent={Boolean(r.is_current)} />
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto sm:block">
         <table className="table">
           <thead>
             <tr>
@@ -152,6 +175,7 @@ export default async function ReleasesPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </>
   );
