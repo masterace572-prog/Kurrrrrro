@@ -114,6 +114,30 @@ password `11111111` — **replace it**, the whole internet knows that one now).
 
 ## 4b. The game data (OBB) copy
 
+### Both storage permissions are required
+
+| permission | kind | what it unlocks |
+|---|---|---|
+| **Files** — `READ_EXTERNAL_STORAGE` + `WRITE_EXTERNAL_STORAGE` | runtime dialog | in legacy mode (this app targets Android 9 with `requestLegacyExternalStorage`), the ability to open `/sdcard/Android/obb/<game>` at all |
+| **All files access** — `MANAGE_EXTERNAL_STORAGE` | Settings toggle | shared storage: `Download`, the storage root, `Android/media` |
+
+Asking for only one of them is what made the copy report *"no game data"* on a
+phone that had it: `Download` and the storage root were readable (all files
+access), while `Android/obb/com.pubg.imobile` answered `null` from
+`listFiles()` because the runtime grant was missing. A folder that cannot be
+listed looks exactly like a folder that does not exist, which is why the message
+named the wrong folders.
+
+`StorageAccess` now asks for them one system screen at a time — the runtime
+dialog first, then the app's own **All files access** toggle
+(`ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION` with the package, not the
+generic list) — from the login screen and from the main screen. While either is
+missing the main button reads **Allow file access**, the GAME DATA card reads
+**Needs file access**, and granting both immediately continues into the copy.
+
+### Where it looks
+
+
 `AppManager` looks for `main.<version>.com.pubg.imobile.obb` in every place it
 can legitimately be, in this order:
 
@@ -124,15 +148,22 @@ can legitimately be, in this order:
 | `/storage/emulated/0/Android/media/com.pubg.imobile/` | where some installs end up |
 | `Download`, `Downloads`, the storage root | a file still sitting where it was downloaded |
 
+For each folder it first probes the exact name the game will look for
+(`main.<versionCode>.com.pubg.imobile.obb`, version code read from
+`PackageManager`) — a known path can be opened even when the folder itself
+cannot be listed, which is how the original loader's own check worked — and only
+then lists the folder for anything else.
+
 The first file found wins and its location is shown on the GAME DATA card
 (`Ready · Android/obb`). If it is not in the sandbox folder, the loader copies it
 there; if that copy cannot be written but the file is in the phone's own
 `Android/obb`, the copy is treated as done — the sandbox serves that exact path,
 which is why a hand-pasted obb starts the game.
 
-When nothing is found, the failure dialog now names the reason instead of
-"Copy failed. Try again.": the folders that were checked, the write path that
-failed, or the exception the sandbox threw. It also offers **Launch anyway** —
+When nothing is found, the failure dialog names every folder with its verdict
+(`Android/obb — not readable (needs Files access)`, `Download — no .obb`), so a
+permission problem can never again be reported as a missing file. It also names
+the write path that failed, or the exception the sandbox threw. It also offers **Launch anyway** —
 if the data is in place and only the copy is broken, the game still opens.
 
 Two older traps are still worth knowing:
