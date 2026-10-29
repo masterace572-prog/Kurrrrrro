@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Every endpoint the loader talks to is HTTPS. Cleartext stays disabled for the
-  whole app; the loopback exception only exists so a local debug proxy can still
-  be used while developing.
+  The panel is HTTPS, but the sandbox SDK's own licence call is not ours to
+  change and the original build ran with cleartext allowed. Blocking it made the
+  SDK fail in ways that looked like a storage problem, so cleartext is permitted
+  app-wide, exactly as in the build that worked.
 -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false">
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

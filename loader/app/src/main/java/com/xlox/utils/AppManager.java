@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
@@ -51,6 +52,21 @@ public class AppManager {
             "/storage/self/primary",
     };
 
+    /** What the filesystem says about the game's data, right now. */
+    public static final class Probe {
+        public final int state;          // one of ObbAccess.READY / NEEDS_PERMISSION / …
+        public final File sourceDir;     // readable folder holding OBBs, or null
+        public final boolean allFilesGranted;
+        public final String detail;      // one short line for the card
+
+        Probe(int state, File sourceDir, boolean allFilesGranted, String detail) {
+            this.state = state;
+            this.sourceDir = sourceDir;
+            this.allFilesGranted = allFilesGranted;
+            this.detail = detail;
+        }
+    }
+
     public interface CopyCallback {
         void onCopyCompleted(boolean success);
         default void onProgressUpdate(int progress) {}
@@ -72,7 +88,95 @@ public class AppManager {
     }
 
     /**
-     * True when every OBB the game has on shared storage is already in the
+     * Looks at the real files anywhere the game could keep its data and reports
+     * what is there. The "all files" flag is recorded but never trusted on its
+     * own: a folder that lists OBBs is proof enough to copy, whichever way the
+     * flag happens to answer on this ROM.
+     */
+    public Probe probeAccess(String pkg) {
+        boolean granted = allFilesGranted();
+        List<ObbAccess.Look> looks = new ArrayList<>();
+        List<File> seen = new ArrayList<>();
+
+        for (File dir : sourceCandidates(pkg)) {
+            boolean exists = dir.isDirectory();
+            String[] names = exists ? dir.list() : null;
+            boolean listable = names != null;
+            int count = listable ? ObbSelection.list(dir, pkg).size() : 0;
+            looks.add(new ObbAccess.Look(dir.getAbsolutePath(), exists, listable, count));
+            seen.add(dir);
+        }
+
+        int state = ObbAccess.decide(granted, looks);
+        File best = null;
+        ObbAccess.Look hit = ObbAccess.firstWithObbs(looks);
+        if (hit != null) {
+            for (File dir : seen) {
+                if (dir.getAbsolutePath().equals(hit.path)) {
+                    best = dir;
+                    break;
+                }
+            }
+        }
+        String detail = ObbAccess.describe(state, looks);
+        Log.i(TAG, "probe " + pkg + " -> state " + state + ", allFiles=" + granted + ", " + detail);
+        return new Probe(state, best, granted, detail);
+    }
+
+    /** True when Android thinks this app may read the whole shared storage. */
+    public boolean allFilesGranted() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                return Environment.isExternalStorageManager();
+            } catch (Throwable t) {
+                Log.w(TAG, "cannot read the all-files state: " + t.getMessage());
+                return false;
+            }
+        }
+        return hasPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
+    }
+
+    /**
+     * Every place an OBB folder could live: the primary volume under each of
+     * its aliases, plus whichever secondary volumes (SD cards) the platform
+     * reports. Derived from the app's own external dirs so no path is invented.
+     */
+    private List<File> sourceCandidates(String pkg) {
+        List<String> roots = new ArrayList<>();
+        for (String root : SOURCE_ROOTS) addRoot(roots, root);
+
+        try {
+            File primary = Environment.getExternalStorageDirectory();
+            if (primary != null) addRoot(roots, primary.getAbsolutePath());
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            File[] dirs = ctx.getExternalFilesDirs(null);
+            if (dirs != null) {
+                for (File dir : dirs) {
+                    if (dir == null) continue;
+                    String path = dir.getAbsolutePath();       // /storage/XXXX/Android/data/<pkg>/files
+                    int cut = path.indexOf("/Android/");
+                    if (cut > 0) addRoot(roots, path.substring(0, cut));
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        List<File> out = new ArrayList<>();
+        for (String root : roots) out.add(new File(root, "Android/obb/" + pkg));
+        return out;
+    }
+
+    private void addRoot(List<String> roots, String root) {
+        if (root == null || root.trim().isEmpty()) return;
+        String clean = root.endsWith("/") ? root.substring(0, root.length() - 1) : root;
+        if (!roots.contains(clean)) roots.add(clean);
+    }
+
+    /**
+     * True when every OBB the game has on shared storage is already the
      * sandbox at the same size. Falls back to "a main OBB exists" when the
      * source cannot be listed (no storage access yet).
      */
@@ -86,7 +190,7 @@ public class AppManager {
         }
         if (destDir == null || !destDir.isDirectory()) return false;
 
-        File sourceDir = findSourceDir(packageName);
+        File sourceDir = probeAccess(packageName).sourceDir;
         if (sourceDir != null) {
             List<File> obbs = ObbSelection.list(sourceDir, packageName);
             if (!obbs.isEmpty()) return ObbSelection.matches(obbs, destDir, packageName);
@@ -101,11 +205,23 @@ public class AppManager {
 
     private void copyObbFolder(String pkg, CopyCallback callback) {
         try {
-            File sourceDir = findSourceDir(pkg);
+            Probe probe = probeAccess(pkg);
+            File sourceDir = probe.sourceDir;
             if (sourceDir == null) {
-                fail(callback, "The game's OBB folder was not found.\n\n"
-                        + "Open " + pkg + " once so it finishes downloading its data, "
-                        + "and make sure All files access is allowed.");
+                switch (probe.state) {
+                    case ObbAccess.NEEDS_PERMISSION:
+                        fail(callback, "The game's folder cannot be read yet.\n\n"
+                                + "Allow All files access, then retry — the copy starts by itself.");
+                        break;
+                    case ObbAccess.EMPTY_FOLDER:
+                        fail(callback, "The game's data folder is empty.\n\n"
+                                + "Open the game once so it downloads its data, then retry.");
+                        break;
+                    default:
+                        fail(callback, "The game's data folder was not found.\n\n"
+                                + "Open the game once so it downloads its data, then retry.");
+                        break;
+                }
                 return;
             }
 
@@ -226,26 +342,6 @@ public class AppManager {
 
     /* ----------------------------------------------------------------- helpers */
 
-    /** The first readable OBB directory for this package, or null. */
-    private File findSourceDir(String pkg) {
-        for (String root : SOURCE_ROOTS) {
-            File dir = new File(root + "/Android/obb/" + pkg);
-            if (dir.isDirectory() && dir.canRead()) {
-                String[] names = dir.list();
-                if (names != null && names.length > 0) return dir;
-                return dir;                  // readable but empty: still the right place
-            }
-        }
-        // last resort: the API's own idea of external storage
-        try {
-            File fallback = new File(Environment.getExternalStorageDirectory(),
-                    "Android/obb/" + pkg);
-            if (fallback.isDirectory() && fallback.canRead()) return fallback;
-        } catch (Throwable ignored) {
-        }
-        return null;
-    }
-
     private File getSandboxObbDir(String pkg) {
         return new File(MetaStorageManager.obtainAppExternalStorageDir(pkg) + "/Android/obb", pkg);
     }
@@ -307,15 +403,5 @@ public class AppManager {
     public boolean hasPermission(String permission) {
         return ContextCompat.checkSelfPermission(ctx, permission)
                 == PackageManager.PERMISSION_GRANTED;
-    }
-
-    /** Convenience for logs: which roots look usable right now. */
-    public static List<String> readableRoots() {
-        List<String> out = new ArrayList<>();
-        for (String root : SOURCE_ROOTS) {
-            File f = new File(root);
-            if (f.isDirectory() && f.canRead()) out.add(root);
-        }
-        return out;
     }
 }

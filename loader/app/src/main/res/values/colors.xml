@@ -1,53 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-      Palette: light, low-contrast, one accent. No gradients and no saturated
+      Palette: dark, low contrast, one light action. No gradients, no saturated
       colour — hierarchy comes from spacing, weight and a hairline stroke.
     -->
-    <color name="bg">#F5F6F8</color>
-    <color name="surface">#FFFFFF</color>
-    <color name="surface_2">#F1F3F6</color>
-    <color name="stroke">#E3E6EB</color>
-    <color name="stroke_soft">#EDEFF3</color>
+    <color name="bg">#101215</color>
+    <color name="surface">#171A1E</color>
+    <color name="surface_2">#1F2328</color>
+    <color name="stroke">#2A2F36</color>
+    <color name="stroke_soft">#23272D</color>
 
-    <color name="text_primary">#14171C</color>
-    <color name="text_secondary">#5B6472</color>
-    <color name="text_tertiary">#8B94A1</color>
+    <color name="text_primary">#ECEFF3</color>
+    <color name="text_secondary">#A3ACB9</color>
+    <color name="text_tertiary">#77808D</color>
 
-    <!-- the one action colour: near-black ink, white label -->
-    <color name="action">#16191F</color>
-    <color name="action_pressed">#2B303A</color>
-    <color name="on_action">#FFFFFF</color>
+    <!-- the one action colour: off-white, dark label -->
+    <color name="action">#E9EDF2</color>
+    <color name="action_pressed">#D3D9E1</color>
+    <color name="action_disabled">#2B3038</color>
+    <color name="on_action">#12151A</color>
 
     <!-- quiet state colours -->
-    <color name="success">#2C7A57</color>
-    <color name="warning">#9A6B24</color>
-    <color name="danger">#B04A44</color>
-    <color name="accent">#44618C</color>
+    <color name="success">#57A37C</color>
+    <color name="warning">#C79A4E</color>
+    <color name="danger">#C25E57</color>
+    <color name="danger_soft">#2A1B1A</color>
+    <color name="danger_pressed">#35211F</color>
+    <color name="accent">#7C9BC9</color>
 
     <!-- legacy names still referenced from Java -->
-    <color name="colorPrimary">#16191F</color>
-    <color name="colorPrimaryDark">#16191F</color>
-    <color name="colorAccent">#16191F</color>
+    <color name="colorPrimary">#E9EDF2</color>
+    <color name="colorPrimaryDark">#101215</color>
+    <color name="colorAccent">#E9EDF2</color>
     <color name="black">#000000</color>
     <color name="white">#FFFFFF</color>
-    <color name="bg_main">#F5F6F8</color>
-    <color name="card_bg">#FFFFFF</color>
-    <color name="input_bg">#F1F3F6</color>
-    <color name="accent_gold">#9A6B24</color>
-    <color name="divider">#E3E6EB</color>
-    <color name="status_safe">#2C7A57</color>
-    <color name="status_ready">#2C7A57</color>
-    <color name="primaryText">#14171C</color>
-    <color name="hintText">#8B94A1</color>
-    <color name="darker_gray">#5B6472</color>
-    <color name="button">#16191F</color>
-    <color name="buttonPrimary">#16191F</color>
-    <color name="primary">#16191F</color>
-    <color name="primaryVariant">#FFFFFF</color>
-    <color name="secondary">#F1F3F6</color>
-    <color name="background">#F5F6F8</color>
-    <color name="background2">#FFFFFF</color>
-    <color name="error">#B04A44</color>
-    <color name="secondary2">#F1F3F6</color>
+    <color name="bg_main">#101215</color>
+    <color name="card_bg">#171A1E</color>
+    <color name="input_bg">#1F2328</color>
+    <color name="accent_gold">#C79A4E</color>
+    <color name="divider">#2A2F36</color>
+    <color name="status_safe">#57A37C</color>
+    <color name="status_ready">#57A37C</color>
+    <color name="primaryText">#ECEFF3</color>
+    <color name="hintText">#77808D</color>
+    <color name="darker_gray">#A3ACB9</color>
+    <color name="button">#E9EDF2</color>
+    <color name="buttonPrimary">#E9EDF2</color>
+    <color name="primary">#E9EDF2</color>
+    <color name="primaryVariant">#101215</color>
+    <color name="secondary">#1F2328</color>
+    <color name="background">#101215</color>
+    <color name="background2">#171A1E</color>
+    <color name="error">#C25E57</color>
+    <color name="secondary2">#1F2328</color>
 </resources>

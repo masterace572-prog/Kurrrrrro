@@ -36,14 +36,17 @@ jobs:
           java-version: '17'
 
       # The OBB copy decisions, exercised on a plain JVM before the APK is built.
-      - name: Check the OBB copy logic
+      - name: Check the OBB copy logic (selection + access)
         working-directory: .
         run: |
           mkdir -p /tmp/obb
           javac -d /tmp/obb \
             loader/app/src/main/java/com/xlox/utils/ObbSelection.java \
-            loader/app/src/test/ObbSelectionTest.java
+            loader/app/src/main/java/com/xlox/utils/ObbAccess.java \
+            loader/app/src/test/ObbSelectionTest.java \
+            loader/app/src/test/ObbAccessTest.java
           java -cp /tmp/obb ObbSelectionTest
+          java -cp /tmp/obb ObbAccessTest
 
       - name: Set up Android SDK + NDK
         uses: android-actions/setup-android@v3
@@ -170,14 +173,15 @@ jobs:
               offers LAUNCH, with progress, real error messages and a retry button.
             - Download is checksum-verified (sha256 from the panel) and rolled back on
               failure.
-            - Permissions: ~113 were being merged in from the sandbox `.aar`
-              (camera, mic, location, SMS, contacts, calendar, bluetooth, sensors…).
-              72 of them are now stripped at merge time, so the install screen no
-              longer asks for anything scary. What remains is the loader's own
-              access (internet, network state, all-files access for the OBB) plus
-              the sandbox SDK's internal plumbing (query packages, install into the
-              sandbox, overlay, foreground service). The full list is printed by the
-              audit step of every build.
+            - Permissions: back to the original loader set. Stripping what the
+              loader "did not seem to need" broke the sandbox boot, and with it
+              the OBB copy — the grant alone was not enough. The audit step still
+              prints every permission in the APK.
+            - OBB gate: the decision now comes from the filesystem (the folder is
+              probed and its .obb files are listed) instead of the "all files"
+              flag, which some ROMs report wrongly and which used to stop the
+              copy before it started.
+            - Dark theme as the default look.
             - targetSdk ${{ env.TARGET_SDK }} (Android 14 behaviour level).
 
             Install with `adb install xlox-loader.apk` or copy it to the phone.

@@ -47,6 +47,18 @@ def load_values():
                     node.get('parent'),
                     {i.get('name'): (i.text or '').strip() for i in node},
                 )
+    # res/color/*.xml are state lists; a preview has no state, so the last item
+    # (the default one) is what a settled screen shows.
+    cdir = os.path.join(RES, 'color')
+    if os.path.isdir(cdir):
+        for name in os.listdir(cdir):
+            root = ET.parse(os.path.join(cdir, name)).getroot()
+            items = list(root)
+            if items:
+                # the resource name is the file name, not an attribute
+                colors[os.path.splitext(name)[0]] = (
+                    items[-1].get('{http://schemas.android.com/apk/res/android}color') or '')
+
     resolved = {}
     for name in styles:
         merged, cur = {}, name
@@ -698,6 +710,17 @@ SCREENS = [
         },
     },
     {
+        'name': '04b-no-data', 'layout': 'activity_main.xml', 'height': 1240,
+        'attrs': {'obbCard': {'visibility': 'visible'},
+                  'obbRetryButton': {'visibility': 'visible'}},
+        'text': {
+            'keyValue': MASKED_KEY,
+            'obbTitle': 'Game data',
+            'obbStatusText': 'Open the game once so it downloads its data, then retry.  Android/obb/com.pubg.imobile is empty',
+            'obbRetryButton': 'Retry copy',
+        },
+    },
+    {
         'name': '04-file-access', 'layout': 'activity_main.xml', 'height': 1240,
         'attrs': {'obbCard': {'visibility': 'visible'},
                   'obbRetryButton': {'visibility': 'visible'}},
@@ -744,7 +767,7 @@ def main():
             if backdrop_name:
                 back = ET.parse(os.path.join(RES, 'layout', backdrop_name)).getroot()
                 draw(back, canvas, 0, 0, w, avail_h=h)
-            canvas.alpha_composite(Image.new('RGBA', (w, h), (12, 15, 20, 96)))
+            canvas.alpha_composite(Image.new('RGBA', (w, h), (4, 6, 8, 168)))
             dw = int(w * 0.78)
             dlg = ET.parse(os.path.join(RES, 'layout', layout)).getroot()
             apply_overrides(dlg, screen.get('attrs', {}), screen.get('text', {}))

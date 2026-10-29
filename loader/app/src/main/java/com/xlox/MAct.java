@@ -32,6 +32,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.xlox.utils.AppManager;
+import com.xlox.utils.ObbAccess;
 import com.xlox.utils.Prefs;
 import com.xlox.utils.Downtwo;
 
@@ -111,6 +112,7 @@ public class MAct extends AppCompatActivity {
     private static final int ACCESS_READY = 4;
     private static final int ACCESS_FAILED = 5;
     private static final int ACCESS_NO_GAME = 6;
+    private static final int ACCESS_NO_DATA = 7;
     private boolean accessAskedOnce = false;
     private boolean launchReady = false;
     private boolean obbWorking = false;
@@ -119,6 +121,8 @@ public class MAct extends AppCompatActivity {
     private String licenseReason = null;
 
     private boolean isObbCopied = false;
+    /** Why the last filesystem probe said the data was not usable. */
+    private String obbProblem = "";
     private boolean isGameRunning = false;
     private boolean isGameInstalled = false;
     private boolean isUpdateAvailable = false;
@@ -128,11 +132,10 @@ public class MAct extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // light theme: dark icons on the light status bar
+        // dark theme: light icons on the dark status bar
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             getWindow().setStatusBarColor(col(R.color.bg));
-            getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
         }
 
         setContentView(R.layout.activity_main);
@@ -190,13 +193,24 @@ public class MAct extends AppCompatActivity {
 
         if (obbRetryButton != null) {
             obbRetryButton.setOnClickListener(v -> {
+                // The button always re-checks the filesystem first: if the
+                // folder is readable the copy runs, otherwise the grant screen
+                // is opened. That way a wrong flag can never dead-end here.
                 obbWorking = false;
-                if (!hasStorageAccess()) {
-                    accessAskedOnce = true;
-                    requestStorageAccess();
-                    return;
-                }
-                ensureObbReady();
+                new Thread(() -> {
+                    AppManager.Probe probe = new AppManager(MAct.this).probeAccess(PKG_BGMI);
+                    runOnUiThread(() -> {
+                        if (probe.state == ObbAccess.READY) {
+                            startObbCopy();
+                        } else if (probe.state == ObbAccess.NEEDS_PERMISSION) {
+                            accessAskedOnce = true;
+                            requestStorageAccess();
+                        } else {
+                            obbProblem = probe.detail;
+                            onObbFailed(probe.detail);
+                        }
+                    });
+                }).start();
             });
         }
 
@@ -621,7 +635,6 @@ public class MAct extends AppCompatActivity {
         runOnUiThread(() -> obbState(ACCESS_CHECKING));
 
         new Thread(() -> {
-            boolean access = hasStorageAccess();
             boolean installed = isGameInstalled;
 
             if (!installed) {
@@ -632,15 +645,25 @@ public class MAct extends AppCompatActivity {
                 return;
             }
 
-            if (!access) {
+            // Ask the filesystem, not the permission flag: a folder that lists
+            // OBBs is copyable even on the ROMs that misreport the grant.
+            AppManager.Probe probe = new AppManager(this).probeAccess(PKG_BGMI);
+            Log.i("MAct", "OBB gate: all-files flag=" + hasStorageAccess()
+                    + ", filesystem state=" + probe.state + " (" + probe.detail + ")");
+
+            if (probe.state != ObbAccess.READY) {
+                boolean needsPermission = probe.state == ObbAccess.NEEDS_PERMISSION;
                 boolean askedBefore = accessAskedOnce;
-                accessAskedOnce = true;
+                if (needsPermission) accessAskedOnce = true;
+                obbProblem = probe.detail;
                 runOnUiThread(() -> {
                     obbWorking = false;
-                    obbState(askedBefore ? ACCESS_DENIED : ACCESS_REQUIRED);
+                    obbState(needsPermission
+                            ? (askedBefore ? ACCESS_DENIED : ACCESS_REQUIRED)
+                            : ACCESS_NO_DATA);
                     // first time only: take the user straight to the switch,
                     // which is what "grant the permission" actually means
-                    if (!askedBefore && !isFinishing()) requestStorageAccess();
+                    if (needsPermission && !askedBefore && !isFinishing()) requestStorageAccess();
                 });
                 return;
             }
@@ -727,11 +750,26 @@ public class MAct extends AppCompatActivity {
                 }
                 break;
 
+            case ACCESS_NO_DATA:
+                setCardText(R.string.game_data_title, withProblem(getString(R.string.game_data_missing)));
+                tintCardIcon(R.drawable.ic_folder, R.color.warning);
+                if (obbRetryButton != null) {
+                    obbRetryButton.setText(R.string.retry_copy);
+                    obbRetryButton.setVisibility(View.VISIBLE);
+                }
+                break;
+
             case ACCESS_NO_GAME:
                 setCardText(R.string.game_data_title, getString(R.string.not_installed));
                 tintCardIcon(R.drawable.ic_alert, R.color.warning);
                 break;
         }
+    }
+
+    /** The message plus, when there is one, the path that was actually checked. */
+    private String withProblem(String message) {
+        if (obbProblem == null || obbProblem.trim().isEmpty()) return message;
+        return message + "\n" + obbProblem;
     }
 
     private void setCardText(int titleRes, String status) {
@@ -814,7 +852,7 @@ public class MAct extends AppCompatActivity {
         setLaunchReady(false);
         String reason = message == null || message.trim().isEmpty() ? "Game data is not ready" : message;
         obbState(ACCESS_FAILED);
-        if (obbStatusText != null) obbStatusText.setText(reason);
+        if (obbStatusText != null) obbStatusText.setText(withProblem(reason));
         setLaunchButtonText(R.string.game_data_required);
         Log.w("MAct", "OBB not ready: " + reason);
     }
@@ -834,10 +872,10 @@ public class MAct extends AppCompatActivity {
     }
 
     /**
-     * Android 11+ can only read /Android/obb through the "all files" grant —
-     * a granted READ_EXTERNAL_STORAGE means nothing there and used to make this
-     * return true while the copy still failed. Android 10 and below use the
-     * classic storage pair instead.
+     * Whether this ROM reports the "all files" grant. Only used to word a
+     * message — the OBB gate itself goes by the filesystem (see
+     * AppManager.probeAccess), because this answer is not reliable on every
+     * device and a false negative used to stop the copy entirely.
      */
     private boolean hasStorageAccess() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

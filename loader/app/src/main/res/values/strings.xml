@@ -53,6 +53,7 @@
     <string name="copying_game_data">Copying game data</string>
     <string name="game_data_title">Game data</string>
     <string name="game_data_ready">Game data ready</string>
+    <string name="game_data_missing">Open the game once so it downloads its data, then retry.</string>
     <string name="access_required_title">All files access required</string>
     <string name="access_required_body">The game data lives in shared storage. Allow access and the copy starts by itself — it is a one-time step.</string>
     <string name="access_granted">File access granted</string>
