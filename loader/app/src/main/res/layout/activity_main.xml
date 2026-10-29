@@ -264,7 +264,20 @@
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
 
-            <!-- quiet ways past a copy that cannot read the phone's own folder -->
+            <!-- the copy, when the user wants it: never a gate in front of the game -->
+            <TextView
+                android:id="@+id/copyObbButton"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="6dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:text="Copy game data"
+                android:textColor="@color/accent"
+                android:textSize="15sp"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/pickObbButton"
                 android:layout_width="match_parent"
@@ -274,18 +287,6 @@
                 android:focusable="true"
                 android:gravity="center"
                 android:text="Choose an .obb file"
-                android:textColor="@color/accent"
-                android:textSize="15sp"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/launchAnywayButton"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:text="Launch game anyway"
                 android:textColor="@color/accent"
                 android:textSize="15sp"
                 android:visibility="gone" />
