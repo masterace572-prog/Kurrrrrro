@@ -191,6 +191,7 @@ public class LogAct extends AppCompatActivity {
     // ---------------------------------------------------------------- update gate
 
     private void runUpdateGate() {
+        setStatus("Checking for updates…");
         LibGate.check(this, new LibGate.Listener() {
             @Override
             public void onState(LibGate.State state, String detail) {

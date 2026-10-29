@@ -101,14 +101,21 @@ public class MAct extends AppCompatActivity {
         showDevice();
         refreshLibraryLine();
 
-        new Handler(getMainLooper()).postDelayed(this::refreshGameState, 120);
-
         if (checkUpdateButton != null) {
             checkUpdateButton.setOnClickListener(v -> checkForUpdate());
         }
         actionButton.setOnClickListener(v -> onPrimaryAction());
 
         fadeIn();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // coming back to the launcher means the game is no longer in front, and
+        // the game data may have been copied from somewhere else in the meantime
+        gameRunning = false;
+        refreshGameState();
     }
 
     private void bindViews() {
