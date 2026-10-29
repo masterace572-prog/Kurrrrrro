@@ -50,7 +50,14 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon -PxloxTargetSdk=34
 
+      # The capture itself is best effort: on this runner the emulator has never
+      # come up, so this step fails every run and painted the repository red on
+      # commits that are fine. Whatever it does capture is still published, and
+      # the publish step below says plainly when nothing was captured. A failing
+      # *build* still fails the job above it — this only stops a dead emulator
+      # from being reported as a broken app.
       - name: Boot the emulator and capture the screens
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         env:
           # throwaway key used only to photograph the main screen; delete it from
