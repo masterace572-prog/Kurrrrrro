@@ -49,7 +49,8 @@ Android loader  ───────►  https://<app>.vercel.app/server
 
 ### Option A — GitHub (recommended)
 
-1. Push this repo to GitHub (already done).
+1. Push this repo to GitHub (already done). The panel lives in `web/`, so the
+   branch Vercel deploys **must contain that directory** — see the note below.
 2. On <https://vercel.com/new> → **Import** the repository.
 3. Set **Root Directory** to `web`.
 4. Framework preset: **Next.js** (auto-detected). Build command and output stay default.
@@ -66,6 +67,20 @@ Android loader  ───────►  https://<app>.vercel.app/server
 
 6. **Deploy**. Your panel is live at `https://<your-app>.vercel.app` and the
    loader endpoint is `https://<your-app>.vercel.app/server`.
+
+### If production builds fail with `Root Directory "web" does not exist`
+
+That error (`NOW_SANDBOX_WORKER_ROOTDIR_NOT_EXIST`) means the deployed branch has
+no `web/` folder — Vercel looks for it inside the commit it just cloned. It
+happened while `main` held only `Version.txt` and the sources, so every
+production build failed while the previews of the feature branch built fine.
+
+The fix is to keep `web/` on the production branch. `main` now carries the whole
+project (this was merged in), so:
+
+* editing `Version.txt` on `main` deploys as usual;
+* a branch that only has the loader and a `Version.txt` cannot be the production
+  branch.
 
 ### Option B — from the CLI
 
