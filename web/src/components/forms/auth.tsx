@@ -133,7 +133,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-5">
       <div className="relative w-full max-w-md">
         <div className="mb-7 text-center">
-          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-brand-500 text-2xl font-black text-white">
+          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-brand-500 text-2xl font-black text-ink-950">
             K
           </div>
           <h1 className="text-2xl font-black tracking-[0.25em] text-slate-100">{title}</h1>

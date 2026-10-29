@@ -90,32 +90,28 @@ export async function checkLicense(input: {
     ]);
   }
 
-  // ---- feature / branding payload ---------------------------------------
-  const [modname, ftext, feature] = await Promise.all([
+  // ---- what the client displays ------------------------------------------
+  // Only the things a client can actually show: the mod name, the status line
+  // under it, the credit line, and the expiry it counts down to.
+  const [modname, ftext] = await Promise.all([
     q1<{ modname: string }>(`SELECT modname FROM modname WHERE id = 1`),
     q1<{ _status: string; _ftext: string }>(`SELECT _status, _ftext FROM _ftext WHERE id = 1`),
-    q1<Record<string, string>>(`SELECT * FROM feature WHERE id = 1`),
   ]);
 
   const { real, token } = buildToken(game, userKey, serial);
   const exp = fmtUtc(expiry);
+  const name = modname?.modname ?? 'VIP MOD';
 
   return {
     status: true,
     data: {
       real,
       token,
-      modname: modname?.modname ?? 'VIP MOD',
+      // The same value under the names different clients look for.
+      modname: name,
+      servername: name,
       mod_status: ftext?._status ?? 'Safe',
       credit: ftext?._ftext ?? '',
-      ESP: feature?.esp ?? 'on',
-      Item: feature?.item ?? 'on',
-      AIM: feature?.aim ?? 'on',
-      SilentAim: feature?.silentaim ?? 'on',
-      BulletTrack: feature?.bullettrack ?? 'on',
-      Floating: feature?.floating ?? 'on',
-      Memory: feature?.memory ?? 'on',
-      Setting: feature?.setting ?? 'on',
       expired_date: exp,
       EXP: exp,
       exdate: exp,

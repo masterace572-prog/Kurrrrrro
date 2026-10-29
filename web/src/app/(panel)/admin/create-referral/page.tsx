@@ -58,14 +58,14 @@ export default async function ReferralPage() {
                 </tr>
               ) : (
                 codes.map((c) => (
-                  <tr key={c.id_reff} className="transition hover:bg-white/[0.02]">
-                    <td className="pl-5 font-mono text-xs font-semibold tracking-widest text-emerald-700">{c.Referral}</td>
+                  <tr key={c.id_reff} className="transition hover:bg-white/[0.03]">
+                    <td className="pl-5 font-mono text-xs font-semibold tracking-widest text-emerald-300">{c.Referral}</td>
                     <td>
                       <span className="badge bg-ink-800 text-slate-300">{levelName(Number(c.level))}</span>
                     </td>
                     <td className="text-slate-300">{c.set_saldo}</td>
                     <td className="whitespace-nowrap text-xs text-slate-400">{fmtLocal(c.acc_expiration)}</td>
-                    <td className={c.used_by ? 'text-slate-400' : 'text-emerald-700'}>
+                    <td className={c.used_by ? 'text-slate-400' : 'text-emerald-300'}>
                       {c.used_by || 'unused'}
                     </td>
                     <td className="pr-5 text-xs text-slate-400">{c.created_by}</td>

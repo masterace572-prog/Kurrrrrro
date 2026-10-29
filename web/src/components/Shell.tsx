@@ -29,6 +29,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { href: '/settings/server', label: 'Server control', icon: 'server', levels: [1, 2] },
       { href: '/settings/server/releases', label: 'Lib updates', icon: 'upload', levels: [1, 2] },
       { href: '/settings', label: 'Account', icon: 'user', levels: [1, 2, 3] },
+      { href: '/docs/api', label: 'API docs', icon: 'book', levels: [1, 2, 3] },
     ],
   },
 ];
@@ -68,7 +69,7 @@ export default function Shell({
   const nav = (
     <nav className="flex h-full flex-col">
       <div className="flex items-center gap-2.5 px-2 pb-6">
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-500 text-lg font-black text-white">
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-500 text-lg font-black text-ink-950">
           K
         </span>
         <div className="min-w-0">
@@ -116,6 +117,7 @@ export default function Shell({
                     <Link
                       key={item.href}
                       href={item.href}
+                      target={item.href.startsWith('/docs') ? '_blank' : undefined}
                       aria-current={active ? 'page' : undefined}
                       className={`group flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition ${
                         active
@@ -137,7 +139,7 @@ export default function Shell({
 
       <a
         href="/logout"
-        className="mt-4 flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm text-slate-400 transition hover:bg-red-50 hover:text-red-700"
+        className="mt-4 flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm text-slate-400 transition hover:bg-red-500/100/10 hover:text-red-300"
       >
         <Icon name="logout" className="h-4 w-4" />
         Sign out
@@ -174,7 +176,7 @@ export default function Shell({
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-line bg-ink-900 p-4 lg:block">
           {nav}
         </aside>
-        <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-5 pb-10 sm:px-6 sm:py-7 lg:px-8">{children}</main>
       </div>
     </div>
   );

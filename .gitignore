@@ -33,3 +33,7 @@ loader/local.properties
 
 # keep the extracted legacy source complete
 !legacy-php/.env
+
+# python caches
+tools/__pycache__/
+__pycache__/

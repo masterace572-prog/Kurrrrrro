@@ -35,8 +35,8 @@ export default async function DashboardPage() {
 
   const cards = [
     { label: 'Total keys', value: stats?.total ?? '0', href: '/keys', tone: 'text-slate-100' },
-    { label: 'Active', value: stats?.active ?? '0', href: '/keys', tone: 'text-emerald-700' },
-    { label: 'Expired', value: stats?.expired ?? '0', href: '/keys', tone: 'text-red-700' },
+    { label: 'Active', value: stats?.active ?? '0', href: '/keys', tone: 'text-emerald-300' },
+    { label: 'Expired', value: stats?.expired ?? '0', href: '/keys', tone: 'text-red-300' },
     { label: staff ? 'Accounts' : 'Devices', value: staff ? (stats?.resellers ?? '0') : (stats?.devices ?? '0'), href: staff ? '/admin/manage-users' : '/keys', tone: 'text-sky-700' },
   ];
 
@@ -95,7 +95,7 @@ export default async function DashboardPage() {
                   keys.map((k) => {
                     const expired = k.expired_date ? new Date(k.expired_date) < new Date() : false;
                     return (
-                      <tr key={k.id_keys} className="transition hover:bg-white/[0.02]">
+                      <tr key={k.id_keys} className="transition hover:bg-white/[0.03]">
                         <td className="pl-5">
                           <Link href={`/keys/${k.id_keys}`} className="font-mono text-xs text-slate-200 hover:text-brand-400">
                             {k.user_key}
@@ -112,9 +112,9 @@ export default async function DashboardPage() {
                           {!k.status ? (
                             <span className="badge bg-ink-800 text-slate-300">blocked</span>
                           ) : expired ? (
-                            <span className="badge bg-red-50 text-red-700">expired</span>
+                            <span className="badge bg-red-500/10 text-red-300">expired</span>
                           ) : k.expired_date ? (
-                            <span className="badge bg-emerald-50 text-emerald-700">active</span>
+                            <span className="badge bg-emerald-500/10 text-emerald-300">active</span>
                           ) : (
                             <span className="badge bg-sky-50 text-sky-700">unused</span>
                           )}
@@ -154,7 +154,7 @@ export default async function DashboardPage() {
             <h2 className="font-semibold text-slate-200">Loader endpoint</h2>
           </div>
           <p className="mt-1 text-sm text-slate-400">POST, form-urlencoded: game, user_key, serial</p>
-          <pre className="mt-3 overflow-x-auto rounded-lg bg-ink-850 p-3 text-xs text-emerald-700">
+          <pre className="mt-3 overflow-x-auto rounded-lg bg-ink-850 p-3 text-xs text-emerald-300">
             {`${process.env.PUBLIC_BASE_URL || 'https://<your-vercel-app>'}/server`}
           </pre>
           <div className="mt-3 flex flex-wrap gap-2">

@@ -126,7 +126,7 @@ export function GenerateForm({ saldo }: { saldo: number }) {
       </div>
 
       <div
-        className={`rounded-xl border p-4 ${affordable ? 'border-line bg-ink-850' : 'border-red-200 bg-red-50/5'}`}
+        className={`rounded-xl border p-4 ${affordable ? 'border-line bg-ink-850' : 'border-red-500/30 bg-red-500/10/5'}`}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -140,7 +140,7 @@ export function GenerateForm({ saldo }: { saldo: number }) {
           </div>
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-wider text-slate-500">Your balance</p>
-            <p className={`text-lg font-bold ${affordable ? 'text-emerald-700' : 'text-red-700'}`}>
+            <p className={`text-lg font-bold ${affordable ? 'text-emerald-300' : 'text-red-300'}`}>
               {saldo.toLocaleString()}
             </p>
             <p className="text-xs text-slate-500">
@@ -149,7 +149,7 @@ export function GenerateForm({ saldo }: { saldo: number }) {
           </div>
         </div>
         {!affordable ? (
-          <p className="mt-3 flex items-center gap-1.5 text-xs text-red-700">
+          <p className="mt-3 flex items-center gap-1.5 text-xs text-red-300">
             <Icon name="warning" className="h-3.5 w-3.5" /> Not enough balance — ask your admin to top up.
           </p>
         ) : null}
@@ -235,7 +235,7 @@ export function BulkDeleteButton({ scope, label }: { scope: 'expired' | 'unused'
       >
         <Icon name="trash" className="h-3.5 w-3.5" /> {label}
       </SubmitButton>
-      {state && !state.ok ? <span className="ml-2 text-xs text-red-700">{state.message}</span> : null}
+      {state && !state.ok ? <span className="ml-2 text-xs text-red-300">{state.message}</span> : null}
     </form>
   );
 }

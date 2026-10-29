@@ -75,7 +75,7 @@ export default async function ManageUsersPage() {
               users.map((u) => {
                 const expired = u.expiration_date ? new Date(u.expiration_date) < new Date() : false;
                 return (
-                  <tr key={u.id_users} className="transition hover:bg-white/[0.02]">
+                  <tr key={u.id_users} className="transition hover:bg-white/[0.03]">
                     <td className="pl-5">
                       <p className="font-semibold text-slate-100">{u.username}</p>
                       <p className="truncate text-xs text-slate-500">{u.email || u.fullname || '—'}</p>
@@ -86,14 +86,14 @@ export default async function ManageUsersPage() {
                     <td className="text-slate-300">{Number(u.saldo).toLocaleString()}</td>
                     <td className="text-slate-400">{u.keys}</td>
                     <td className="text-xs text-slate-400">{u.uplink ?? '—'}</td>
-                    <td className={`whitespace-nowrap text-xs ${expired ? 'text-red-700' : 'text-slate-400'}`}>
+                    <td className={`whitespace-nowrap text-xs ${expired ? 'text-red-300' : 'text-slate-400'}`}>
                       {fmtLocal(u.expiration_date)}
                     </td>
                     <td>
                       {u.status ? (
-                        <span className="badge bg-emerald-50 text-emerald-700">active</span>
+                        <span className="badge bg-emerald-500/10 text-emerald-300">active</span>
                       ) : (
-                        <span className="badge bg-red-50 text-red-700">disabled</span>
+                        <span className="badge bg-red-500/10 text-red-300">disabled</span>
                       )}
                     </td>
                     <td className="pr-5 text-right">

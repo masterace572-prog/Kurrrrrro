@@ -70,6 +70,10 @@ try {
   await page.goto(`${BASE}/admin/manage-users`, { waitUntil: 'domcontentloaded' });
   await shot('07-users');
 
+  // public: the client API reference
+  await page.goto(`${BASE}/docs/api`, { waitUntil: 'domcontentloaded' });
+  await shot('07b-api-docs');
+
   // phone width, where the sidebar becomes a drawer
   await page.setViewportSize(mobile);
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
@@ -81,6 +85,13 @@ try {
     await page.waitForTimeout(500);
     await shot('09-mobile-nav');
   }
+
+  // the docs page as a phone shows it — it has to be readable without panning
+  await page.goto(`${BASE}/docs/api`, { waitUntil: 'domcontentloaded' });
+  await shot('10-mobile-api-docs');
+
+  await page.goto(`${BASE}/settings/server`, { waitUntil: 'domcontentloaded' });
+  await shot('11-mobile-server');
 } finally {
   await ctx.close();
   await browser.close();

@@ -58,9 +58,9 @@ export default async function EditKeyPage({ params }: { params: Promise<{ id: st
             {!key.status ? (
               <span className="badge bg-ink-800 text-slate-300">blocked</span>
             ) : expired ? (
-              <span className="badge bg-red-50 text-red-700">expired</span>
+              <span className="badge bg-red-500/10 text-red-300">expired</span>
             ) : key.expired_date ? (
-              <span className="badge bg-emerald-50 text-emerald-700">active</span>
+              <span className="badge bg-emerald-500/10 text-emerald-300">active</span>
             ) : (
               <span className="badge bg-sky-50 text-sky-700">unused</span>
             )}
@@ -127,7 +127,7 @@ export default async function EditKeyPage({ params }: { params: Promise<{ id: st
 
           <div className="card">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Test this key</p>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-ink-850 p-3 text-[11px] leading-relaxed text-emerald-700">{`curl -X POST \\
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-ink-850 p-3 text-[11px] leading-relaxed text-emerald-300">{`curl -X POST \\
   ${process.env.PUBLIC_BASE_URL || 'https://your-app.vercel.app'}/server \\
   -d "game=PUBG&user_key=${key.user_key}&serial=TESTDEVICE"`}</pre>
           </div>

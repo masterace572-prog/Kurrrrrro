@@ -46,10 +46,10 @@ export default function Toast() {
 
   const tone =
     type === 'danger'
-      ? 'border-red-200 bg-white text-red-800'
+      ? 'border-red-500/30 bg-white text-red-300'
       : type === 'warning'
-        ? 'border-amber-200 bg-white text-amber-800'
-        : 'border-emerald-200 bg-white text-emerald-800';
+        ? 'border-amber-500/30 bg-white text-amber-300'
+        : 'border-emerald-500/30 bg-white text-emerald-300';
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex justify-center px-4">

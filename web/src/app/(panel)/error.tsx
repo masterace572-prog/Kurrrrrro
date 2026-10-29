@@ -16,7 +16,7 @@ export default function PanelError({ error, reset }: { error: Error & { digest?:
     <div className="mx-auto max-w-xl py-10">
       <div className="card space-y-4">
         <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-red-700">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-red-500/10 text-red-300">
             <Icon name="alert" className="h-5 w-5" />
           </span>
           <div>

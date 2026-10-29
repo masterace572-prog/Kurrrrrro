@@ -18,7 +18,7 @@ export function Icon({ name, className = 'h-4 w-4' }: { name: IconName; classNam
 export type IconName =
   | 'grid' | 'key' | 'plus' | 'cog' | 'users' | 'gift' | 'user' | 'logout' | 'menu' | 'close'
   | 'check' | 'alert' | 'info' | 'warning' | 'copy' | 'download' | 'upload' | 'refresh' | 'trash'
-  | 'shield' | 'server' | 'search' | 'chevron';
+  | 'shield' | 'server' | 'search' | 'chevron' | 'book' | 'phone';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   grid: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>,
@@ -44,15 +44,17 @@ const PATHS: Record<IconName, React.ReactNode> = {
   server: <><rect x="2" y="3" width="20" height="7" rx="2" /><rect x="2" y="14" width="20" height="7" rx="2" /><path d="M6 6.5v.01M6 17.5v.01" /></>,
   search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
   chevron: <path d="m9 18 6-6-6-6" />,
+  book: <><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v18H6.5A2.5 2.5 0 0 0 4 22.5Z" /><path d="M4 19.5V4.5M9 7h7M9 11h7" /></>,
+  phone: <><rect x="6" y="2" width="12" height="20" rx="2.5" /><path d="M11 18.5h2" /></>,
 };
 
 /* ------------------------------------------------------------------ alert */
 
 const TONES = {
-  success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-  danger: 'border-red-200 bg-red-50 text-red-800',
-  warning: 'border-amber-200 bg-amber-50 text-amber-800',
-  info: 'border-sky-200 bg-sky-50 text-sky-800',
+  success: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+  danger: 'border-red-500/30 bg-red-500/10 text-red-300',
+  warning: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
+  info: 'border-sky-500/30 bg-sky-500/10 text-sky-300',
 } as const;
 
 export function Alert({
@@ -184,7 +186,7 @@ export function Field({
       {children}
       {hint && !error ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
       {error ? (
-        <p className="mt-1 flex items-center gap-1 text-xs text-red-700">
+        <p className="mt-1 flex items-center gap-1 text-xs text-red-300">
           <Icon name="alert" className="h-3 w-3" />
           {error}
         </p>

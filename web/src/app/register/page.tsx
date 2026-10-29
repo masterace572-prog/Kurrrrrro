@@ -15,7 +15,7 @@ export default async function RegisterPage({
   const { m, t } = await searchParams;
 
   return (
-    <AuthShell title="CREATE ACCOUNT" subtitle="A referral code from an admin is required">
+    <AuthShell title="CREATE ACCOUNT" subtitle="Needs a referral code">
       {m ? (
         <Alert tone={t === 'danger' ? 'danger' : 'success'} className="mb-4">
           {m}

@@ -45,7 +45,7 @@ export async function GET() {
     const tables = await q1<{ n: number }>(
       `SELECT count(*)::int AS n FROM information_schema.tables
         WHERE table_schema = 'public'
-          AND table_name IN ('users','keys_code','referral_code','onoff','feature','client_release')`
+          AND table_name IN ('users','keys_code','referral_code','onoff','client_release')`
     );
     checks.schema = { ok: tables?.n === 6, detail: `${tables?.n ?? 0}/6 expected tables present` };
   } catch (e) {

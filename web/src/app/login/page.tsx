@@ -15,7 +15,7 @@ export default async function LoginPage({
   const { m, t, reason } = await searchParams;
 
   return (
-    <AuthShell title="KURO PANEL" subtitle="Sign in to manage keys, resellers and updates">
+    <AuthShell title="KURO PANEL" subtitle="Keys, resellers, client updates">
       {m ? (
         <Alert
           tone={t === 'danger' ? 'danger' : t === 'warning' ? 'warning' : 'success'}

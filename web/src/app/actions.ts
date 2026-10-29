@@ -414,14 +414,6 @@ export async function saveServerAction(_prev: FormState, formData: FormData): Pr
       const statusText = str(formData, 'mod_status').slice(0, 100);
       if (!credit) return fail('Credit text cannot be empty.', 'credit');
       await q(`UPDATE _ftext SET _ftext = $1, _status = $2 WHERE id = 1`, [credit, statusText || 'Safe']);
-    } else if (section === 'feature') {
-      if (me.level !== 1) return fail('Only the owner can toggle features.', undefined, 'FORBIDDEN');
-      const cols = ['esp', 'item', 'silentaim', 'aim', 'bullettrack', 'memory', 'floating', 'setting'];
-      const values = cols.map((c) => (bool(formData, c) ? 'on' : 'off'));
-      await q(
-        `UPDATE feature SET esp=$1, item=$2, silentaim=$3, aim=$4, bullettrack=$5, memory=$6, floating=$7, setting=$8 WHERE id=1`,
-        values
-      );
     } else {
       return fail('Unknown section.', undefined, 'VALIDATION');
     }

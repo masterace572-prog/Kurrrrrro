@@ -49,7 +49,7 @@ export function MaintenanceForm({ status, message }: { status: string; message: 
 
       <div
         className={`flex items-center justify-between rounded-xl border px-4 py-3 transition ${
-          on ? 'border-red-200 bg-red-50' : 'border-line bg-ink-850'
+          on ? 'border-red-500/30 bg-red-500/10' : 'border-line bg-ink-850'
         }`}
       >
         <div>
@@ -119,72 +119,6 @@ export function CreditForm({ status, credit }: { status: string; credit: string 
   );
 }
 
-/* --------------------------------------------------------------- features */
-
-const FEATURES = [
-  ['esp', 'ESP'],
-  ['item', 'Item'],
-  ['silentaim', 'Silent Aim'],
-  ['aim', 'AIM'],
-  ['bullettrack', 'Bullet Track'],
-  ['memory', 'Memory'],
-  ['floating', 'Floating'],
-  ['setting', 'Setting'],
-] as const;
-
-export function FeatureForm({
-  feature,
-  canEdit,
-}: {
-  feature: Record<string, string>;
-  canEdit: boolean;
-}) {
-  const [state, action] = useActionState<FormState, FormData>(saveServerAction, null);
-  const [on, setOn] = useState<Record<string, boolean>>(
-    Object.fromEntries(FEATURES.map(([k]) => [k, (feature?.[k] ?? 'on') === 'on']))
-  );
-  const enabled = Object.values(on).filter(Boolean).length;
-
-  return (
-    <form action={action} className="card space-y-4">
-      <input type="hidden" name="section" value="feature" />
-      <SectionTitle
-        icon="grid"
-        title="Feature flags"
-        hint={`Sent to clients as ESP / Item / SilentAim / AIM / BulletTrack / Memory / Floating / Setting. ${enabled}/8 enabled.`}
-      />
-      <FormMessage state={state} />
-      {!canEdit ? <Alert tone="info">Only the owner can change feature flags.</Alert> : null}
-
-      <div className="grid grid-cols-2 gap-2">
-        {FEATURES.map(([key, label]) => (
-          <label
-            key={key}
-            className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition ${
-              on[key] ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-line bg-ink-850 text-slate-400'
-            } ${canEdit ? '' : 'pointer-events-none opacity-60'}`}
-          >
-            {label}
-            <input
-              type="checkbox"
-              name={key}
-              value="on"
-              defaultChecked={on[key]}
-              onChange={(e) => setOn((s) => ({ ...s, [key]: e.target.checked }))}
-              className="h-4 w-4 rounded border-ink-600 bg-ink-900 accent-emerald-500"
-              disabled={!canEdit}
-            />
-          </label>
-        ))}
-      </div>
-
-      <SubmitButton className="btn-primary" pendingLabel="Saving…" disabled={!canEdit}>
-        Save features
-      </SubmitButton>
-    </form>
-  );
-}
-
 /* -------------------------------------------------------------- lib upload */
 
 export function LibUploadForm({ maxMb }: { maxMb: number }) {
@@ -220,7 +154,7 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
             type="button"
             onClick={() => setMode(m)}
             className={`flex-1 rounded-md px-3 py-1.5 font-semibold transition ${
-              mode === m ? 'bg-brand-500 text-white' : 'text-slate-400 hover:text-slate-200'
+              mode === m ? 'bg-brand-500 text-ink-950' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             {m === 'file' ? `Upload zip (≤ ${maxMb} MB)` : 'External URL'}
@@ -233,7 +167,7 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
           <label
             htmlFor="libfile"
             className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-4 py-8 text-center transition ${
-              tooBig ? 'border-red-200 bg-red-50/5' : 'border-ink-600 bg-ink-850 hover:border-brand-500/50'
+              tooBig ? 'border-red-500/30 bg-red-500/10/5' : 'border-ink-600 bg-ink-850 hover:border-brand-500/50'
             }`}
           >
             <Icon name="upload" className="h-6 w-6 text-slate-500" />
@@ -257,12 +191,12 @@ export function LibUploadForm({ maxMb }: { maxMb: number }) {
             />
           </label>
           {tooBig ? (
-            <p className="mt-2 text-xs text-red-700">
+            <p className="mt-2 text-xs text-red-300">
               That file is {(size / 1024 / 1024).toFixed(1)} MB — over the {maxMb} MB serverless limit. Use the external
               URL tab and host it on GitHub Releases instead.
             </p>
           ) : null}
-          {err('libfile') ? <p className="mt-2 text-xs text-red-700">{err('libfile')}</p> : null}
+          {err('libfile') ? <p className="mt-2 text-xs text-red-300">{err('libfile')}</p> : null}
         </div>
       ) : (
         <Field label="Download URL" name="external_url" error={err('external_url')} hint="GitHub Releases, Supabase Storage, any direct file link.">
@@ -343,10 +277,10 @@ export function ReleaseActions({ id, isCurrent }: { id: number; isCurrent: boole
           </form>
         </>
       ) : (
-        <span className="text-[11px] uppercase tracking-wider text-emerald-700">live</span>
+        <span className="text-[11px] uppercase tracking-wider text-emerald-300">live</span>
       )}
       {message && !(stateSet?.ok ?? stateDel?.ok) ? (
-        <span className="text-xs text-red-700">{message}</span>
+        <span className="text-xs text-red-300">{message}</span>
       ) : null}
     </div>
   );
@@ -360,7 +294,7 @@ export function CopyField({ value, label }: { value: string; label: string }) {
     <div>
       <p className="label">{label}</p>
       <div className="flex items-center gap-2 rounded-lg border border-ink-600 bg-ink-850 px-3 py-2">
-        <code className="min-w-0 flex-1 truncate text-xs text-emerald-700">{value}</code>
+        <code className="min-w-0 flex-1 truncate text-xs text-emerald-300">{value}</code>
         <button
           type="button"
           className="rounded p-1 text-slate-400 transition hover:text-slate-100"
