@@ -35,6 +35,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # The OBB copy decisions, exercised on a plain JVM before the APK is built.
+      - name: Check the OBB copy logic
+        working-directory: .
+        run: |
+          mkdir -p /tmp/obb
+          javac -d /tmp/obb \
+            loader/app/src/main/java/com/xlox/utils/ObbSelection.java \
+            loader/app/src/test/ObbSelectionTest.java
+          java -cp /tmp/obb ObbSelectionTest
+
       - name: Set up Android SDK + NDK
         uses: android-actions/setup-android@v3
         with:

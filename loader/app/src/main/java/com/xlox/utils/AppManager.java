@@ -17,10 +17,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.regex.Pattern;
 
 import net_62v.external.MetaPackageManager;
 import net_62v.external.MetaStorageManager;
@@ -91,27 +88,13 @@ public class AppManager {
 
         File sourceDir = findSourceDir(packageName);
         if (sourceDir != null) {
-            List<File> obbs = listObbFiles(sourceDir, packageName);
-            if (!obbs.isEmpty()) {
-                for (File obb : obbs) {
-                    File copy = new File(destDir, obb.getName());
-                    if (!copy.isFile() || copy.length() != obb.length()) return false;
-                }
-                return true;
-            }
+            List<File> obbs = ObbSelection.list(sourceDir, packageName);
+            if (!obbs.isEmpty()) return ObbSelection.matches(obbs, destDir, packageName);
             return false;                    // source readable, but nothing to copy
         }
 
         // cannot see the source: trust a complete-looking destination
-        Pattern main = mainPattern(packageName);
-        File[] local = destDir.listFiles();
-        if (local == null) return false;
-        for (File file : local) {
-            if (file.isFile() && main.matcher(file.getName()).matches() && file.length() > 0) {
-                return true;
-            }
-        }
-        return false;
+        return ObbSelection.hasMainObb(destDir, packageName);
     }
 
     /* ------------------------------------------------------------------ the copy */
@@ -147,16 +130,10 @@ public class AppManager {
                 return;
             }
 
-            List<File> obbs = listObbFiles(sourceDir, pkg);
-            List<File> pending = new ArrayList<>();
+            List<File> obbs = ObbSelection.list(sourceDir, pkg);
+            List<File> pending = ObbSelection.pending(obbs, destDir, pkg);
             long needed = 0L;
-            for (File obb : obbs) {
-                if (obb.length() <= 0) continue;
-                File already = new File(destDir, obb.getName());
-                if (already.isFile() && already.length() == obb.length()) continue;
-                pending.add(obb);
-                needed += obb.length();
-            }
+            for (File obb : pending) needed += obb.length();
 
             if (obbs.isEmpty()) {
                 fail(callback, "The game's OBB file is missing.\n\n"
@@ -249,6 +226,11 @@ public class AppManager {
 
     /* ----------------------------------------------------------------- helpers */
 
+    /** Where the game's OBBs live inside the sandbox (exposed for the checker). */
+    public File sandboxObbDir(String pkg) {
+        return getSandboxObbDir(pkg);
+    }
+
     /** The first readable OBB directory for this package, or null. */
     private File findSourceDir(String pkg) {
         for (String root : SOURCE_ROOTS) {
@@ -271,26 +253,6 @@ public class AppManager {
 
     private File getSandboxObbDir(String pkg) {
         return new File(MetaStorageManager.obtainAppExternalStorageDir(pkg) + "/Android/obb", pkg);
-    }
-
-    private Pattern mainPattern(String pkg) {
-        return Pattern.compile("^main\\.[0-9]+\\." + Pattern.quote(pkg) + "\\.obb$");
-    }
-
-    /** main and patch OBBs, smallest first so the bar moves early. */
-    private List<File> listObbFiles(File dir, String pkg) {
-        List<File> out = new ArrayList<>();
-        File[] files = dir.listFiles();
-        if (files == null) return out;
-        Pattern both = Pattern.compile(
-                "^(main|patch)\\.[0-9]+\\." + Pattern.quote(pkg) + "\\.obb$");
-        for (File file : files) {
-            if (file.isFile() && both.matcher(file.getName()).matches() && file.length() > 0) {
-                out.add(file);
-            }
-        }
-        Collections.sort(out, (a, b) -> Long.compare(a.length(), b.length()));
-        return out;
     }
 
     private long freeBytes(File dir) {
@@ -352,10 +314,10 @@ public class AppManager {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
-    /** Convenience for tests / logs: which roots look usable right now. */
+    /** Convenience for logs: which roots look usable right now. */
     public static List<String> readableRoots() {
         List<String> out = new ArrayList<>();
-        for (String root : Arrays.asList(SOURCE_ROOTS)) {
+        for (String root : SOURCE_ROOTS) {
             File f = new File(root);
             if (f.isDirectory() && f.canRead()) out.add(root);
         }
