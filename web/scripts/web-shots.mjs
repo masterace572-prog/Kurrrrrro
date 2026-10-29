@@ -42,6 +42,7 @@ async function shot(name) {
  * so the culprit is named instead of guessed at.
  */
 const overflow = [];
+const auditLog = [];
 async function audit(name) {
   const report = await page.evaluate(() => {
     const vw = document.documentElement.clientWidth;
@@ -58,8 +59,24 @@ async function audit(name) {
         text: (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40),
       });
     }
-    return { vw, scrollWidth: document.documentElement.scrollWidth, bad: bad.slice(0, 10) };
+    const widest = [...document.querySelectorAll('body *')]
+      .map((el) => {
+        const r = el.getBoundingClientRect();
+        const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).slice(0, 4).join('.') : '';
+        return { sel: `${el.tagName.toLowerCase()}${cls ? `.${cls}` : ''}`, width: Math.round(r.width), right: Math.round(r.right) };
+      })
+      .filter((x) => x.width > 0)
+      .sort((a, b) => b.right - a.right)
+      .slice(0, 3);
+    return { vw, scrollWidth: document.documentElement.scrollWidth, bad: bad.slice(0, 10), widest };
   });
+  // always record the numbers: an empty overflow list has to be
+  // distinguishable from an audit that never ran
+  auditLog.push(
+    `${name}: viewport=${report.vw} scrollWidth=${report.scrollWidth} ` +
+      `widest=${report.widest.map((w) => `${w.sel}(w=${w.width},right=${w.right})`).join(', ')}`
+  );
+
   if (!report.bad.length && report.scrollWidth <= report.vw + 1) return;
   const line =
     `${name}: viewport=${report.vw} scrollWidth=${report.scrollWidth} ` +
@@ -138,9 +155,12 @@ try {
   await page.goto(`${BASE}/settings/server`, { waitUntil: 'domcontentloaded' });
   await shot('11-mobile-server');
 } finally {
+  writeFileSync(path.join(OUT, 'audit.txt'), auditLog.join('\n') + '\n');
   if (overflow.length) {
     writeFileSync(path.join(OUT, 'overflow.txt'), overflow.join('\n') + '\n');
-    console.log(`${overflow.length} screen(s) overflow horizontally — see overflow.txt`);
+    console.log(`${overflow.length} screen(s) overflow horizontally — see overflow.txt / audit.txt`);
+  } else {
+    console.log('no horizontal overflow detected — see audit.txt for the measurements');
   }
   await ctx.close();
   await browser.close();
