@@ -51,7 +51,6 @@
         <activity
             android:name=".SplashAct"
             android:configChanges="screenSize|orientation"
-            android:exported="true"
             android:theme="@style/AppTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -62,8 +61,8 @@
         <activity
             android:name=".LogAct"
             android:configChanges="screenSize|orientation"
-            android:exported="false"
-            android:theme="@style/AppTheme" />
+            android:theme="@style/AppTheme"
+            android:exported="false" />
 
         <activity 
             android:name=".MAct"

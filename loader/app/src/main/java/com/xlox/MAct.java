@@ -1,37 +1,41 @@
 package com.xlox;
 
+import android.Manifest;
+import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
-import android.content.ClipData;
-import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
-import android.database.Cursor;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.LinearInterpolator;
+import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.AppCompatButton;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.xlox.utils.AppManager;
-import com.xlox.utils.LibGate;
-import com.xlox.utils.LibLoader;
-import com.xlox.utils.StorageAccess;
+import com.xlox.utils.Downtwo;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
 import java.io.File;
-import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -40,23 +44,10 @@ import java.util.concurrent.TimeUnit;
 
 import net_62v.external.MetaActivationManager;
 import net_62v.external.MetaActivityManager;
+import net_62v.external.MetaStorageManager;
 
-/**
- * The one screen that matters: what the key allows, whether the game data is in
- * place, and a single button that does the next right thing.
- *
- * There is deliberately one action at a time — copy the game data, then launch —
- * so the button never asks the user to choose between two states that are only
- * valid in sequence.
- */
 @Obfuscate
 public class MAct extends AppCompatActivity {
-
-    private static final String PKG_BGMI = "com.pubg.imobile";
-    private static final String PREF_NAME = "com.xlox.download";
-    private static final String PREF_VERSION_KEY = "version";
-    /** The system file picker, for an .obb the app is not allowed to reach. */
-    private static final int REQUEST_PICK_OBB = 4202;
 
     private static native String exdate();
 
@@ -66,571 +57,211 @@ public class MAct extends AppCompatActivity {
         } catch (UnsatisfiedLinkError ignored) {}
     }
 
-    private AppCompatButton actionButton;
-    private TextView pickObbButton;
-    private TextView copyObbButton;
-    private TextView diagnoseButton;
-    private TextView actionHint;
-    private TextView obbState;
-    private TextView percentText;
-    private ProgressBar obbProgress;
+    private static final String PKG_BGMI = "com.pubg.imobile";
+    private static final String PREF_NAME = "com.xlox.download";
+    private static final String PREF_VERSION_KEY = "version";
 
+    // UI
+    private ProgressBar downloadProgressBar;
+    private TextView downloadStatusText;
+    private TextView percentText;
+    private View downloadBox;
+    private View restartButton;
+    private ProgressBar loadingCursor;
+    private TextView appVersionText;
+    
+    private TextView startText;
+    private ImageView actionIcon;
+    private View startBgmi;
+    private View startFB;
+    private View fbCard;
+    private View statusToggle;
+    private View statusLoader;
+    private ImageView statusErrorIcon;
+    private TextView statusToggleText;
+
+    private TextView gameName;
+    private TextView packageName;
+    private TextView gameStatus;
     private TextView subscriptionStatus;
     private TextView expiryValue;
     private TextView timeRemaining;
     private TextView deviceValue;
     private TextView deviceStatus;
-    private TextView appVersionText;
-    private TextView checkUpdateButton;
 
-    private View statusToggle;
-    private View statusLoader;
-    private TextView statusToggleText;
+    private TextView daysValue;
+    private TextView hoursValue;
+    private TextView minutesValue;
+    private TextView secondsValue;
 
-    private boolean gameInstalled = false;
-    private boolean gameRunning = false;
-    private boolean obbCopied = false;
-    /** Where the game data was found ("Android/obb", "sandbox", …) for the card. */
-    private String obbWhere = "";
-    /** Why the last copy did not work, shown verbatim instead of "try again". */
-    private String obbProblem = "";
-    private boolean busy = false;
-    /** True while the user is granting storage: finish what they tapped once it lands. */
-    private boolean wantsCopyAfterGrant = false;
-    /** The game's version code on the phone — the number its obb name carries. */
-    private long gameVersionCode = -1L;
-    /** Whether the sandbox has its own copy of the game (the container). */
-    private boolean innerInstalled = false;
+    private View obbButton;
+    private boolean isObbCopied = false;
+    private boolean isGameRunning = false;
+    private boolean isGameInstalled = false;
+    private boolean isUpdateAvailable = false;
 
     @SuppressLint("SetTextI18n")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        getWindow().setStatusBarColor(Color.parseColor("#000000"));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getWindow().setStatusBarColor(Color.BLACK);
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            );
+        }
+
         setContentView(R.layout.activity_main);
 
-        bindViews();
-        askForStorage();
-        startKeyCountdown();
-        showDevice();
-        refreshLibraryLine();
+        checkPermissions();
 
-        if (checkUpdateButton != null) {
-            checkUpdateButton.setOnClickListener(v -> checkForUpdate());
-        }
-        actionButton.setOnClickListener(v -> onPrimaryAction());
-
-        fadeIn();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // coming back to the launcher means the game is no longer in front, and
-        // the game data may have been copied from somewhere else in the meantime
-        gameRunning = false;
-        refreshGameState();
-    }
-
-    private void bindViews() {
-        actionButton = findViewById(R.id.startBgmi);
-        actionHint = findViewById(R.id.actionHint);
-        pickObbButton = findViewById(R.id.pickObbButton);
-        copyObbButton = findViewById(R.id.copyObbButton);
-        if (pickObbButton != null) pickObbButton.setOnClickListener(v -> pickObbFile());
-        diagnoseButton = findViewById(R.id.diagnoseButton);
-        if (diagnoseButton != null) diagnoseButton.setOnClickListener(v -> showDiagnostics());
-        if (copyObbButton != null) copyObbButton.setOnClickListener(v -> copyGameData());
-        obbState = findViewById(R.id.obbState);
+        // Download UI
+        downloadBox = findViewById(R.id.downloadBox);
+        downloadProgressBar = findViewById(R.id.downloadProgressBar);
+        downloadStatusText = findViewById(R.id.downloadStatusText);
         percentText = findViewById(R.id.percentText);
-        obbProgress = findViewById(R.id.downloadProgressBar);
+        restartButton = findViewById(R.id.restartButton);
+        loadingCursor = findViewById(R.id.loadingCursor);
+        appVersionText = findViewById(R.id.appVersionText);
 
+        // Action UI
+        startText = findViewById(R.id.startText);
+        actionIcon = findViewById(R.id.actionIcon);
+        startBgmi = findViewById(R.id.startBgmi);
+        startFB = findViewById(R.id.startFB);
+        fbCard = findViewById(R.id.fbCard);
+
+        gameName = findViewById(R.id.gameName);
+        packageName = findViewById(R.id.packageName);
+        gameStatus = findViewById(R.id.gameStatus);
+        statusToggle = findViewById(R.id.statusToggle);
+        statusLoader = findViewById(R.id.statusLoader);
+        statusErrorIcon = findViewById(R.id.statusErrorIcon);
+        statusToggleText = findViewById(R.id.statusToggleText);
         subscriptionStatus = findViewById(R.id.subscriptionStatus);
         expiryValue = findViewById(R.id.expiryValue);
         timeRemaining = findViewById(R.id.timeRemaining);
         deviceValue = findViewById(R.id.deviceValue);
         deviceStatus = findViewById(R.id.deviceStatus);
-        appVersionText = findViewById(R.id.appVersionText);
-        checkUpdateButton = findViewById(R.id.checkUpdateButton);
+        if (deviceValue != null) {
+            deviceValue.setText(Build.MODEL == null ? "Android device" : Build.MODEL);
+        }
 
-        statusToggle = findViewById(R.id.statusToggle);
-        statusLoader = findViewById(R.id.statusLoader);
-        statusToggleText = findViewById(R.id.statusToggleText);
+        obbButton = findViewById(R.id.obbButton);
+
+        daysValue = findViewById(R.id.daysBox).findViewById(R.id.timeValue);
+        hoursValue = findViewById(R.id.hoursBox).findViewById(R.id.timeValue);
+        minutesValue = findViewById(R.id.minutesBox).findViewById(R.id.timeValue);
+        secondsValue = findViewById(R.id.secondsBox).findViewById(R.id.timeValue);
+        ((TextView) findViewById(R.id.daysBox).findViewById(R.id.timeLabel)).setText("DAYS");
+        ((TextView) findViewById(R.id.hoursBox).findViewById(R.id.timeLabel)).setText("HOURS");
+        ((TextView) findViewById(R.id.minutesBox).findViewById(R.id.timeLabel)).setText("MINUTES");
+        ((TextView) findViewById(R.id.secondsBox).findViewById(R.id.timeLabel)).setText("SECONDS");
+        setKeyTimeUnavailable();
+        startKeyCountdown();
+        startPageAnimation();
+
+        checkObbApplied();
+        updateGameStatus();
+        updateVersionDisplay();
+
+        if (obbButton != null) {
+            obbButton.setOnClickListener(v -> openExternalUrl("https://www.facebook.com/"));
+        }
+
+        if (restartButton != null) {
+            restartButton.setOnClickListener(v -> restartApp());
+        }
+
+        if (startBgmi != null) {
+            startBgmi.setOnClickListener(v -> {
+                if (isUpdateAvailable) {
+                    startDownload();
+                } else if (!isGameInstalled) {
+                    installGame();
+                } else if (isGameRunning) {
+                    stopGame();
+                } else {
+                    handleLaunchFlow();
+                }
+            });
+        }
+
+        if (startFB != null) {
+            startFB.setOnClickListener(v -> openExternalUrl("https://twitter.com/"));
+        }
+
+        // Start Workflow: Update Check -> Download Files (if needed)
+        startWorkflow();
     }
 
-    private void fadeIn() {
-        View[] views = {findViewById(R.id.header), findViewById(R.id.mainCard),
-                findViewById(R.id.obbCard), actionButton, actionHint};
+    private void startPageAnimation() {
+        View logoGlow = findViewById(R.id.logoGlow);
+        View mainLogo = findViewById(R.id.mainLogo);
+        if (mainLogo != null) {
+            ObjectAnimator logoFloat = ObjectAnimator.ofFloat(mainLogo, View.TRANSLATION_Y, 0f, -6f, 0f);
+            logoFloat.setDuration(2600);
+            logoFloat.setRepeatCount(ObjectAnimator.INFINITE);
+            logoFloat.start();
+        }
+        if (logoGlow != null) {
+            ObjectAnimator glowRotation = ObjectAnimator.ofFloat(logoGlow, View.ROTATION, 0f, 360f);
+            glowRotation.setDuration(7000);
+            glowRotation.setInterpolator(new LinearInterpolator());
+            glowRotation.setRepeatCount(ObjectAnimator.INFINITE);
+            glowRotation.start();
+            logoGlow.animate().translationY(-5f).setDuration(1300)
+                    .withEndAction(() -> logoGlow.animate().translationY(0f).setDuration(1300).start()).start();
+        }
+        View[] views = {findViewById(R.id.brandHeader), findViewById(R.id.mainCard),
+                findViewById(R.id.statusToggle), findViewById(R.id.keyTimeRow), findViewById(R.id.fbCard)};
         long delay = 0;
         for (View view : views) {
-            if (view == null) continue;
-            view.setAlpha(0f);
-            view.setTranslationY(14f);
-            view.animate().alpha(1f).translationY(0f).setDuration(320).setStartDelay(delay).start();
-            delay += 60;
+            if (view != null) {
+                view.setAlpha(0f);
+                view.setTranslationY(34f);
+                view.animate().alpha(1f).translationY(0f).setDuration(560).setStartDelay(delay).start();
+                delay += 110;
+            }
         }
     }
 
-    // ------------------------------------------------------------------ state
-
-    private void onPrimaryAction() {
-        if (busy) return;
-        if (!StorageAccess.ready(this)) {
-            // The copy cannot see Android/obb without these, and "copy failed"
-            // for a permission problem is the least useful message there is.
-            wantsCopyAfterGrant = true;
-            openPermissionPrompts();
-            return;
-        }
-        if (!gameInstalled) {
-            openStore();
-        } else if (gameRunning) {
-            stopGame();
-        } else {
-            // The game is installed: start it. Whether this app could read the
-            // game's own data folder is not the gate it used to be — the game
-            // reads its data itself, and the copy is offered underneath.
-            launchGame();
-        }
+    private void setKeyTimeUnavailable() {
+        if (daysValue != null) daysValue.setText("--");
+        if (hoursValue != null) hoursValue.setText("--");
+        if (minutesValue != null) minutesValue.setText("--");
+        if (secondsValue != null) secondsValue.setText("--");
     }
-
-    private void refreshGameState() {
-        new Thread(() -> {
-            boolean installed;
-            long code = -1L;
-            try {
-                PackageInfo info = getPackageManager().getPackageInfo(PKG_BGMI, 0);
-                installed = info != null;
-                if (installed) {
-                    code = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
-                            ? info.getLongVersionCode() : (long) info.versionCode;
-                }
-            } catch (Exception e) {
-                installed = false;
-            }
-
-            boolean inner;
-            try {
-                inner = net_62v.external.MetaPackageManager.isInnerAppInstalled(PKG_BGMI);
-            } catch (Exception e) {
-                inner = false;
-            }
-
-            boolean copied = false;
-            String where = "";
-            String problem = "";
-            if (installed) {
-                try {
-                    AppManager.ObbStatus status = new AppManager(this).obbStatus(PKG_BGMI);
-                    copied = status.ready;
-                    where = status.where;
-                    problem = status.detail;
-                } catch (Exception e) {
-                    // The folder could not be inspected at all. Asking for a
-                    // fresh copy every launch because of that is what this
-                    // used to do; trust the record of the copy instead.
-                    Log.w("MAct", "could not look for the game data", e);
-                    copied = AppManager.hasObbReceipt(this, PKG_BGMI);
-                    problem = e.getMessage() == null ? e.toString() : e.getMessage();
-                }
-            }
-
-            final boolean fInstalled = installed;
-            final long fCode = code;
-            final boolean fInner = inner;
-            final boolean fCopied = copied;
-            final String fWhere = where;
-            final String fProblem = problem;
-            runOnUiThread(() -> {
-                gameInstalled = fInstalled;
-                gameVersionCode = fCode;
-                innerInstalled = fInner;
-                obbCopied = fCopied;
-                obbWhere = fWhere;
-                obbProblem = fCopied ? "" : fProblem;
-                renderState();
-            });
-        }).start();
-    }
-
-    /** The single button, the hint under it and the game-data card. */
-    private void renderState() {
-        if (deviceStatus != null) {
-            deviceStatus.setText(gameInstalled ? "Ready" : "No game");
-            deviceStatus.setTextColor(Color.parseColor(gameInstalled ? "#30D158" : "#FF9F0A"));
-        }
-
-        // The copy is an offer, not a gate: it is only shown while the data is
-        // not in place, and the game can always be started without it.
-        boolean offerCopy = gameInstalled && !obbCopied;
-        if (copyObbButton != null) {
-            copyObbButton.setVisibility(offerCopy ? View.VISIBLE : View.GONE);
-        }
-        if (pickObbButton != null) {
-            pickObbButton.setVisibility(offerCopy ? View.VISIBLE : View.GONE);
-        }
-
-        if (obbState != null) {
-            boolean permitted = StorageAccess.ready(this);
-            String text = obbCopied
-                    ? (obbWhere.isEmpty() ? "Ready" : "Ready · " + obbWhere)
-                    : permitted ? "Not copied yet" : "Needs file access";
-            obbState.setText(text);
-            obbState.setTextColor(Color.parseColor(
-                    obbCopied ? "#30D158" : permitted ? "#F2F3F5" : "#FF9F0A"));
-        }
-
-        if (busy) {
-            setAction("Working…", "Please keep the app open.");
-            actionButton.setAlpha(0.5f);
-            actionButton.setEnabled(false);
-            return;
-        }
-
-        actionButton.setEnabled(true);
-        actionButton.setAlpha(1f);
-
-        // Both permissions are needed before the game data can even be looked
-        // at: Files (runtime) for Android/obb, All files for the rest.
-        if (!StorageAccess.ready(this)) {
-            setAction("Allow file access", StorageAccess.describe(this)
-                    + " · needed to copy the game data");
-            actionButton.setBackgroundResource(R.drawable.bg_primary_action);
-            actionButton.setTextColor(Color.parseColor("#FFFFFF"));
-            return;
-        }
-
-        if (!gameInstalled) {
-            setAction("Install game", "BGMI is not installed on this device.");
-        } else if (gameRunning) {
-            setAction("Stop game", "The game is running.");
-            actionButton.setBackgroundResource(R.drawable.bg_ref_stop_button);
-            actionButton.setTextColor(Color.parseColor("#FF453A"));
-            return;
-        } else if (!obbCopied) {
-            // the data could not be verified, which is not a reason to refuse
-            String hint;
-            if (!innerInstalled) {
-                // The sandbox only maps the game's data folder once it has the
-                // game: launching first is what makes the copy have somewhere
-                // to go. Saying so beats another silent half-copy.
-                hint = "Launch the game once — the sandbox creates its data folder then.";
-            } else if (obbProblem.isEmpty()) {
-                hint = "Starts the game. Copy the data below if the game asks for it.";
-            } else {
-                hint = shorten(obbProblem, 130);
-            }
-            setAction("Launch game", hint);
-        } else {
-            setAction("Launch game", "Game data ready. Nothing else to do.");
-        }
-        actionButton.setBackgroundResource(R.drawable.bg_primary_action);
-        actionButton.setTextColor(Color.parseColor("#FFFFFF"));
-    }
-
-    private String shorten(String text, int max) {
-        String clean = text.replace('\n', ' ').trim();
-        return clean.length() <= max ? clean : clean.substring(0, max - 1) + "…";
-    }
-
-    private void setAction(String label, String hint) {
-        if (actionButton != null) actionButton.setText(label);
-        if (actionHint != null) actionHint.setText(hint);
-    }
-
-    // ------------------------------------------------------------- game data
-
-    private void copyGameData() {
-        busy = true;
-        obbProblem = "";
-        setBusyCopy(true);
-        showStatus("Copying game data…", false);
-
-        new AppManager(this).copyObbFolderAsync(PKG_BGMI, new AppManager.CopyCallback() {
-            @Override
-            public void onCopyCompleted(boolean success) {
-                runOnUiThread(() -> {
-                    busy = false;
-                    setBusyCopy(false);
-                    if (success) {
-                        obbCopied = true;
-                        showStatus("Game data ready. You can launch.", false);
-                        hideStatusSoon(2500);
-                        refreshGameState();   // fill in where it was found
-                    }
-                    // the reason is delivered in onCopyFailed, which follows
-                    renderState();
-                });
-            }
-
-            @Override
-            public void onProgressUpdate(int progress) {
-                runOnUiThread(() -> {
-                    if (percentText != null) percentText.setText(progress + "%");
-                    if (obbProgress != null) obbProgress.setProgress(progress);
-                    if (obbState != null) obbState.setText("Copying…");
-                });
-            }
-
-            @Override
-            public void onCopyFailed(String reason) {
-                runOnUiThread(() -> explainCopyFailure(reason));
-            }
-        }, false);
-    }
-
-    /**
-     * Says what actually went wrong. "Copy failed. Try again." was true for every
-     * possible cause — no permission, no file, a folder that cannot be written —
-     * so it never told anybody what to change.
-     */
-    private void explainCopyFailure(String reason) {
-        String text = reason == null || reason.trim().isEmpty()
-                ? "The game data could not be copied."
-                : reason.trim();
-        obbProblem = text;
-        if (obbState != null) obbState.setText("Copy failed");
-        showStatus(text, true);
-
-        if (isFinishing()) return;
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Game data not found")
-                .setMessage(text + "\n\nIf the game data is already on the phone "
-                        + "(Android/obb) the game can be started as it is. To copy it, "
-                        + "choose the .obb file with the picker.")
-                .setPositiveButton("Launch game", (dialog, which) -> launchGame())
-                .setNeutralButton("Choose .obb", (dialog, which) -> pickObbFile())
-                .setNegativeButton("Close", null)
-                .show();
-    }
-
-    private void setBusyCopy(boolean working) {
-        if (obbProgress != null) {
-            obbProgress.setVisibility(working ? View.VISIBLE : View.GONE);
-            obbProgress.setIndeterminate(false);
-            obbProgress.setProgress(0);
-        }
-        if (percentText != null) {
-            percentText.setText(working ? "0%" : "");
-        }
-    }
-
-    private void aborted(String message) {
-        busy = false;
-        setBusyCopy(false);
-        showStatus(message, true);
-        renderState();
-    }
-
-    // ---------------------------------------------------------- launch / stop
-
-    private void launchGame() {
-        // Neither of these is a reason to refuse to start the game. The sandbox
-        // reports an inactive container until something has been launched, and
-        // older builds launch perfectly well after that check said no.
-        try {
-            if (!MetaActivationManager.getActivationStatus()) {
-                Log.w("MAct", "sandbox reports no activation, launching anyway");
-            }
-        } catch (Exception e) {
-            Log.w("MAct", "activation check failed", e);
-        }
-
-        boolean started = false;
-        String why = "";
-
-        // 1. the documented way: build the splash intent and start it
-        try {
-            Intent intent = MetaActivityManager.obtainSplashLaunchIntent(PKG_BGMI, this);
-            if (intent != null) {
-                startActivity(intent);
-                started = true;
-            } else {
-                why = "the sandbox returned no launch intent";
-            }
-        } catch (Exception e) {
-            Log.e("MAct", "splash launch failed", e);
-            why = e.getMessage() == null ? e.toString() : e.getMessage();
-        }
-
-        // 2. the direct call, for the builds where the intent comes back empty
-        if (!started) {
-            try {
-                MetaActivityManager.launchAppWithSplash(this, PKG_BGMI);
-                started = true;
-                why = "";
-            } catch (Exception e) {
-                Log.e("MAct", "direct launch failed", e);
-                if (why.isEmpty()) why = e.getMessage() == null ? e.toString() : e.getMessage();
-            }
-        }
-
-        // 3. last resort: a plain intent. If the sandbox maps the package this
-        //    still lands in the game, and if it does not, nothing else would.
-        if (!started) {
-            try {
-                Intent fallback = getPackageManager().getLaunchIntentForPackage(PKG_BGMI);
-                if (fallback != null) {
-                    startActivity(fallback);
-                    started = true;
-                    why = "";
-                }
-            } catch (Exception e) {
-                Log.e("MAct", "plain launch failed", e);
-            }
-        }
-
-        showStatus("Starting the game…", false);
-
-        // The launch goes through the sandbox and can take a few seconds, so ask
-        // whether it actually started instead of trusting the call: reporting
-        // "not available" while the game is opening is worse than saying nothing.
-        final String failure = why;
-        new Handler(getMainLooper()).postDelayed(() -> {
-            boolean running = false;
-            try {
-                running = MetaActivityManager.isAppRunning(PKG_BGMI);
-            } catch (Exception e) {
-                Log.w("MAct", "could not ask whether the game is running", e);
-            }
-
-            if (running) {
-                gameRunning = true;
-                showStatus("Game started.", false);
-                hideStatusSoon(2500);
-            } else if (failure.isEmpty()) {
-                // A launch was handed to the sandbox and it reports nothing yet.
-                // It is on its way up, so say nothing rather than something
-                // wrong: "game not available" over a game that is opening is
-                // the worst of both answers.
-                hideStatusSoon(1200);
-            } else {
-                showStatus("Launch failed: " + failure, true);
-            }
-            renderState();
-        }, 3500);
-    }
-
-    private void stopGame() {
-        try {
-            MetaActivityManager.killAppByPkg(PKG_BGMI);
-            gameRunning = false;
-            showStatus("Game stopped.", false);
-            renderState();
-        } catch (Exception e) {
-            Toast.makeText(this, "Could not stop the game", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void openStore() {
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + PKG_BGMI)));
-        } catch (Exception e) {
-            startActivity(new Intent(Intent.ACTION_VIEW,
-                    Uri.parse("https://play.google.com/store/apps/details?id=" + PKG_BGMI)));
-        }
-    }
-
-    // ---------------------------------------------------------------- library
-
-    private void checkForUpdate() {
-        if (checkUpdateButton != null) checkUpdateButton.setText("…");
-        showStatus("Checking for updates…", false);
-
-        LibGate.check(this, new LibGate.Listener() {
-            @Override
-            public void onState(LibGate.State state, String detail) {
-                if (checkUpdateButton != null) checkUpdateButton.setText("Check");
-                switch (state) {
-                    case UP_TO_DATE:
-                        showStatus("Library is up to date.", false);
-                        hideStatusSoon(2200);
-                        refreshLibraryLine();
-                        break;
-                    case UPDATE_AVAILABLE:
-                        // no "later": an update is downloaded as soon as it is known
-                        installUpdate(detail);
-                        break;
-                    case FAILED:
-                        showStatus("Could not check: " + detail, true);
-                        break;
-                    default:
-                        break;
-                }
-            }
-        });
-    }
-
-    private void installUpdate(String version) {
-        busy = true;
-        renderState();
-        if (obbProgress != null) {
-            obbProgress.setVisibility(View.VISIBLE);
-            obbProgress.setIndeterminate(false);
-            obbProgress.setProgress(0);
-        }
-        setAction("Updating…", version.isEmpty() ? "" : "Library " + version);
-
-        LibGate.download(this, new LibGate.Listener() {
-            @Override
-            public void onState(LibGate.State state, String detail) {
-                busy = false;
-                if (obbProgress != null) obbProgress.setVisibility(View.GONE);
-                if (percentText != null) percentText.setText("");
-                if (state == LibGate.State.READY) {
-                    showStatus("Library " + detail + " installed.", false);
-                    hideStatusSoon(2500);
-                } else {
-                    showStatus("Update failed: " + detail, true);
-                }
-                refreshLibraryLine();
-                renderState();
-            }
-
-            @Override
-            public void onProgress(int percent) {
-                if (obbProgress != null) obbProgress.setProgress(percent);
-                if (percentText != null) percentText.setText(percent + "%");
-                setAction("Updating… " + percent + "%", "");
-            }
-        });
-    }
-
-    private void refreshLibraryLine() {
-        if (appVersionText == null) return;
-        SharedPreferences prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        String version = prefs.getString(PREF_VERSION_KEY, "1.0");
-        String lib = LibLoader.describe(new File(new File(getFilesDir(), "loader"), "libbgmi.so"));
-        appVersionText.setText("Library " + version + " · " + lib);
-    }
-
-    // ------------------------------------------------------------- key / device
 
     private void startKeyCountdown() {
         final String expiry = exdate();
         if (expiry == null || expiry.trim().isEmpty() || "NULL".equalsIgnoreCase(expiry.trim())) {
-            if (expiryValue != null) expiryValue.setText("No expiry");
+            if (expiryValue != null) expiryValue.setText("--");
             if (timeRemaining != null) timeRemaining.setText("--");
             return;
         }
 
         final long expiryMillis = parseExpiryMillis(expiry.trim());
         if (expiryValue != null) {
-            expiryValue.setText(expiryMillis > 0L
-                    ? new SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(new Date(expiryMillis))
-                    : expiry.trim());
+            if (expiryMillis > 0L) {
+                expiryValue.setText(new SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
+                        .format(new Date(expiryMillis)));
+            } else {
+                expiryValue.setText(expiry.trim());
+            }
         }
         if (expiryMillis <= 0L) {
             if (timeRemaining != null) timeRemaining.setText("--");
             return;
         }
 
-        final Handler handler = new Handler(getMainLooper());
-        handler.post(new Runnable() {
+        final Handler timerHandler = new Handler(getMainLooper());
+        final Runnable timer = new Runnable() {
             @Override public void run() {
                 long remaining = expiryMillis - System.currentTimeMillis();
                 if (remaining <= 0L) {
+                    setTimeValues(0, 0, 0, 0);
                     if (subscriptionStatus != null) {
                         subscriptionStatus.setText("Expired");
                         subscriptionStatus.setTextColor(Color.parseColor("#FF453A"));
@@ -638,23 +269,20 @@ public class MAct extends AppCompatActivity {
                     if (timeRemaining != null) timeRemaining.setText("Expired");
                     return;
                 }
-                long totalSeconds = TimeUnit.MILLISECONDS.toSeconds(remaining);
-                long days = totalSeconds / 86400L;
-                long hours = (totalSeconds % 86400L) / 3600L;
-                long minutes = (totalSeconds % 3600L) / 60L;
-
                 if (subscriptionStatus != null) {
                     subscriptionStatus.setText("Active");
                     subscriptionStatus.setTextColor(Color.parseColor("#30D158"));
                 }
-                if (timeRemaining != null) {
-                    timeRemaining.setText(days > 0
-                            ? String.format(Locale.US, "%dd %02dh %02dm", days, hours, minutes)
-                            : String.format(Locale.US, "%02dh %02dm", hours, minutes));
-                }
-                handler.postDelayed(this, 1000L);
+                long totalSeconds = TimeUnit.MILLISECONDS.toSeconds(remaining);
+                long days = totalSeconds / 86400L;
+                long hours = (totalSeconds % 86400L) / 3600L;
+                long minutes = (totalSeconds % 3600L) / 60L;
+                long seconds = totalSeconds % 60L;
+                setTimeValues(days, hours, minutes, seconds);
+                timerHandler.postDelayed(this, 1000L);
             }
-        });
+        };
+        timer.run();
     }
 
     private long parseExpiryMillis(String value) {
@@ -676,347 +304,377 @@ public class MAct extends AppCompatActivity {
         return -1L;
     }
 
-    private void showDevice() {
-        if (deviceValue != null) {
-            String model = Build.MODEL == null ? "Android" : Build.MODEL.trim();
-            deviceValue.setText(model.isEmpty() ? "This device" : model);
-        }
-        // a library that failed inside the game process is worth saying out loud
-        String last = LibLoader.lastResult(this);
-        if (last.startsWith("fail:")) {
-            String detail = last.substring(5).trim();
-            int cut = detail.indexOf(" — looked in");
-            if (cut > 0) detail = detail.substring(0, cut);
-            if (detail.length() > 80) detail = detail.substring(0, 80) + "…";
-            showStatus("Library failed in game: " + detail, true);
+    @SuppressLint("SetTextI18n")
+    private void setTimeValues(long days, long hours, long minutes, long seconds) {
+        if (daysValue != null) daysValue.setText(String.format(Locale.US, "%02d", days));
+        if (hoursValue != null) hoursValue.setText(String.format(Locale.US, "%02d", hours));
+        if (minutesValue != null) minutesValue.setText(String.format(Locale.US, "%02d", minutes));
+        if (secondsValue != null) secondsValue.setText(String.format(Locale.US, "%02d", seconds));
+        if (timeRemaining != null) {
+            timeRemaining.setText(String.format(Locale.US, "%dd %02dh %02dm", days, hours, minutes));
         }
     }
 
-    // ----------------------------------------------------------------- status
+    private void updateVersionDisplay() {
+        SharedPreferences prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        String localVersion = prefs.getString(PREF_VERSION_KEY, "1.0");
+        if (appVersionText != null) {
+            appVersionText.setText("Version " + localVersion);
+        }
+    }
 
-    private void showStatus(String message, boolean error) {
-        if (statusToggle == null) return;
+    private void startWorkflow() {
         runOnUiThread(() -> {
-            statusToggle.setVisibility(View.VISIBLE);
-            statusToggle.setAlpha(0f);
-            statusToggle.animate().alpha(1f).setDuration(200).start();
-            if (statusToggleText != null) {
-                statusToggleText.setText(message);
-                statusToggleText.setTextColor(Color.parseColor(error ? "#FF453A" : "#8E8E93"));
+            if (downloadBox != null) downloadBox.setVisibility(View.GONE);
+            if (restartButton != null) restartButton.setVisibility(View.VISIBLE);
+            if (loadingCursor != null) loadingCursor.setVisibility(View.GONE);
+        });
+        isUpdateAvailable = false;
+    }
+
+    private void startDownload() {
+        runOnUiThread(() -> {
+            if (downloadBox != null) downloadBox.setVisibility(View.VISIBLE);
+            setLaunchButtonText("UPDATING...");
+            if (downloadStatusText != null) downloadStatusText.setText("Preparing process...");
+            if (percentText != null) percentText.setText("0%");
+            if (downloadProgressBar != null) {
+                downloadProgressBar.setIndeterminate(false);
+                downloadProgressBar.setMax(100);
+                downloadProgressBar.setProgress(0);
             }
-            if (statusLoader != null) {
-                statusLoader.setVisibility(error ? View.GONE : View.VISIBLE);
+            if (restartButton != null) restartButton.setVisibility(View.GONE);
+            if (loadingCursor != null) loadingCursor.setVisibility(View.VISIBLE);
+        });
+
+        Downtwo task = new Downtwo(this, success -> {
+            if (success) {
+                runOnUiThread(() -> {
+                    isUpdateAvailable = false;
+                    if (downloadStatusText != null) downloadStatusText.setText("All process done");
+                    if (percentText != null) percentText.setText("100%");
+                    if (downloadProgressBar != null) downloadProgressBar.setProgress(100);
+                    if (loadingCursor != null) loadingCursor.setVisibility(View.GONE);
+                    
+                    updateVersionDisplay(); // Refresh version text after update
+                    setLaunchButtonText(isGameInstalled ? "LAUNCH GAME" : "INSTALL GAME");
+                    
+                    if (restartButton != null) {
+                        restartButton.setVisibility(View.VISIBLE);
+                        restartButton.setAlpha(0f);
+                        restartButton.animate().alpha(1f).setDuration(500).start();
+                    }
+                });
+            } else {
+                runOnUiThread(() -> {
+                    // Keep update failures silent instead of showing a popup/toast.
+                    isUpdateAvailable = false;
+                    if (downloadBox != null) downloadBox.setVisibility(View.GONE);
+                    if (loadingCursor != null) loadingCursor.setVisibility(View.GONE);
+                    setLaunchButtonText(isGameInstalled ? "LAUNCH GAME" : "INSTALL GAME");
+                });
+            }
+        });
+
+        task.setProgressListener(progress -> runOnUiThread(() -> {
+            if (downloadProgressBar != null) {
+                downloadProgressBar.setIndeterminate(false);
+                downloadProgressBar.setMax(100);
+                downloadProgressBar.setProgress(progress);
+            }
+            if (percentText != null) percentText.setText(progress + "%");
+            if (downloadStatusText != null) downloadStatusText.setText("Preparing process...");
+        }));
+        
+        task.execute(Downtwo.Link());
+    }
+
+    private void restartApp() {
+        Intent intent = getPackageManager().getLaunchIntentForPackage(getPackageName());
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            Runtime.getRuntime().exit(0);
+        }
+    }
+
+    private void checkObbApplied() {
+        new Thread(() -> {
+            try {
+                PackageInfo info = getPackageManager().getPackageInfo(PKG_BGMI, 0);
+                String gameObb = "main." + info.versionCode + "." + PKG_BGMI + ".obb";
+                String destPath = MetaStorageManager.obtainAppExternalStorageDir(PKG_BGMI) + "/Android/obb/" + PKG_BGMI;
+                File destFile = new File(destPath, gameObb);
+                if (destFile.exists()) {
+                    isObbCopied = true;
+                    runOnUiThread(() -> { if (obbButton != null) obbButton.setVisibility(View.GONE); });
+                }
+            } catch (Exception ignored) {}
+        }).start();
+    }
+
+    private void updateGameStatus() {
+        isGameInstalled = false;
+        try {
+            PackageInfo packageInfo = getPackageManager().getPackageInfo(PKG_BGMI, 0);
+            if (packageInfo != null) {
+                isGameInstalled = true;
+                if (gameName != null) gameName.setText("BGMI INDIA");
+                if (packageName != null) packageName.setText(PKG_BGMI);
+                if (gameStatus != null) gameStatus.setText("SAFE");
+                if (deviceStatus != null) {
+                    deviceStatus.setText("Safe");
+                    deviceStatus.setTextColor(Color.parseColor("#0A84FF"));
+                }
+                updateButtonState(false);
+            }
+        } catch (Exception ignored) {
+            isGameInstalled = false;
+            if (gameStatus != null) gameStatus.setText("Not Installed");
+            if (deviceStatus != null) {
+                deviceStatus.setText("Not installed");
+                deviceStatus.setTextColor(Color.parseColor("#FF9F0A"));
+            }
+            setLaunchButtonText("INSTALL GAME");
+            if (startText != null) {
+                startText.setText("INSTALL GAME");
+                startText.setTextColor(Color.parseColor("#FF9F0A"));
+            }
+            if (actionIcon != null) {
+                actionIcon.setImageResource(android.R.drawable.ic_menu_save);
+                actionIcon.setColorFilter(Color.parseColor("#FF9F0A"));
+            }
+        }
+    }
+
+    private void setLaunchButtonText(String label) {
+        if (startText != null) startText.setText(label);
+        if (startBgmi instanceof Button) ((Button) startBgmi).setText(label);
+    }
+
+    private void updateButtonState(boolean running) {
+        isGameRunning = running;
+        runOnUiThread(() -> {
+            if (running) {
+                setLaunchButtonText("STOP GAME");
+                if (startText != null) {
+                    startText.setText("STOP GAME");
+                    startText.setTextColor(Color.parseColor("#FF453A"));
+                }
+                if (actionIcon != null) {
+                    actionIcon.setImageResource(android.R.drawable.ic_delete);
+                    actionIcon.setColorFilter(Color.parseColor("#FF453A"));
+                }
+                if (startBgmi != null) {
+                    startBgmi.setBackgroundResource(R.drawable.bg_ios_stop);
+                }
+                if (downloadBox != null) {
+                    downloadBox.setVisibility(View.VISIBLE);
+                    if (downloadStatusText != null) downloadStatusText.setText("Game Running...");
+                    if (percentText != null) percentText.setText("ACTIVE");
+                    if (downloadProgressBar != null) {
+                        downloadProgressBar.setIndeterminate(true);
+                        downloadProgressBar.setProgress(100);
+                    }
+                    if (restartButton != null) restartButton.setVisibility(View.GONE);
+                }
+            } else {
+                if (isUpdateAvailable) {
+                    setLaunchButtonText("UPDATE AVAILABLE");
+                    if (startText != null) {
+                        startText.setText("UPDATE AVAILABLE");
+                        startText.setTextColor(Color.parseColor("#FF9F0A"));
+                    }
+                } else {
+                    setLaunchButtonText("LAUNCH GAME");
+                    if (startText != null) {
+                        startText.setText("LAUNCH");
+                        startText.setTextColor(Color.parseColor("#FF9F0A"));
+                    }
+                }
+                if (actionIcon != null) {
+                    actionIcon.setImageResource(android.R.drawable.ic_media_play);
+                    actionIcon.setColorFilter(Color.parseColor("#FF9F0A"));
+                }
+                if (startBgmi != null) {
+                    startBgmi.setBackgroundResource(R.drawable.bg_ios_cta);
+                }
+                if (downloadBox != null) {
+                    new Handler().postDelayed(() -> {
+                        if (!isGameRunning && !isUpdateAvailable) downloadBox.setVisibility(View.GONE);
+                    }, 1000);
+                }
             }
         });
     }
 
-    private void hideStatusSoon(long delay) {
+    private void handleLaunchFlow() {
+        try {
+            if (!MetaActivationManager.getActivationStatus()) {
+                showStatusToggle("LAUNCHING FAILED", true);
+                return;
+            }
+        } catch (Exception ignored) {
+            showStatusToggle("LAUNCHING FAILED", true);
+            return;
+        }
+
+        File libFile = new File(getFilesDir(), "loader/libbgmi.so");
+        if (!libFile.exists()) {
+            startDownload();
+            return;
+        }
+
+        if (!isObbCopied) {
+            copyObbFiles();
+        } else {
+            showStatusToggle("LAUNCHING BGMI", false);
+            new Handler().postDelayed(() -> {
+                hideStatusToggle();
+                launchGame();
+            }, 2500);
+        }
+    }
+
+    private void showStatusToggle(String message, boolean isError) {
         if (statusToggle == null) return;
-        new Handler(getMainLooper()).postDelayed(() -> {
-            statusToggle.animate().alpha(0f).setDuration(200).withEndAction(() -> {
+        
+        runOnUiThread(() -> {
+            statusToggle.setVisibility(View.VISIBLE);
+            statusToggle.setAlpha(0f);
+            statusToggle.animate().alpha(1f).setDuration(300).start();
+            
+            if (statusToggleText != null) {
+                statusToggleText.setText(message);
+                statusToggleText.setTextColor(isError ? Color.parseColor("#FF453A") : Color.WHITE);
+            }
+            
+            if (statusLoader != null) {
+                statusLoader.setVisibility(isError ? View.GONE : View.VISIBLE);
+            }
+            
+            if (statusErrorIcon != null) {
+                statusErrorIcon.setVisibility(isError ? View.VISIBLE : View.GONE);
+            }
+            
+            if (isError) {
+                new Handler().postDelayed(this::hideStatusToggle, 3000);
+            }
+        });
+    }
+
+    private void hideStatusToggle() {
+        if (statusToggle == null) return;
+        
+        runOnUiThread(() -> {
+            statusToggle.animate().alpha(0f).setDuration(300).withEndAction(() -> {
                 statusToggle.setVisibility(View.GONE);
-                if (statusLoader != null) statusLoader.setVisibility(View.GONE);
             }).start();
-        }, delay);
+        });
     }
 
-    // ------------------------------------------------------------- picked obb
-
-    /** Opens the system file picker on the .obb the user already has. */
-    private void pickObbFile() {
+    private void launchGame() {
         try {
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("*/*");
-            startActivityForResult(intent, REQUEST_PICK_OBB);
-        } catch (Exception e) {
-            showStatus("No file picker on this device.", true);
-        }
-    }
-
-    private String pickedName(Uri uri) {
-        try (Cursor cursor = getContentResolver()
-                .query(uri, new String[]{android.provider.OpenableColumns.DISPLAY_NAME},
-                        null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                int index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
-                if (index >= 0) return cursor.getString(index);
+            Intent intent = MetaActivityManager.obtainSplashLaunchIntent(PKG_BGMI, this);
+            if (intent != null) {
+                startActivity(intent);
+                updateButtonState(true);
             }
         } catch (Exception e) {
-            Log.w("XloxObb", "could not read the picked file's name: " + e.getMessage());
+            Log.e("MAct", "Launch error", e);
         }
-        String last = uri.getLastPathSegment();
-        return last == null ? "" : last;
     }
 
-    private long pickedSize(Uri uri) {
-        try (Cursor cursor = getContentResolver()
-                .query(uri, new String[]{android.provider.OpenableColumns.SIZE},
-                        null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                int index = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE);
-                if (index >= 0 && !cursor.isNull(index)) return cursor.getLong(index);
-            }
-        } catch (Exception ignored) {}
-        return 0L;
-    }
-
-    /** `main.<versionCode>.com.pubg.imobile.obb` — the one name the game loads. */
-    private String expectedObbName() {
-        if (gameVersionCode <= 0) return "main.<version>." + PKG_BGMI + ".obb";
-        return "main." + gameVersionCode + "." + PKG_BGMI + ".obb";
-    }
-
-    /**
-     * Reads the version out of an obb name.
-     *
-     * BGMI closes on launch, or asks for its data again, when the obb does not
-     * match the installed build — the copy can be perfectly successful and the
-     * game still unusable. This is the check that turns that into a sentence.
-     */
-    private long versionInName(String name) {
-        if (name == null) return -1L;
-        String prefix = "main.";
-        String suffix = "." + PKG_BGMI + ".obb";
-        if (!name.startsWith(prefix) || !name.endsWith(suffix)) return -1L;
+    private void stopGame() {
         try {
-            return Long.parseLong(name.substring(prefix.length(), name.length() - suffix.length()));
+            MetaActivityManager.killAppByPkg(PKG_BGMI);
+            updateButtonState(false);
         } catch (Exception e) {
-            return -1L;
+            Toast.makeText(this, "Stop Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
-    /** Copies the picked file into the game's obb folder — a real copy, no grants. */
-    private void importPickedObb(Uri uri) {
-        final String name = pickedName(uri);
-        if (name == null || !name.toLowerCase(Locale.US).endsWith(".obb")) {
-            showStatus("Pick the game's .obb file, for example " + expectedObbName() + ".", true);
-            return;
-        }
-
-        long picked = versionInName(name);
-        if (gameVersionCode > 0 && picked > 0 && picked != gameVersionCode) {
-            if (isFinishing()) return;
-            new MaterialAlertDialogBuilder(this)
-                    .setTitle("Different game version")
-                    .setMessage("The file is\n" + name + "\n\nThe game installed on this "
-                            + "phone is version " + gameVersionCode + ", so it looks for\n"
-                            + expectedObbName() + "\n\nCopying this one will leave the game "
-                            + "asking for its data again. Copy it anyway?")
-                    .setPositiveButton("Copy anyway", (dialog, which) -> startImport(uri, name))
-                    .setNegativeButton("Cancel", null)
-                    .show();
-            return;
-        }
-
-        startImport(uri, name);
-    }
-
-    /** The copy itself: picker stream in, game's obb folder out. */
-    private void startImport(Uri uri, String name) {
-        InputStream input;
-        long size;
+    private void installGame() {
         try {
-            input = getContentResolver().openInputStream(uri);
-            size = pickedSize(uri);
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse("market://details?id=" + PKG_BGMI));
+            startActivity(intent);
         } catch (Exception e) {
-            showStatus("That file could not be opened: " + e.getMessage(), true);
-            return;
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse("https://play.google.com/store/apps/details?id=" + PKG_BGMI));
+            startActivity(intent);
         }
-        if (input == null) {
-            showStatus("That file could not be opened.", true);
-            return;
+    }
+
+    private void openExternalUrl(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Exception e) {
+            Log.e("MAct", "Unable to open social link", e);
         }
+    }
 
-        busy = true;
-        setBusyCopy(true);
-        obbProblem = "";
-        showStatus("Copying " + name + "…", false);
-
-        long total = size;
-        new AppManager(this).importObbAsync(PKG_BGMI, input, name, total, new AppManager.CopyCallback() {
+    private void copyObbFiles() {
+        if (obbButton == null) return;
+        
+        Button btn = (Button) obbButton;
+        btn.setEnabled(false);
+        if (downloadBox != null) downloadBox.setVisibility(View.VISIBLE);
+        if (downloadStatusText != null) downloadStatusText.setText("Preparing process...");
+        if (percentText != null) percentText.setText("0%");
+        if (downloadProgressBar != null) {
+            downloadProgressBar.setIndeterminate(false);
+            downloadProgressBar.setMax(100);
+            downloadProgressBar.setProgress(0);
+        }
+        
+        AppManager appManager = new AppManager(this);
+        appManager.copyObbFolderAsync(PKG_BGMI, new AppManager.CopyCallback() {
             @Override
             public void onCopyCompleted(boolean success) {
                 runOnUiThread(() -> {
-                    busy = false;
-                    setBusyCopy(false);
-                    if (!success) return;
-                    refreshGameState();
-                });
-            }
-
-            @Override
-            public void onCopyDone(String path, long written) {
-                runOnUiThread(() -> {
-                    showStatus("Copied " + formatSize(written) + " to the game's data folder.",
-                            false);
-                    hideStatusSoon(3000);
+                    if (success) {
+                        isObbCopied = true;
+                        btn.setVisibility(View.GONE);
+                        if (downloadStatusText != null) downloadStatusText.setText("Facebook access ready");
+                        if (percentText != null) percentText.setText("100%");
+                        if (downloadProgressBar != null) downloadProgressBar.setProgress(100);
+                        new Handler().postDelayed(() -> {
+                            if (downloadBox != null) downloadBox.setVisibility(View.GONE);
+                        }, 900);
+                        Toast.makeText(MAct.this, "OBB Copied Successfully", Toast.LENGTH_SHORT).show();
+                    } else {
+                        btn.setEnabled(true);
+                        btn.setText("APPLY OBB");
+                        if (downloadBox != null) downloadBox.setVisibility(View.GONE);
+                        Toast.makeText(MAct.this, "OBB Copy Failed", Toast.LENGTH_SHORT).show();
+                    }
                 });
             }
 
             @Override
             public void onProgressUpdate(int progress) {
                 runOnUiThread(() -> {
-                    if (obbProgress != null) obbProgress.setProgress(progress);
+                    if (downloadStatusText != null) downloadStatusText.setText("Preparing process...");
                     if (percentText != null) percentText.setText(progress + "%");
+                    if (downloadProgressBar != null) downloadProgressBar.setProgress(progress);
                 });
             }
+        }, false); // false to hide the default dialog
+    }
 
-            @Override
-            public void onCopyFailed(String reason) {
-                runOnUiThread(() -> explainCopyFailure(reason));
+    private void checkPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 100);
             }
-        });
-    }
-
-    // ----------------------------------------------------------- diagnostics
-
-    private String formatSize(long bytes) {
-        if (bytes <= 0) return "0 B";
-        if (bytes < 1024 * 1024) return (bytes / 1024) + " KB";
-        if (bytes < 1024L * 1024L * 1024L) {
-            return String.format(Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0));
         }
-        return String.format(Locale.US, "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
-    }
-
-    /**
-     * Everything the app can actually observe, in one screen.
-     *
-     * The copy has been guessed at for several builds because the report was a
-     * sentence. These are the facts behind that sentence — version codes, the
-     * exact expected file name, the folder the sandbox maps, and whether each
-     * place is readable — and they can be copied out in one tap.
-     */
-    private void showDiagnostics() {
-        AppManager manager = new AppManager(this);
-
-        StringBuilder out = new StringBuilder();
-        out.append("GAME\n");
-        out.append("Installed: ").append(gameInstalled ? "yes" : "no").append('\n');
-        out.append("Version code: ").append(gameVersionCode > 0 ? gameVersionCode : "unknown")
-                .append('\n');
-        out.append("In sandbox: ").append(innerInstalled ? "yes" : "no").append('\n');
-        out.append("Needs file: ").append(expectedObbName()).append('\n');
-
-        out.append("\nDATA\n");
-        out.append("Found: ").append(obbCopied
-                ? (obbWhere.isEmpty() ? "yes" : "yes (" + obbWhere + ")")
-                : "no").append('\n');
-        if (!obbCopied && !obbProblem.isEmpty()) {
-            out.append("Reason: ").append(obbProblem).append('\n');
-        }
-
-        File folder = manager.sandboxObbFolder(PKG_BGMI);
-        String root = manager.sandboxRoot(PKG_BGMI);
-        out.append("Sandbox root: ").append(root == null ? "unavailable" : root).append('\n');
-        if (folder != null) {
-            out.append("Copy target: ").append(folder.getAbsolutePath()).append('\n');
-            out.append("  exists: ").append(folder.exists() ? "yes" : "no")
-                    .append(", writable: ").append(folder.canWrite() ? "yes" : "no").append('\n');
-            File[] inside = folder.listFiles();
-            out.append("  files: ").append(inside == null
-                    ? "not listable" : String.valueOf(inside.length)).append('\n');
-        } else {
-            out.append("Copy target: unavailable\n");
-        }
-
-        out.append("\nAPP\n");
-        out.append("Storage: ").append(StorageAccess.describe(this)).append('\n');
-        out.append("Library: ").append(LibGate.installedVersion(this)).append('\n');
-        out.append("Device: ").append(Build.MODEL == null ? "Android" : Build.MODEL)
-                .append(" · API ").append(Build.VERSION.SDK_INT).append('\n');
-        out.append("Checked: ")
-                .append(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(new Date()));
-
-        final String text = out.toString();
-        if (isFinishing()) return;
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Diagnostics")
-                .setMessage(text)
-                .setPositiveButton("Copy", (dialog, which) -> {
-                    ClipboardManager clipboard =
-                            (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                    if (clipboard != null) {
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Anoy diagnostics", text));
-                        Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNegativeButton("Close", null)
-                .show();
-    }
-
-    // ------------------------------------------------------------ permissions
-
-    /** Asks for Files, then All files access — one system screen at a time. */
-    private void askForStorage() {
-        if (StorageAccess.ready(this)) return;
-        if (!StorageAccess.askedBefore(this)) {
-            StorageAccess.markAsked(this);
-            openPermissionPrompts();
-        }
-        renderState();
-    }
-
-    private void openPermissionPrompts() {
-        if (StorageAccess.requestNext(this)) {
-            showStatus("Allow file access to read the game data.", false);
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
-        super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (!StorageAccess.isOurs(requestCode)) return;
-
-        // A denial must not come straight back as another dialog: once "don't
-        // ask again" is ticked the system answers instantly and the two would
-        // bounce forever. The button is the way back in.
-        if (!StorageAccess.runtimeGranted(this)) {
-            afterStorageChange();
-            return;
-        }
-
-        // Files granted: the All files screen is the next step.
-        if (StorageAccess.requestNext(this)) {
-            showStatus("Now allow All files access.", false);
-            return;
-        }
-        afterStorageChange();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_PICK_OBB) {
-            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
-                importPickedObb(data.getData());
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                startActivity(intent);
             }
-            return;
-        }
-        if (StorageAccess.isOurs(requestCode)) afterStorageChange();
-    }
-
-    /** Re-reads everything once a permission screen closes, and finishes a copy. */
-    private void afterStorageChange() {
-        boolean ready = StorageAccess.ready(this);
-        renderState();
-        refreshGameState();
-
-        if (!ready) {
-            showStatus(StorageAccess.describe(this) + " — the game data cannot be read.", true);
-            return;
-        }
-
-        showStatus("File access granted.", false);
-        hideStatusSoon(2000);
-
-        if (wantsCopyAfterGrant) {
-            wantsCopyAfterGrant = false;
-            // the state above is read in the background; give it a moment
-            new Handler(getMainLooper()).postDelayed(() -> {
-                if (!obbCopied) copyGameData();
-            }, 700);
         }
     }
 }

@@ -16,24 +16,13 @@
 #include <zlib.h>  // For CRC32
 using json = nlohmann::ordered_json;
 
-/*
- * The panel this loader talks to. Everything below is derived from it, so a new
- * host means editing this one line.
- *
- *   POST <base>/server        key check  (game, user_key, serial)
- *   GET  <base>/api/version   lib version, plain text
- *   GET  <base>/api/download  lib zip
- */
-#define PANEL_BASE_URL "https://kuro-panel-psi.vercel.app"
-// Mirror for the lib channel: the panel stays the authority, but when it has no
-// release published the loader falls back to these two GitHub URLs.
-#define MIRROR_VERSION_URL "https://raw.githubusercontent.com/masterace572-prog/Kurrrrrro/main/Version.txt"
-#define MIRROR_PACKAGE_URL "https://github.com/masterace572-prog/Kurrrrrro/releases/download/Lib/libbbb.zip"
-
 time_t rng = 0;
 std::string Enc;
 static char ZENINOP[64];
 static std::string exdate = oxorany ("NULL");
+
+// Loader's own endpoint (Vercel). Kept as a compile-time define so CI can audit it.
+#define PANEL_BASE_URL "https://kuro-panel-psi.vercel.app"
 
 std::string g_Token, g_Auth;
 
@@ -58,33 +47,17 @@ Java_com_xlox_LogAct_GetKey(JNIEnv *env, jobject thiz) {
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_xlox_utils_Downtwo_Version(JNIEnv *env, jclass clazz) {
-    // plain-text version of the lib, served by the panel (GET /api/version)
-    static char versionUrl[256];
-    snprintf(versionUrl, sizeof(versionUrl), "%s/api/version", PANEL_BASE_URL);
+    // return URL to version file
+    const char *versionUrl = (oxorany("https://kuro-panel-psi.vercel.app/api/version"));// can put GitHub too
     return env->NewStringUTF(versionUrl);
 }
 
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_xlox_utils_Downtwo_Link(JNIEnv *env, jclass clazz) {
-    // the lib zip itself (GET /api/download)
-    static char downloadUrl[256];
-    snprintf(downloadUrl, sizeof(downloadUrl), "%s/api/download", PANEL_BASE_URL);
+    // return URL to your update ZIP file
+    const char *downloadUrl = (oxorany("https://kuro-panel-psi.vercel.app/api/download"));// can put GitHub too
     return env->NewStringUTF(downloadUrl);
-}
-
-extern "C"
-JNIEXPORT jstring JNICALL
-Java_com_xlox_utils_Downtwo_MirrorVersion(JNIEnv *env, jclass clazz) {
-    // plain-text version at the mirror (a file in the repo, e.g. "1.1.0")
-    return env->NewStringUTF(MIRROR_VERSION_URL);
-}
-
-extern "C"
-JNIEXPORT jstring JNICALL
-Java_com_xlox_utils_Downtwo_MirrorLink(JNIEnv *env, jclass clazz) {
-    // the lib zip hosted as a GitHub release asset
-    return env->NewStringUTF(MIRROR_PACKAGE_URL);
 }
 
 extern "C"
@@ -220,7 +193,7 @@ Java_com_xlox_LogAct_Check(JNIEnv *env, jclass clazz, jobject mContext, jstring 
     curl = curl_easy_init();
     if (curl) {
         char lol[1000];
-        snprintf(lol, sizeof(lol), "%s/server", PANEL_BASE_URL);
+        sprintf(lol,oxorany("https://kuro-panel-psi.vercel.app/server"));
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, oxorany("POST"));
         curl_easy_setopt(curl, CURLOPT_URL, lol);+
                 curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
