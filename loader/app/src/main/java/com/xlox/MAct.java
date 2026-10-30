@@ -32,6 +32,7 @@ import androidx.core.content.ContextCompat;
 
 import com.xlox.utils.AppManager;
 import com.xlox.utils.Downtwo;
+import com.xlox.utils.LibLoader;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
@@ -347,46 +348,28 @@ public class MAct extends AppCompatActivity {
             if (loadingCursor != null) loadingCursor.setVisibility(View.VISIBLE);
         });
 
-        Downtwo task = new Downtwo(this, success -> {
-            if (success) {
-                runOnUiThread(() -> {
+        LibLoader.loadIfMissing(this, (success, error) -> {
+            runOnUiThread(() -> {
+                if (loadingCursor != null) loadingCursor.setVisibility(View.GONE);
+                if (success) {
                     isUpdateAvailable = false;
-                    if (downloadStatusText != null) downloadStatusText.setText("All process done");
+                    if (downloadStatusText != null) downloadStatusText.setText("Library ready");
                     if (percentText != null) percentText.setText("100%");
                     if (downloadProgressBar != null) downloadProgressBar.setProgress(100);
-                    if (loadingCursor != null) loadingCursor.setVisibility(View.GONE);
-                    
-                    updateVersionDisplay(); // Refresh version text after update
+                    updateVersionDisplay();
                     setLaunchButtonText(isGameInstalled ? "LAUNCH GAME" : "INSTALL GAME");
-                    
+
                     if (restartButton != null) {
                         restartButton.setVisibility(View.VISIBLE);
                         restartButton.setAlpha(0f);
                         restartButton.animate().alpha(1f).setDuration(500).start();
                     }
-                });
-            } else {
-                runOnUiThread(() -> {
-                    // Keep update failures silent instead of showing a popup/toast.
-                    isUpdateAvailable = false;
+                } else {
                     if (downloadBox != null) downloadBox.setVisibility(View.GONE);
-                    if (loadingCursor != null) loadingCursor.setVisibility(View.GONE);
                     setLaunchButtonText(isGameInstalled ? "LAUNCH GAME" : "INSTALL GAME");
-                });
-            }
+                }
+            });
         });
-
-        task.setProgressListener(progress -> runOnUiThread(() -> {
-            if (downloadProgressBar != null) {
-                downloadProgressBar.setIndeterminate(false);
-                downloadProgressBar.setMax(100);
-                downloadProgressBar.setProgress(progress);
-            }
-            if (percentText != null) percentText.setText(progress + "%");
-            if (downloadStatusText != null) downloadStatusText.setText("Preparing process...");
-        }));
-        
-        task.execute(Downtwo.Link());
     }
 
     private void restartApp() {
