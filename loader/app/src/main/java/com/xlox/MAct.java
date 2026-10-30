@@ -1,6 +1,8 @@
 package com.xlox;
 
 import android.annotation.SuppressLint;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -67,6 +69,7 @@ public class MAct extends AppCompatActivity {
     private AppCompatButton actionButton;
     private TextView pickObbButton;
     private TextView copyObbButton;
+    private TextView diagnoseButton;
     private TextView actionHint;
     private TextView obbState;
     private TextView percentText;
@@ -94,6 +97,10 @@ public class MAct extends AppCompatActivity {
     private boolean busy = false;
     /** True while the user is granting storage: finish what they tapped once it lands. */
     private boolean wantsCopyAfterGrant = false;
+    /** The game's version code on the phone — the number its obb name carries. */
+    private long gameVersionCode = -1L;
+    /** Whether the sandbox has its own copy of the game (the container). */
+    private boolean innerInstalled = false;
 
     @SuppressLint("SetTextI18n")
     @Override
@@ -132,6 +139,8 @@ public class MAct extends AppCompatActivity {
         pickObbButton = findViewById(R.id.pickObbButton);
         copyObbButton = findViewById(R.id.copyObbButton);
         if (pickObbButton != null) pickObbButton.setOnClickListener(v -> pickObbFile());
+        diagnoseButton = findViewById(R.id.diagnoseButton);
+        if (diagnoseButton != null) diagnoseButton.setOnClickListener(v -> showDiagnostics());
         if (copyObbButton != null) copyObbButton.setOnClickListener(v -> copyGameData());
         obbState = findViewById(R.id.obbState);
         percentText = findViewById(R.id.percentText);
@@ -189,11 +198,23 @@ public class MAct extends AppCompatActivity {
     private void refreshGameState() {
         new Thread(() -> {
             boolean installed;
+            long code = -1L;
             try {
                 PackageInfo info = getPackageManager().getPackageInfo(PKG_BGMI, 0);
                 installed = info != null;
+                if (installed) {
+                    code = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                            ? info.getLongVersionCode() : (long) info.versionCode;
+                }
             } catch (Exception e) {
                 installed = false;
+            }
+
+            boolean inner;
+            try {
+                inner = net_62v.external.MetaPackageManager.isInnerAppInstalled(PKG_BGMI);
+            } catch (Exception e) {
+                inner = false;
             }
 
             boolean copied = false;
@@ -216,11 +237,15 @@ public class MAct extends AppCompatActivity {
             }
 
             final boolean fInstalled = installed;
+            final long fCode = code;
+            final boolean fInner = inner;
             final boolean fCopied = copied;
             final String fWhere = where;
             final String fProblem = problem;
             runOnUiThread(() -> {
                 gameInstalled = fInstalled;
+                gameVersionCode = fCode;
+                innerInstalled = fInner;
                 obbCopied = fCopied;
                 obbWhere = fWhere;
                 obbProblem = fCopied ? "" : fProblem;
@@ -285,9 +310,18 @@ public class MAct extends AppCompatActivity {
             return;
         } else if (!obbCopied) {
             // the data could not be verified, which is not a reason to refuse
-            setAction("Launch game", obbProblem.isEmpty()
-                    ? "Starts the game. Copy the data below if the game asks for it."
-                    : shorten(obbProblem, 130));
+            String hint;
+            if (!innerInstalled) {
+                // The sandbox only maps the game's data folder once it has the
+                // game: launching first is what makes the copy have somewhere
+                // to go. Saying so beats another silent half-copy.
+                hint = "Launch the game once — the sandbox creates its data folder then.";
+            } else if (obbProblem.isEmpty()) {
+                hint = "Starts the game. Copy the data below if the game asks for it.";
+            } else {
+                hint = shorten(obbProblem, 130);
+            }
+            setAction("Launch game", hint);
         } else {
             setAction("Launch game", "Game data ready. Nothing else to do.");
         }
@@ -727,15 +761,59 @@ public class MAct extends AppCompatActivity {
         return 0L;
     }
 
+    /** `main.<versionCode>.com.pubg.imobile.obb` — the one name the game loads. */
+    private String expectedObbName() {
+        if (gameVersionCode <= 0) return "main.<version>." + PKG_BGMI + ".obb";
+        return "main." + gameVersionCode + "." + PKG_BGMI + ".obb";
+    }
+
+    /**
+     * Reads the version out of an obb name.
+     *
+     * BGMI closes on launch, or asks for its data again, when the obb does not
+     * match the installed build — the copy can be perfectly successful and the
+     * game still unusable. This is the check that turns that into a sentence.
+     */
+    private long versionInName(String name) {
+        if (name == null) return -1L;
+        String prefix = "main.";
+        String suffix = "." + PKG_BGMI + ".obb";
+        if (!name.startsWith(prefix) || !name.endsWith(suffix)) return -1L;
+        try {
+            return Long.parseLong(name.substring(prefix.length(), name.length() - suffix.length()));
+        } catch (Exception e) {
+            return -1L;
+        }
+    }
+
     /** Copies the picked file into the game's obb folder — a real copy, no grants. */
     private void importPickedObb(Uri uri) {
-        String name = pickedName(uri);
+        final String name = pickedName(uri);
         if (name == null || !name.toLowerCase(Locale.US).endsWith(".obb")) {
-            showStatus("Pick the game's .obb file, for example "
-                    + "main.<version>.com.pubg.imobile.obb.", true);
+            showStatus("Pick the game's .obb file, for example " + expectedObbName() + ".", true);
             return;
         }
 
+        long picked = versionInName(name);
+        if (gameVersionCode > 0 && picked > 0 && picked != gameVersionCode) {
+            if (isFinishing()) return;
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle("Different game version")
+                    .setMessage("The file is\n" + name + "\n\nThe game installed on this "
+                            + "phone is version " + gameVersionCode + ", so it looks for\n"
+                            + expectedObbName() + "\n\nCopying this one will leave the game "
+                            + "asking for its data again. Copy it anyway?")
+                    .setPositiveButton("Copy anyway", (dialog, which) -> startImport(uri, name))
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            return;
+        }
+
+        startImport(uri, name);
+    }
+
+    /** The copy itself: picker stream in, game's obb folder out. */
+    private void startImport(Uri uri, String name) {
         InputStream input;
         long size;
         try {
@@ -752,6 +830,7 @@ public class MAct extends AppCompatActivity {
 
         busy = true;
         setBusyCopy(true);
+        obbProblem = "";
         showStatus("Copying " + name + "…", false);
 
         long total = size;
@@ -761,11 +840,17 @@ public class MAct extends AppCompatActivity {
                 runOnUiThread(() -> {
                     busy = false;
                     setBusyCopy(false);
-                    if (success) {
-                        showStatus("Game data copied.", false);
-                        hideStatusSoon(2200);
-                        refreshGameState();
-                    }
+                    if (!success) return;
+                    refreshGameState();
+                });
+            }
+
+            @Override
+            public void onCopyDone(String path, long written) {
+                runOnUiThread(() -> {
+                    showStatus("Copied " + formatSize(written) + " to the game's data folder.",
+                            false);
+                    hideStatusSoon(3000);
                 });
             }
 
@@ -782,6 +867,83 @@ public class MAct extends AppCompatActivity {
                 runOnUiThread(() -> explainCopyFailure(reason));
             }
         });
+    }
+
+    // ----------------------------------------------------------- diagnostics
+
+    private String formatSize(long bytes) {
+        if (bytes <= 0) return "0 B";
+        if (bytes < 1024 * 1024) return (bytes / 1024) + " KB";
+        if (bytes < 1024L * 1024L * 1024L) {
+            return String.format(Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0));
+        }
+        return String.format(Locale.US, "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
+    }
+
+    /**
+     * Everything the app can actually observe, in one screen.
+     *
+     * The copy has been guessed at for several builds because the report was a
+     * sentence. These are the facts behind that sentence — version codes, the
+     * exact expected file name, the folder the sandbox maps, and whether each
+     * place is readable — and they can be copied out in one tap.
+     */
+    private void showDiagnostics() {
+        AppManager manager = new AppManager(this);
+
+        StringBuilder out = new StringBuilder();
+        out.append("GAME\n");
+        out.append("Installed: ").append(gameInstalled ? "yes" : "no").append('\n');
+        out.append("Version code: ").append(gameVersionCode > 0 ? gameVersionCode : "unknown")
+                .append('\n');
+        out.append("In sandbox: ").append(innerInstalled ? "yes" : "no").append('\n');
+        out.append("Needs file: ").append(expectedObbName()).append('\n');
+
+        out.append("\nDATA\n");
+        out.append("Found: ").append(obbCopied
+                ? (obbWhere.isEmpty() ? "yes" : "yes (" + obbWhere + ")")
+                : "no").append('\n');
+        if (!obbCopied && !obbProblem.isEmpty()) {
+            out.append("Reason: ").append(obbProblem).append('\n');
+        }
+
+        File folder = manager.sandboxObbFolder(PKG_BGMI);
+        String root = manager.sandboxRoot(PKG_BGMI);
+        out.append("Sandbox root: ").append(root == null ? "unavailable" : root).append('\n');
+        if (folder != null) {
+            out.append("Copy target: ").append(folder.getAbsolutePath()).append('\n');
+            out.append("  exists: ").append(folder.exists() ? "yes" : "no")
+                    .append(", writable: ").append(folder.canWrite() ? "yes" : "no").append('\n');
+            File[] inside = folder.listFiles();
+            out.append("  files: ").append(inside == null
+                    ? "not listable" : String.valueOf(inside.length)).append('\n');
+        } else {
+            out.append("Copy target: unavailable\n");
+        }
+
+        out.append("\nAPP\n");
+        out.append("Storage: ").append(StorageAccess.describe(this)).append('\n');
+        out.append("Library: ").append(LibGate.installedVersion(this)).append('\n');
+        out.append("Device: ").append(Build.MODEL == null ? "Android" : Build.MODEL)
+                .append(" · API ").append(Build.VERSION.SDK_INT).append('\n');
+        out.append("Checked: ")
+                .append(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(new Date()));
+
+        final String text = out.toString();
+        if (isFinishing()) return;
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Diagnostics")
+                .setMessage(text)
+                .setPositiveButton("Copy", (dialog, which) -> {
+                    ClipboardManager clipboard =
+                            (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Anoy diagnostics", text));
+                        Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Close", null)
+                .show();
     }
 
     // ------------------------------------------------------------ permissions

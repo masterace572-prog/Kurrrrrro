@@ -68,6 +68,9 @@ public class AppManager extends AppCompatActivity {
          * as useful as no message at all.
          */
         default void onCopyFailed(String reason) {}
+
+        /** The file that was written and its size, once a copy has finished. */
+        default void onCopyDone(String path, long size) {}
     }
 
     /** Where the game data is, or why it could not be found. */
@@ -346,6 +349,24 @@ public class AppManager extends AppCompatActivity {
         }.execute();
     }
 
+    /** The folder a copy writes into, or null when the sandbox gives no path. */
+    public File sandboxObbFolder(String pkg) {
+        try {
+            return getMundoObbDir(pkg);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** The virtual external storage root the sandbox maps for the game, or null. */
+    public String sandboxRoot(String pkg) {
+        try {
+            return MetaStorageManager.obtainAppExternalStorageDir(pkg);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private File getMundoObbDir(String pkg) {
         try {
             return new File(
@@ -618,6 +639,8 @@ public class AppManager extends AppCompatActivity {
         new AsyncTask<Void, Integer, Boolean>() {
 
             String errorMessage = "";
+            String writtenPath = "";
+            long writtenSize = 0L;
 
             @Override
             protected Boolean doInBackground(Void... voids) {
@@ -657,6 +680,8 @@ public class AppManager extends AppCompatActivity {
                     }
 
                     rememberObb(pkg, fileName, target.length(), target.getAbsolutePath());
+                    writtenPath = target.getAbsolutePath();
+                    writtenSize = target.length();
                     Log.i(TAG, "imported " + target + " (" + target.length() + " bytes)");
                     return true;
 
@@ -680,7 +705,11 @@ public class AppManager extends AppCompatActivity {
             protected void onPostExecute(Boolean success) {
                 if (callback == null) return;
                 callback.onCopyCompleted(success);
-                if (!success) callback.onCopyFailed(errorMessage);
+                if (success) {
+                    callback.onCopyDone(writtenPath, writtenSize);
+                } else {
+                    callback.onCopyFailed(errorMessage);
+                }
             }
         }.execute();
     }
