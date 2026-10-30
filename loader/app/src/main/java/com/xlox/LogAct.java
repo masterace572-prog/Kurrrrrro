@@ -219,8 +219,9 @@ public class LogAct extends AppCompatActivity {
     }
 
     private void doUpdateCheck(Dialog dialog, TextView detail, ProgressBar progress, AppCompatButton btn) {
-        Downtwo task = new Downtwo(this, success -> {
-            final String result = task.getLastResult();
+        final Downtwo[] holder = new Downtwo[1];
+        holder[0] = new Downtwo(this, success -> {
+            final String result = holder[0].getLastResult();
             runOnUiThread(() -> {
                 if ("Update Available".equals(result)) {
                     doUpdateDownload(dialog, detail, progress, btn);
@@ -231,7 +232,7 @@ public class LogAct extends AppCompatActivity {
                 }
             });
         });
-        task.execute(Downtwo.Link(), "check_only");
+        holder[0].execute(Downtwo.Link(), "check_only");
     }
 
     private void doUpdateDownload(Dialog dialog, TextView detail, ProgressBar progress, AppCompatButton btn) {
@@ -242,7 +243,8 @@ public class LogAct extends AppCompatActivity {
         }
         if (btn != null) btn.setVisibility(View.GONE);
 
-        Downtwo task = new Downtwo(this, success -> {
+        final Downtwo[] holder = new Downtwo[1];
+        holder[0] = new Downtwo(this, success -> {
             runOnUiThread(() -> {
                 if (success) {
                     // Re-check after the download: if still an update, stay blocked.
@@ -257,10 +259,10 @@ public class LogAct extends AppCompatActivity {
                 }
             });
         });
-        task.setProgressListener(pct -> runOnUiThread(() -> {
+        holder[0].setProgressListener(pct -> runOnUiThread(() -> {
             if (progress != null) progress.setProgress(pct);
         }));
-        task.execute(Downtwo.Link());
+        holder[0].execute(Downtwo.Link());
     }
 
     private void startIntroAnimation() {
