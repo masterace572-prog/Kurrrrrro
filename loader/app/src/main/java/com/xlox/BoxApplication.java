@@ -9,6 +9,7 @@ import java.io.File;
 import net_62v.external.IMundoProcessCallback;
 import net_62v.external.MetaActivationManager;
 import net_62v.external.MetaCore;
+import net_62v.external.MetaStorageManager;
 
 public class BoxApplication extends Application
         implements IMundoProcessCallback {
@@ -60,18 +61,44 @@ public class BoxApplication extends Application
 
             ENABLE_IMGUI = false;
 
-            String loaderPath = new File(getFilesDir(), "loader").getAbsolutePath();
-            File bgmiLib = new File(loaderPath, "libbgmi.so");
+            // The lib is downloaded by the loader into its own files dir, but
+            // this callback runs in the *game* process where getFilesDir() is
+            // the game's internal storage. Check both locations: the game's
+            // internal files dir (in case the lib was placed there) and the
+            // game's external storage dir (where LibLoader copies it).
+            File[] candidates = {
+                    new File(new File(getFilesDir(), "loader"), "libbgmi.so"),
+                    gameExternalLib()
+            };
 
-            if (bgmiLib.exists()) {
+            File bgmiLib = null;
+            for (File c : candidates) {
+                if (c != null && c.exists() && c.length() > 0) {
+                    bgmiLib = c;
+                    break;
+                }
+            }
+
+            if (bgmiLib != null) {
                 System.load(bgmiLib.getAbsolutePath());
-                Log.d("Load", "libbgmi.so LOADED");
+                Log.d("Load", "libbgmi.so LOADED from " + bgmiLib.getAbsolutePath());
             } else {
-                Log.e("Load", "libbgmi.so NOT FOUND");
+                Log.e("Load", "libbgmi.so NOT FOUND in any candidate location");
             }
 
         } catch (Exception e) {
             Log.e("Load", "Library load error", e);
+        }
+    }
+
+    /** libbgmi.so location inside the game's own external storage dir. */
+    private File gameExternalLib() {
+        try {
+            String root = MetaStorageManager.obtainAppExternalStorageDir("com.pubg.imobile");
+            if (root == null) return null;
+            return new File(new File(root, "loader"), "libbgmi.so");
+        } catch (Exception e) {
+            return null;
         }
     }
 }
