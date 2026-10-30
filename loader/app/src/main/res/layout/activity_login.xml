@@ -1,8 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  iOS-style sign-in: black canvas, one inset card, a single filled blue button,
-  and the update gate drawn as a centred alert over a dimmed screen.
--->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -21,24 +17,39 @@
             android:layout_height="match_parent"
             android:gravity="center_horizontal"
             android:orientation="vertical"
-            android:paddingStart="22dp"
-            android:paddingTop="72dp"
-            android:paddingEnd="22dp"
-            android:paddingBottom="40dp">
+            android:paddingStart="32dp"
+            android:paddingTop="48dp"
+            android:paddingEnd="32dp"
+            android:paddingBottom="86dp">
 
-            <ImageView
-                android:id="@+id/logo"
-                android:layout_width="84dp"
-                android:layout_height="84dp"
-                android:contentDescription="@string/app_name"
-                android:scaleType="centerCrop"
-                android:src="@drawable/logo_transparent" />
+            <FrameLayout
+                android:layout_width="104dp"
+                android:layout_height="104dp"
+                android:layout_gravity="center_horizontal">
+
+                <ImageView
+                    android:id="@+id/logoGlow"
+                    android:layout_width="104dp"
+                    android:layout_height="104dp"
+                    android:alpha="0"
+                    android:contentDescription="@string/app_name" />
+
+                <ImageView
+                    android:id="@+id/logo"
+                    android:layout_width="88dp"
+                    android:layout_height="88dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@string/app_name"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/logo_transparent" />
+            </FrameLayout>
 
             <TextView
                 android:id="@+id/appName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="24dp"
                 android:text="@string/app_name"
                 android:textColor="@color/text_primary"
                 android:textSize="30sp"
@@ -48,10 +59,12 @@
                 android:id="@+id/premium"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
                 android:layout_marginTop="6dp"
-                android:text="Sign in to continue"
+                android:letterSpacing="0.2"
+                android:text="Secure access"
                 android:textColor="@color/text_secondary"
-                android:textSize="14sp" />
+                android:textSize="13sp" />
 
             <LinearLayout
                 android:id="@+id/loginCard"
@@ -60,18 +73,18 @@
                 android:layout_marginTop="32dp"
                 android:background="@drawable/bg_ios_card"
                 android:orientation="vertical"
-                android:paddingStart="16dp"
-                android:paddingTop="16dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="16dp">
+                android:paddingStart="20dp"
+                android:paddingTop="20dp"
+                android:paddingEnd="20dp"
+                android:paddingBottom="20dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
+                    android:layout_height="52dp"
                     android:background="@drawable/bg_ios_field"
                     android:gravity="center_vertical"
-                    android:paddingStart="14dp"
-                    android:paddingEnd="12dp">
+                    android:paddingStart="16dp"
+                    android:paddingEnd="14dp">
 
                     <EditText
                         android:id="@+id/userkey"
@@ -79,22 +92,21 @@
                         android:layout_height="match_parent"
                         android:layout_weight="1"
                         android:background="@null"
-                        android:hint="Access key"
+                        android:hint="Enter access key"
                         android:inputType="textPassword"
                         android:singleLine="true"
                         android:textColor="@color/text_primary"
                         android:textColorHint="@color/text_secondary"
-                        android:textSize="16sp" />
+                        android:textSize="15sp" />
 
                     <ImageView
                         android:id="@+id/eyeToggle"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
                         android:alpha="0.7"
                         android:clickable="true"
                         android:contentDescription="Show or hide key"
                         android:focusable="true"
-                        android:padding="2dp"
                         android:src="@drawable/ic_eye"
                         app:tint="@color/text_secondary" />
                 </LinearLayout>
@@ -102,124 +114,55 @@
                 <androidx.appcompat.widget.AppCompatButton
                     android:id="@+id/login"
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="14dp"
+                    android:layout_height="50dp"
+                    android:layout_marginTop="18dp"
                     android:background="@drawable/bg_ios_cta"
-                    android:backgroundTint="@null"
                     android:stateListAnimator="@null"
                     android:text="Continue"
                     android:textAllCaps="false"
-                    android:textColor="@color/white"
+                    android:textColor="@color/text_primary"
                     android:textSize="17sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/pasteKey"
-                    android:layout_width="match_parent"
-                    android:layout_height="42dp"
-                    android:layout_marginTop="4dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="44dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="12dp"
                     android:clickable="true"
                     android:focusable="true"
                     android:gravity="center"
                     android:text="Paste from clipboard"
                     android:textColor="@color/accent"
-                    android:textSize="14sp" />
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:id="@+id/buyNow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="6dp"
+                    android:gravity="center"
+                    android:text="Don't have a key? Buy now"
+                    android:textColor="@color/text_dim"
+                    android:textSize="13sp" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/statusLine"
+            <View
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                android:gravity="center"
-                android:lineSpacingExtra="2dp"
-                android:minHeight="18dp"
-                android:text=""
-                android:textColor="@color/text_secondary"
-                android:textSize="13sp" />
-        </LinearLayout>
-    </ScrollView>
-
-    <!-- The update gate: a centred alert with no dismiss. An update is required,
-         so the only way on is through it. -->
-    <FrameLayout
-        android:id="@+id/gate"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@color/scrim"
-        android:clickable="true"
-        android:focusable="true"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginStart="26dp"
-            android:layout_marginEnd="26dp"
-            android:background="@drawable/bg_ios_alert"
-            android:gravity="center_horizontal"
-            android:orientation="vertical"
-            android:paddingStart="22dp"
-            android:paddingTop="22dp"
-            android:paddingEnd="22dp"
-            android:paddingBottom="18dp">
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <TextView
-                android:id="@+id/gateTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Update available"
-                android:textColor="@color/text_primary"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/gateDetail"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:gravity="center"
-                android:lineSpacingExtra="3dp"
-                android:text="A new version is required to continue."
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp" />
-
-            <ProgressBar
-                android:id="@+id/gateProgress"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="4dp"
-                android:layout_marginTop="20dp"
-                android:max="100"
-                android:progress="0"
-                android:progressBackgroundTint="@color/line"
-                android:progressTint="@color/accent"
-                android:visibility="gone" />
-
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/gateButton"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:layout_marginTop="20dp"
-                android:background="@drawable/bg_ios_cta"
-                android:backgroundTint="@null"
-                android:stateListAnimator="@null"
-                android:text="Update now"
-                android:textAllCaps="false"
-                android:textColor="@color/white"
-                android:textSize="17sp"
-                android:textStyle="bold" />
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="30dp"
+                android:letterSpacing="0.2"
+                android:text="System ready"
+                android:textColor="@color/text_dim"
+                android:textSize="10sp" />
         </LinearLayout>
-    </FrameLayout>
-
-    <TextView
-        android:id="@+id/footer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="26dp"
-        android:text="Your key is bound to this device"
-        android:textColor="@color/text_faint"
-        android:textSize="12sp" />
+    </ScrollView>
 </FrameLayout>

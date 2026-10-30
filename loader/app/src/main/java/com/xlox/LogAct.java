@@ -3,23 +3,34 @@ package com.xlox;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
+import androidx.core.app.ActivityCompat;
 
+import android.Manifest;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.Settings;
 import android.text.InputType;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
+import android.view.animation.LinearInterpolator;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -27,20 +38,11 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.xlox.utils.LibGate;
-import com.xlox.utils.StorageAccess;
+import com.xlox.utils.Downtwo;
 import com.xlox.utils.Prefs;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
-/**
- * Login, and the update gate that comes before it.
- *
- * The library is what makes the loader do anything, so it is checked as soon as
- * this screen appears: a missing or outdated library blocks everything behind an
- * overlay with a single "Update now" action — there is deliberately no way to
- * skip it, because a stale library is a launch that silently does nothing.
- */
 @Obfuscate
 public class LogAct extends AppCompatActivity {
 
@@ -51,39 +53,43 @@ public class LogAct extends AppCompatActivity {
         }
     }
 
-    private static final int REQUEST_MANAGE_STORAGE_PERMISSION = 100;
-    private static final int REQUEST_MANAGE_UNKNOWN_APP_SOURCES = 200;
-
     private Prefs prefs;
     private final String USER = "USER";
 
     private EditText textUsername;
     private AppCompatButton btnLogin;
+
+    private Dialog loadingDialog;
+
+    // UI
+    private TextView premium;
     private TextView pasteKey;
-    private TextView statusLine;
     private LinearLayout loginCard;
-
-    private View gate;
-    private TextView gateTitle;
-    private TextView gateDetail;
-    private ProgressBar gateProgress;
-    private AppCompatButton gateButton;
-
+    private LinearLayout mainContainer;
+    private ImageView logo;
+    private ImageView eyeToggle;
     private boolean isPasswordVisible = false;
-    private boolean loginEnabled = false;
-    private boolean downloading = false;
-    private String pendingVersion = "";
+
+    // Update gate (blocking, non-cancellable — shown before the login UI)
+    private Dialog updateGateDialog;
+    private boolean updateGateComplete = false;
+
+    // Permissions
+    private static final int REQUEST_MANAGE_STORAGE_PERMISSION = 100;
+    private static final int REQUEST_MANAGE_UNKNOWN_APP_SOURCES = 200;
+
+    private static final String PREFS_NAME = "com.xlox.prefs";
+    private static final String PREF_PERMISSIONS_GRANTED = "permissions_granted";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        if (isVpnActive()) {
-            new AlertDialog.Builder(this)
-                    .setTitle("VPN detected")
-                    .setMessage("Turn off the VPN to continue.")
-                    .setPositiveButton("OK", (d, w) -> finish())
-                    .setCancelable(false)
+        if (iskokofm()) {
+            new AlertDialog.Builder(LogAct.this)
+                    .setTitle("VPN Detected")
+                    .setMessage("Please disable VPN to continue")
+                    .setPositiveButton("OK", null)
                     .show();
             return;
         }
@@ -91,253 +97,225 @@ public class LogAct extends AppCompatActivity {
         setContentView(R.layout.activity_login);
         prefs = new Prefs(this);
         checkAndRequestPermissions();
-        bindViews();
-        wireInput();
 
-        // what the update gate is allowed to do until the first answer arrives
-        setLoginEnabled(false);
-        startIntro();
-
-        new Handler(getMainLooper()).postDelayed(this::runUpdateGate, 350);
-    }
-
-    private void bindViews() {
         textUsername = findViewById(R.id.userkey);
         btnLogin = findViewById(R.id.login);
-        pasteKey = findViewById(R.id.pasteKey);
-        statusLine = findViewById(R.id.statusLine);
+        premium = findViewById(R.id.premium);
         loginCard = findViewById(R.id.loginCard);
-
-        gate = findViewById(R.id.gate);
-        gateTitle = findViewById(R.id.gateTitle);
-        gateDetail = findViewById(R.id.gateDetail);
-        gateProgress = findViewById(R.id.gateProgress);
-        gateButton = findViewById(R.id.gateButton);
+        mainContainer = findViewById(R.id.mainContainer);
+        logo = findViewById(R.id.logo);
+        eyeToggle = findViewById(R.id.eyeToggle);
+        pasteKey = findViewById(R.id.pasteKey);
 
         textUsername.setText(prefs.getSt(USER, ""));
 
-        ImageView eyeToggle = findViewById(R.id.eyeToggle);
         if (eyeToggle != null) {
             eyeToggle.setOnClickListener(v -> {
+                if (isPasswordVisible) {
+                    textUsername.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                    eyeToggle.setAlpha(0.5f);
+                } else {
+                    textUsername.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+                    eyeToggle.setAlpha(1.0f);
+                }
                 isPasswordVisible = !isPasswordVisible;
-                textUsername.setInputType(isPasswordVisible
-                        ? InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-                        : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-                eyeToggle.setAlpha(isPasswordVisible ? 1f : 0.7f);
                 textUsername.setSelection(textUsername.getText().length());
             });
         }
-    }
 
-    private void wireInput() {
         if (pasteKey != null) {
             pasteKey.setOnClickListener(v -> {
                 ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-                if (clipboard != null && clipboard.hasPrimaryClip() && clipboard.getPrimaryClip() != null
+                if (clipboard != null && clipboard.hasPrimaryClip()
+                        && clipboard.getPrimaryClip() != null
                         && clipboard.getPrimaryClip().getItemCount() > 0) {
-                    CharSequence copied = clipboard.getPrimaryClip().getItemAt(0).coerceToText(this);
-                    if (copied != null) {
-                        textUsername.setText(copied.toString().trim());
+                    CharSequence copiedKey = clipboard.getPrimaryClip().getItemAt(0).coerceToText(this);
+                    if (copiedKey != null) {
+                        textUsername.setText(copiedKey);
                         textUsername.setSelection(textUsername.getText().length());
                     }
                 }
             });
         }
 
-        if (gateButton != null) {
-            gateButton.setOnClickListener(v -> {
-                if (downloading) return;
-                // "Update now": the user pressed it, so the download is theirs
-                startDownload();
-            });
-        }
-
         btnLogin.setOnClickListener(v -> {
-            if (!loginEnabled) return;
             String userKey = textUsername.getText().toString().trim();
             if (userKey.isEmpty()) {
-                textUsername.setError("Enter your key");
+                textUsername.setError("Please enter key");
                 return;
             }
-            if (isVpnActive()) {
-                toast("Turn off the VPN to continue");
+            if (iskokofm()) {
+                new AlertDialog.Builder(LogAct.this)
+                        .setTitle("VPN Detected")
+                        .setMessage("Please disable VPN to continue")
+                        .setPositiveButton("OK", null)
+                        .show();
                 return;
             }
+
             prefs.setSt(USER, userKey);
+
             btnLogin.setEnabled(false);
-            btnLogin.setText("Checking key…");
-            login(userKey);
+            btnLogin.setText("Checking key...");
+            btnLogin.setTextColor(Color.WHITE);
+
+            Login(this, userKey);
         });
+
+        // Round 7: blocking update check + download gate before the login UI is usable.
+        // The login card stays hidden until the gate passes.
+        hideLoginUi();
+        checkUpdateGate();
     }
 
-    private void startIntro() {
-        View logo = findViewById(R.id.logo);
+    /** Hides the login UI while the update gate runs. */
+    private void hideLoginUi() {
+        if (loginCard != null) loginCard.setVisibility(View.GONE);
+        if (premium != null) premium.setVisibility(View.GONE);
+        if (pasteKey != null) pasteKey.setVisibility(View.GONE);
+        if (btnLogin != null) btnLogin.setVisibility(View.GONE);
+        if (textUsername != null) textUsername.setVisibility(View.GONE);
+        if (eyeToggle != null) eyeToggle.setVisibility(View.GONE);
+        if (mainContainer != null) mainContainer.setAlpha(0f);
+    }
+
+    /** Reveals the login UI once the update gate has passed. */
+    private void showLoginUi() {
+        updateGateComplete = true;
+        if (updateGateDialog != null && updateGateDialog.isShowing()) {
+            updateGateDialog.dismiss();
+        }
+        if (loginCard != null) loginCard.setVisibility(View.VISIBLE);
+        if (premium != null) premium.setVisibility(View.VISIBLE);
+        if (pasteKey != null) pasteKey.setVisibility(View.VISIBLE);
+        if (btnLogin != null) btnLogin.setVisibility(View.VISIBLE);
+        if (textUsername != null) textUsername.setVisibility(View.VISIBLE);
+        if (eyeToggle != null) eyeToggle.setVisibility(View.VISIBLE);
+        if (mainContainer != null) mainContainer.setAlpha(1f);
+        startIntroAnimation();
+    }
+
+    /**
+     * Blocking update gate: checks for an update, downloads it if needed,
+     * and only then reveals the login UI. The dialog is non-cancellable.
+     */
+    private void checkUpdateGate() {
+        updateGateDialog = new Dialog(this);
+        updateGateDialog.setContentView(R.layout.dialog_update_check);
+        updateGateDialog.setCancelable(false);
+        updateGateDialog.setCanceledOnTouchOutside(false);
+
+        final TextView detail = updateGateDialog.findViewById(R.id.updateDetail);
+        final ProgressBar progress = updateGateDialog.findViewById(R.id.updateProgress);
+        final AppCompatButton btn = updateGateDialog.findViewById(R.id.updateButton);
+
+        if (detail != null) detail.setText("Checking for updates...");
+        if (progress != null) progress.setIndeterminate(true);
+        if (btn != null) btn.setVisibility(View.GONE);
+
+        updateGateDialog.show();
+
+        doUpdateCheck(updateGateDialog, detail, progress, btn);
+    }
+
+    private void doUpdateCheck(Dialog dialog, TextView detail, ProgressBar progress, AppCompatButton btn) {
+        Downtwo task = new Downtwo(this, success -> {
+            final String result = task.getLastResult();
+            runOnUiThread(() -> {
+                if ("Update Available".equals(result)) {
+                    doUpdateDownload(dialog, detail, progress, btn);
+                } else {
+                    // Up to date, already notified, or check failed — proceed to login.
+                    dialog.dismiss();
+                    showLoginUi();
+                }
+            });
+        });
+        task.execute(Downtwo.Link(), "check_only");
+    }
+
+    private void doUpdateDownload(Dialog dialog, TextView detail, ProgressBar progress, AppCompatButton btn) {
+        if (detail != null) detail.setText("Downloading update…");
+        if (progress != null) {
+            progress.setIndeterminate(false);
+            progress.setProgress(0);
+        }
+        if (btn != null) btn.setVisibility(View.GONE);
+
+        Downtwo task = new Downtwo(this, success -> {
+            runOnUiThread(() -> {
+                if (success) {
+                    // Re-check after the download: if still an update, stay blocked.
+                    doUpdateCheck(dialog, detail, progress, btn);
+                } else {
+                    if (detail != null) detail.setText("Download failed. Check connection and tap retry.");
+                    if (btn != null) {
+                        btn.setText("Retry");
+                        btn.setVisibility(View.VISIBLE);
+                        btn.setOnClickListener(v -> doUpdateDownload(dialog, detail, progress, btn));
+                    }
+                }
+            });
+        });
+        task.setProgressListener(pct -> runOnUiThread(() -> {
+            if (progress != null) progress.setProgress(pct);
+        }));
+        task.execute(Downtwo.Link());
+    }
+
+    private void startIntroAnimation() {
+        if (mainContainer != null) {
+            mainContainer.setVisibility(View.VISIBLE);
+            mainContainer.setAlpha(1f);
+        }
         if (logo != null) {
             logo.setAlpha(0f);
-            logo.setTranslationY(-24f);
-            logo.animate().alpha(1f).translationY(0f).setDuration(700)
-                    .setInterpolator(new DecelerateInterpolator(1.4f)).start();
+            logo.setTranslationY(-180f);
+            logo.animate().alpha(1f).translationY(0f).setDuration(1200).setInterpolator(new DecelerateInterpolator(1.4f)).start();
+            ObjectAnimator logoFloat = ObjectAnimator.ofFloat(logo, View.TRANSLATION_Y, 0f, -6f, 0f);
+            logoFloat.setStartDelay(1300);
+            logoFloat.setDuration(2600);
+            logoFloat.setRepeatCount(ValueAnimator.INFINITE);
+            logoFloat.start();
+        }
+        View logoGlow = findViewById(R.id.logoGlow);
+        if (logoGlow != null) {
+            ObjectAnimator glowRotation = ObjectAnimator.ofFloat(logoGlow, View.ROTATION, 0f, 360f);
+            glowRotation.setDuration(7000);
+            glowRotation.setInterpolator(new LinearInterpolator());
+            glowRotation.setRepeatCount(ValueAnimator.INFINITE);
+            glowRotation.start();
+            logoGlow.animate().alpha(1f).setDuration(1500).setInterpolator(new DecelerateInterpolator()).start();
+        }
+        if (premium != null) {
+            premium.setAlpha(0f);
+            premium.setTranslationY(120f);
+            premium.animate().alpha(1f).translationY(0f).setDuration(1200).setStartDelay(450).setInterpolator(new DecelerateInterpolator(1.4f)).start();
         }
         if (loginCard != null) {
             loginCard.setAlpha(0f);
-            loginCard.setTranslationY(28f);
-            loginCard.animate().alpha(1f).translationY(0f).setDuration(600)
-                    .setStartDelay(150).start();
+            loginCard.setTranslationY(260f);
+            loginCard.animate().alpha(1f).translationY(0f).setDuration(1500).setStartDelay(650).setInterpolator(new DecelerateInterpolator(1.4f)).start();
         }
     }
 
-    // ---------------------------------------------------------------- update gate
-
-    private void runUpdateGate() {
-        setStatus("Checking for updates…");
-        LibGate.check(this, new LibGate.Listener() {
-            @Override
-            public void onState(LibGate.State state, String detail) {
-                switch (state) {
-                    case UP_TO_DATE:
-                        // Nothing to install: the login screen is usable right
-                        // away, and the line says so instead of leaving the
-                        // user wondering whether an update is still pending.
-                        hideGate();
-                        setLoginEnabled(true);
-                        setStatus(detail == null || detail.isEmpty()
-                                ? "Up to date"
-                                : "Up to date · library " + detail);
-                        break;
-                    case UPDATE_AVAILABLE:
-                        pendingVersion = detail;
-                        showGate(detail);
-                        break;
-                    case FAILED:
-                        // nothing on disk and nothing reachable: there is nothing
-                        // to log in to yet, so this stays on screen with a retry
-                        pendingVersion = "";
-                        showGateFailure(detail);
-                        break;
-                    default:
-                        break;
-                }
-            }
-        });
-    }
-
-    private void showGate(String version) {
-        if (gate == null) return;
-        setLoginEnabled(false);
-        downloading = false;
-        gate.setVisibility(View.VISIBLE);
-        gate.setAlpha(0f);
-        gate.animate().alpha(1f).setDuration(220).start();
-
-        boolean firstInstall = !LibGate.installed(this);
-        gateTitle.setText(firstInstall ? "Setting up" : "Update available");
-        gateDetail.setText(firstInstall
-                ? "Downloading the game library. This happens once."
-                : (version.isEmpty()
-                    ? "A new library is required to continue."
-                    : "Version " + version + " is required to continue."));
-        gateProgress.setVisibility(firstInstall ? View.VISIBLE : View.GONE);
-        gateProgress.setIndeterminate(firstInstall);
-        gateProgress.setProgress(0);
-        gateButton.setText(firstInstall ? "Downloading…" : "Update now");
-        gateButton.setEnabled(!firstInstall);
-
-        if (firstInstall) {
-            // first run: no tapping, just download it
-            startDownload();
-        }
-    }
-
-    private void showGateFailure(String why) {
-        if (gate == null) return;
-        setLoginEnabled(false);
-        gate.setVisibility(View.VISIBLE);
-        gateTitle.setText("Update required");
-        gateDetail.setText(why);
-        gateProgress.setVisibility(View.GONE);
-        gateButton.setText("Retry");
-        gateButton.setEnabled(true);
-        downloading = false;
-    }
-
-    private void startDownload() {
-        downloading = true;
-        gateButton.setEnabled(false);
-        gateButton.setText("Downloading…");
-        gateProgress.setVisibility(View.VISIBLE);
-        gateProgress.setIndeterminate(false);
-        gateProgress.setProgress(0);
-        gateDetail.setText(pendingVersion.isEmpty()
-                ? "Downloading the required files. Keep this screen open."
-                : "Downloading version " + pendingVersion + ". Keep this screen open.");
-
-        LibGate.download(this, new LibGate.Listener() {
-            @Override
-            public void onState(LibGate.State state, String detail) {
-                downloading = false;
-                if (state == LibGate.State.READY) {
-                    hideGate();
-                    setLoginEnabled(true);
-                    setStatus("Updated · library " + detail);
-                } else if (state == LibGate.State.FAILED) {
-                    showGateFailure(detail);
-                }
-            }
-
-            @Override
-            public void onProgress(int percent) {
-                gateProgress.setIndeterminate(false);
-                gateProgress.setProgress(percent);
-                gateTitle.setText("Updating " + percent + "%");
-            }
-        });
-    }
-
-    private void hideGate() {
-        if (gate == null || gate.getVisibility() != View.VISIBLE) return;
-        gate.animate().alpha(0f).setDuration(200).withEndAction(() -> {
-            gate.setVisibility(View.GONE);
-            // the progress report replaced the title; put it back for next time
-            gateTitle.setText("Update available");
-        }).start();
-    }
-
-    private void setLoginEnabled(boolean enabled) {
-        loginEnabled = enabled;
-        if (btnLogin == null) return;
-        btnLogin.setEnabled(enabled);
-        btnLogin.setAlpha(enabled ? 1f : 0.45f);
-        if (enabled) btnLogin.setText("Continue");
-    }
-
-    private void setStatus(String text) {
-        if (statusLine != null) statusLine.setText(text);
-    }
-
-    @Override
-    public void onBackPressed() {
-        // The gate cannot be skipped: while it is up, back does nothing.
-        if (gate != null && gate.getVisibility() == View.VISIBLE) return;
-        super.onBackPressed();
-    }
-
-    // -------------------------------------------------------------------- login
-
-    private void login(final String userKey) {
+    private void Login(final Context m_Context, final String userKey) {
         Handler loginHandler = new Handler(msg -> {
             if (msg.what == 0) {
-                startActivity(new Intent(this, MAct.class));
+                Intent i = new Intent(m_Context, MAct.class);
+                startActivity(i);
                 finish();
-            } else {
+            } else if (msg.what == 1) {
                 btnLogin.setEnabled(true);
-                btnLogin.setText("Continue");
-                toast(String.valueOf(msg.obj));
+                btnLogin.setText("LOGIN");
+                btnLogin.setTextColor(Color.parseColor("#FF8C00"));
+                Toast.makeText(m_Context, (String) msg.obj, Toast.LENGTH_SHORT).show();
             }
             return true;
         });
 
         new Thread(() -> {
-            String result = Check(this, userKey);
+            String result = Check(m_Context, userKey);
             if ("OK".equals(result)) {
                 loginHandler.sendEmptyMessage(0);
             } else {
@@ -349,53 +327,35 @@ public class LogAct extends AppCompatActivity {
         }).start();
     }
 
-    // -------------------------------------------------------------- permissions
-
     private void checkAndRequestPermissions() {
-        // Files (runtime) first, then All files access: the copy can only look
-        // inside Android/obb when both are granted, and asking for just one of
-        // them is what made it report "no game data" on a phone that had it.
-        if (!StorageAccess.ready(this)) {
-            StorageAccess.requestNext(this);
-        } else {
-            continueAfterPermissions();
-        }
-    }
-
-    /** Everything that has to wait until both storage grants are in place. */
-    private void continueAfterPermissions() {
-        if (!canRequestPackageInstalls()) {
+        if (!isStoragePermissionGranted()) {
+            requestStoragePermissionDirect();
+        } else if (!canRequestPackageInstalls()) {
             requestUnknownAppPermissionsDirect();
         }
     }
 
     private boolean isStoragePermissionGranted() {
-        return StorageAccess.runtimeGranted(this);
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager();
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
-        super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (!StorageAccess.isOurs(requestCode)) return;
-        // Only move on when the dialog was granted. Re-asking from inside its
-        // own callback spins forever once the user ticks "don't ask again".
-        if (!StorageAccess.runtimeGranted(this)) return;
-        if (!StorageAccess.allFilesGranted(this)) {
-            StorageAccess.openAllFilesScreen(this);
-            return;
+    private void requestStoragePermissionDirect() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+            intent.setData(Uri.fromParts("package", getPackageName(), null));
+            startActivityForResult(intent, REQUEST_MANAGE_STORAGE_PERMISSION);
+        } else {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_MANAGE_STORAGE_PERMISSION);
         }
-        continueAfterPermissions();
     }
 
     private boolean canRequestPackageInstalls() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O
-                || getPackageManager().canRequestPackageInstalls();
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O || getPackageManager().canRequestPackageInstalls();
     }
 
     private void requestUnknownAppPermissionsDirect() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                    Uri.parse("package:" + getPackageName()));
+            Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName()));
             startActivityForResult(intent, REQUEST_MANAGE_UNKNOWN_APP_SOURCES);
         }
     }
@@ -403,14 +363,16 @@ public class LogAct extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_MANAGE_STORAGE_PERMISSION || StorageAccess.isOurs(requestCode)) {
-            // Back from a Settings screen: continuing unconditionally would
-            // re-open the same screen the user just left.
-            if (StorageAccess.ready(this)) continueAfterPermissions();
+        if (requestCode == REQUEST_MANAGE_STORAGE_PERMISSION) {
+            checkAndRequestPermissions();
+        } else if (requestCode == REQUEST_MANAGE_UNKNOWN_APP_SOURCES) {
+            if (canRequestPackageInstalls()) {
+                android.os.Process.killProcess(android.os.Process.myPid());
+            }
         }
     }
 
-    private boolean isVpnActive() {
+    private boolean iskokofm() {
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
             if (cm == null) return false;
@@ -418,16 +380,11 @@ public class LogAct extends AppCompatActivity {
                 Network activeNetwork = cm.getActiveNetwork();
                 if (activeNetwork != null) {
                     NetworkCapabilities caps = cm.getNetworkCapabilities(activeNetwork);
-                    return caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN);
+                    if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return true;
                 }
             }
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) {}
         return false;
-    }
-
-    private void toast(String text) {
-        Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
     }
 
     private static native String Check(Context mContext, String userKey);
